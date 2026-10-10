@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# integrator-5: push-checklist step 4 (lead's word for the seventh push). Plain push from F through tc_run lock-free (pre-push hook = typecheck +
+# svelte-check). Exit 75 (memory below 16 GiB, a heavy holder, or a killed hook) = not pushed: wait 60 s and retry, at most 8 tries per call.
+set -u
+F=/home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform; P=/tmp/factory-platform-evidence/w00/wave4i-3/push6
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
+cd "$F" || exit 2
+. /tmp/factory-platform-evidence/w00/bun-pin.sh; bun_pin "$F" || exit 95
+[ "$(git rev-parse HEAD)" = 512701105ed4f6f60233e409cca2c651115f4cea ] && [ -z "$(git status --porcelain)" ] && [ "$(git branch --show-current)" = feat/composable-factory-platform ] || { echo "REFUSED: F not clean at 512701105 on the feature branch"; exit 3; }
+python3 /tmp/factory-platform-evidence/w00/config-check.py --check-only || { echo "STOP: config"; exit 1; }
+. /tmp/factory-platform-evidence/w00/tc-gate.sh
+for try in 1 2 3 4 5 6 7 8; do
+  echo "try $try $(date -u +%FT%TZ)"
+  TC_IN_LOCK=0 tc_run push $P/tc-gate.log git push origin feat/composable-factory-platform; rc=$?
+  [ "$rc" = 75 ] || break
+  sleep 60
+done
+echo "push exit=$rc $(date -u +%FT%TZ)"
+git fetch origin feat/composable-factory-platform >/dev/null 2>&1
+echo "HEAD $(git rev-parse HEAD) origin/feat $(git rev-parse origin/feat/composable-factory-platform)"
+exit $rc

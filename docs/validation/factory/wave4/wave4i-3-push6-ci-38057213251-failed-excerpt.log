@@ -1,0 +1,30 @@
+# excerpt of `gh run view 38057213251 --log-failed` (integrator-5, push-log-excerpt.py)
+# full log: /tmp/factory-platform-evidence/w00/wave4i-3/push6/ci-38057213251/all-failed.log sha256 819f2494bbd6e04aed51985c2037f8a972f6ae54eabdaaaeeb1a96030e0b5d18 bytes 4561 lines 26
+
+## Factory runner readiness precheck (26 lines; 26 kept)
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	﻿2026-10-10T13:49:42.8998076Z ##[group]Run bun scripts/check-factory-runners.ts
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.8998578Z ^[[36;1mbun scripts/check-factory-runners.ts^[[0m
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9264063Z shell: /usr/bin/bash -e {0}
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9264416Z env:
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9264697Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9265067Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9265382Z   FACTORY_RUNNER_READ_TOKEN: 
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9265667Z   FACTORY_TEST_TENANT_COUNT: 10
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9265951Z ##[endgroup]
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9442382Z 124 |   inspect?: typeof inspectFactoryRunners;
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9443050Z 125 |   log?: Pick<Console, "log">;
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9443481Z 126 | } = {}): Promise<number> {
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9443804Z 127 |   const env = options.env ?? process.env;
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9444178Z 128 |   const token = env.FACTORY_RUNNER_READ_TOKEN;
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9444867Z 129 |   if (!token) throw new Error("FACTORY_RUNNER_READ_TOKEN is required; readiness cannot pass without reading registered runners");
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9445624Z                               ^
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9446124Z error: FACTORY_RUNNER_READ_TOKEN is required; readiness cannot pass without reading registered runners
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9446977Z       at runFactoryRunnerCheck (/home/runner/work/EZHarness/EZHarness/scripts/check-factory-runners.ts:129:25)
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9447747Z       at /home/runner/work/EZHarness/EZHarness/scripts/check-factory-runners.ts:137:68
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9448136Z 
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9471798Z ##[error]
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	      at runFactoryRunnerCheck (/home/runner/work/EZHarness/EZHarness/scripts/check-factory-runners.ts:129:25)
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	      at /home/runner/work/EZHarness/EZHarness/scripts/check-factory-runners.ts:137:68
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9480046Z 
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9480198Z Bun v1.4.2 (Linux x64)
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-10T13:49:42.9485111Z ##[error]Process completed with exit code 1.

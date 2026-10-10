@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# integrator-5: push-checklist step 3 (frozen installs in F at the ff head; installs-lib.sh: every install --ignore-scripts, web then svelte-kit sync, package builds).
+set -u
+F=/home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform; P=/tmp/factory-platform-evidence/w00/wave4i-3/push6
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
+. /tmp/factory-platform-evidence/w00/resource-gate.sh
+RESOURCE_GATE_MAX_WAIT_S=1800 resource_gate push-installs $P/installs-gate.log || { echo "gate red: not run"; exit 75; }
+. /tmp/factory-platform-evidence/w00/bun-pin.sh; bun_pin "$F" || exit 95
+echo "head $(git -C $F rev-parse HEAD) bun $(bun --version) bunx $(bunx --version) start $(date -u +%FT%TZ)"
+. /tmp/factory-platform-evidence/w00/installs-lib.sh
+frozen_installs "$F" $P/installs.log; rc=$?
+echo "frozen_installs exit=$rc end $(date -u +%FT%TZ); status lines $(git -C $F status --porcelain | wc -l)"
+python3 /tmp/factory-platform-evidence/w00/config-check.py --check-only
+exit $rc

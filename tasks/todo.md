@@ -6067,3 +6067,13 @@ Review: the producer could hang without a word, because its only test names went
 - [x] Legs: lint 0/0, boundaries, lanes, prune, new-file and patch vs integ (vacuous), CRAP, gate-integrity on both legs, typecheck and guard set under the lock (G5-G7).
 
 Review: the hosted red was the Hub page title wait, not the toast: the case gave a live render the 5 s default. The case now awaits each real response and then its result, with the file's 20 s bound, and checks the toast before the store removes it. Leftover candidate: the content shard keeps no trace or screenshot on failure.
+
+## W4H-23 — the nightly mutation run counts a test file that fails to load as a kill (branch `wp/w4h-23-mutation-related` from origin/main 6eb1bbb33; gates `tasks/factory/w4h-23-GATES.md`)
+
+- [x] R1 root cause first: the red is the new zero-test survivor guard on 5 static mutants that break a test file at load time; runner 10.0.0 reads only per-test results and bails, so it reported "Survived, 0 tests". The same 5 mutants and the same 33 no-coverage files were there on the green night, which measured almost nothing (11772 of 18934 mutants ran 0 tests) (G1, G2).
+- [x] R2 fix (A): the runner patch lets a failed test file kill a mutant only when the file loads cleanly without it; the initial run warns about the 30 to 33 test files per shard that cannot load in the sandbox. The test is red on the old patch (9 of 14) and green with the new one (G3).
+- [x] R2 proof: settings-nav.ts:134 is Killed; the four chat-turn-collapse mutants are Killed with a longer timeout and Timeout under the default on this host; all six shard dry runs stay green (G4, G5).
+- [x] R3 (C): shards 3/6 and 5/6 as the workflow runs them, under the lock: 0 zero-test survivors; 59.72 and 50.42; merged with four hosted shards 56.36 (G6).
+- [x] Legs: lint, boundaries, lanes, prune, gate-integrity on both legs, new-file and patch (vacuous), CRAP, typecheck and svelte-check under the tc rule, the guard set, the registration tests (G7 to G9).
+
+Review: the nightly turned red because a new guard told the truth about five mutants the runner miscounted. The fix counts a load failure as a kill only when the mutant caused it, because about 30 test files per shard never load in the Stryker sandbox at all. That second artifact, and the real merged score of about 56 percent, are leftovers for the maintainers.

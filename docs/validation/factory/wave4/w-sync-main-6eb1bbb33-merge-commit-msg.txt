@@ -1,0 +1,5 @@
+merge: origin/main 6eb1bbb33 into integ/w00 (W-SYNC: the PR 318 merge)
+
+main merged PR 318 at 6eb1bbb33 (parents e3309906d + 512701105); its tree equals 512701105, which integ/w00 already
+contains, so this merge changes no file: it records main in the integ history before the follow-up PR. The hook maps 0.
+After this sync main carries the gate tooling: the origin/main gate leg reads 0 findings (not the 8).

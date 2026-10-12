@@ -1,0 +1,2 @@
+per-file lcov proof: merge 94b17348f vs base 906dc75a3; lcov /tmp/factory-platform-evidence/w00/w4h-merge/w4h-sync-main-6eb1bbb33/merged.lcov
+TOTAL instrumented added lines 0, uncovered 0

@@ -1,0 +1,3 @@
+resource-gate 2026-10-12T17:37:39Z w-sync-6eb-hold outside-lock disk=199G memAvailable=16GiB swapFreeKiB=7874124/17173956 floors disk>=104G swap>=2621440KiB mem>=12GiB
+gated-flock w-sync-6eb-hold: gate green outside the lock, queue for the lock (try 1) 2026-10-12T17:37:39Z
+gated-flock w-sync-6eb-hold: command exit 0 2026-10-12T17:41:45Z

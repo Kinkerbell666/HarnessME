@@ -1,0 +1,45 @@
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {610beaae-9777-486a-974c-f3d875f46b67}
+Region: centralus
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Complete job name: E2E (mock, no Docker)
+##[group]Run echo "mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure"
+echo "mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure"
+if [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "failure" != success ]; then
+  echo "::error::A required browser lane, route coverage, production-image verification, or extension browser engine validation failed."
+  exit 1
+fi
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure
+##[error]A required browser lane, route coverage, production-image verification, or extension browser engine validation failed.
+##[error]Process completed with exit code 1.
+Cleaning up orphan processes

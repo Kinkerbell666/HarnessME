@@ -1,0 +1,113 @@
+# excerpt of `gh run view 38312417583 --log-failed` (integrator-5, push-log-excerpt.py)
+# full log: /tmp/factory-platform-evidence/w00/wave4i-3/push7/ci-38312417583/all-failed.log sha256 2c84e10f22c7daa49621cc45472e39abb8498e6bea29b4c564596cb5866f9aeb bytes 23900 lines 144
+
+## Factory runner readiness precheck (14 lines; 14 kept)
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	﻿2026-10-12T21:43:52.4194447Z ##[group]Run bun scripts/check-factory-runners.ts
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4194948Z ^[[36;1mbun scripts/check-factory-runners.ts^[[0m
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4474210Z shell: /usr/bin/bash -e {0}
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4474598Z env:
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4474900Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4475300Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4476098Z   FACTORY_RUNNER_READ_TOKEN: ***
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4477127Z   FACTORY_TEST_TENANT_COUNT: 10
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.4477496Z ##[endgroup]
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.7898154Z Factory runner readiness: ezcorp-org/EZHarness
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.7898889Z test tenant count: 10
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.7899486Z registered runners (1): nixos-amd-factory-gpu:online[Linux,X64,factory-gpu,self-hosted]
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.7900205Z missing (1): no online runner has required label 'factory-real'
+Factory runner readiness precheck	Require online real and GPU runners before self-hosted jobs queue	2026-10-12T21:43:52.7931589Z ##[error]Process completed with exit code 1.
+
+## E2E (real auth + real DB) (86 lines; 43 kept)
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8950341Z slirp4netns set to manually installed.
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8950846Z fuse-overlayfs is already the newest version (1.13-1).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8951386Z fuse-overlayfs set to manually installed.
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8952030Z dbus-user-session is already the newest version (1.14.10-4ubuntu4.1).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8952685Z dbus-user-session set to manually installed.
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8953300Z python3 is already the newest version (3.12.3-0ubuntu2.1).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8953965Z util-linux is already the newest version (2.39.3-9ubuntu6.6).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8954632Z ca-certificates is already the newest version (20260601~24.04.1).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8955209Z curl is already the newest version (8.5.0-2ubuntu10.15).
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.8955640Z 0 upgraded, 0 newly installed, 0 to remove and 26 not upgraded.
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.9052873Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.9053677Z                                  Dload  Upload   Total   Spent    Left  Speed
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:35.9054014Z 
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:36.0137747Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:36.0138422Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:36.1029145Z 
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:36.1029759Z 100 1939k  100 1939k    0     0  9805k      0 --:--:-- --:--:-- --:--:-- 9805k
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:36.1100290Z /tmp/tmp.pS6cHWr89J/conmon: OK
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:40.9141778Z Trying to pull docker.io/oven/bun@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895...
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:41.0647262Z Error: initializing source docker://oven/bun@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895: reading manifest sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 in docker.io/oven/bun: received unexpected HTTP status: 502 Bad Gateway
+E2E (real auth + real DB)	Run bash scripts/setup-extension-runner-ci.sh --install	2026-10-12T21:46:41.0690277Z ##[error]Process completed with exit code 125.
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	﻿2026-10-12T21:46:41.0768671Z ##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0769120Z with:
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0769361Z   name: browser-v8-real-auth
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0769870Z   path: tasks/testing-gaps/browser/v8-coverage/fresh-setup/
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	tasks/testing-gaps/browser/v8-coverage/real-auth/
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0770406Z   retention-days: 3
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0770656Z   if-no-files-found: error
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0770920Z   compression-level: 6
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0771168Z   overwrite: false
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0771411Z   include-hidden-files: false
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0771674Z   archive: true
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0771903Z env:
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0772157Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0772500Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0772806Z   XDG_RUNTIME_DIR: /run/user/1001
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0773143Z   DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/1001/bus
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.0773500Z ##[endgroup]
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.2160386Z Multiple search paths detected. Calculating the least common ancestor of all paths
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.2162759Z The least common ancestor is /home/runner/work/EZHarness/EZHarness/tasks/testing-gaps/browser/v8-coverage. This will be the root directory of the artifact
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	2026-10-12T21:46:41.2181713Z ##[error]No files were found with the provided path: tasks/testing-gaps/browser/v8-coverage/fresh-setup/
+E2E (real auth + real DB)	Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a	tasks/testing-gaps/browser/v8-coverage/real-auth/. No artifacts will be uploaded.
+
+## Browser route coverage (11 lines; 11 kept)
+Browser route coverage	Require every coverage producer	﻿2026-10-12T22:02:38.4665975Z ##[group]Run for result in "success" "success" "success" "success" "failure"; do
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4666824Z ^[[36;1mfor result in "success" "success" "success" "success" "failure"; do^[[0m
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4667613Z ^[[36;1m  [ "$result" = success ] || { echo "::error::browser coverage producer failed: $result"; exit 1; }^[[0m
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4668258Z ^[[36;1mdone^[[0m
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4821591Z shell: /usr/bin/bash -e {0}
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4822167Z env:
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4822778Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4823270Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4823707Z ##[endgroup]
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4943553Z ##[error]browser coverage producer failed: failure
+Browser route coverage	Require every coverage producer	2026-10-12T22:02:38.4952538Z ##[error]Process completed with exit code 1.
+
+## Per-file coverage gate (19 lines; 19 kept)
+Per-file coverage gate	Require coverage producers to have succeeded	﻿2026-10-12T22:02:44.9029220Z ##[group]Run if [ "success" != "success" ] || \
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9030194Z ^[[36;1mif [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9030966Z ^[[36;1m   [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9031744Z ^[[36;1m   [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9032501Z ^[[36;1m   [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9033242Z ^[[36;1m   [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9033974Z ^[[36;1m   [ "success" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9034690Z ^[[36;1m   [ "failure" != "success" ] || \^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9035436Z ^[[36;1m   [ "success" != "success" ]; then^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9036433Z ^[[36;1m  echo "::error::coverage producers failed — coverage data is incomplete"^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9037607Z ^[[36;1m  exit 1^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9038155Z ^[[36;1mfi^[[0m
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9271713Z shell: /usr/bin/bash -e {0}
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9272715Z env:
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9273306Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9274157Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9274812Z ##[endgroup]
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9448851Z ##[error]coverage producers failed — coverage data is incomplete
+Per-file coverage gate	Require coverage producers to have succeeded	2026-10-12T22:02:44.9458909Z ##[error]Process completed with exit code 1.
+
+## E2E (mock, no Docker) (14 lines; 14 kept)
+E2E (mock, no Docker)	Aggregate required browser results	﻿2026-10-12T22:17:15.9979924Z ##[group]Run echo "mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure"
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:15.9981025Z ^[[36;1mecho "mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure"^[[0m
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:15.9982176Z ^[[36;1mif [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "success" != success ] || [ "failure" != success ]; then^[[0m
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:15.9983424Z ^[[36;1m  echo "::error::A required browser lane, route coverage, production-image verification, or extension browser engine validation failed."^[[0m
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:15.9984123Z ^[[36;1m  exit 1^[[0m
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:15.9984473Z ^[[36;1mfi^[[0m
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1130432Z shell: /usr/bin/bash -e {0}
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1131394Z env:
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1132020Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1132603Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1133160Z ##[endgroup]
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1352528Z mock=success mock_full=success evidence=success production=success engines=success route_coverage=failure
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1373797Z ##[error]A required browser lane, route coverage, production-image verification, or extension browser engine validation failed.
+E2E (mock, no Docker)	Aggregate required browser results	2026-10-12T22:17:16.1386691Z ##[error]Process completed with exit code 1.

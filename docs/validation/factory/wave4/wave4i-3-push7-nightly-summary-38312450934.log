@@ -1,0 +1,243 @@
+excerpt of nightly-merge-shards-+-quality-summary-38312450934.log (605 lines, 39494 bytes, sha256 173461968de0ba496da138252ea5e3883b018cd59b694f04167c91cb6766c137): the first 80 and the last 160 lines, ANSI and timestamps stripped; the full log stays in the evidence dir
+----- first 80 -----
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {fb06b82f-d36a-4e50-a3c2-514ea0d03254}
+Region: centralus
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Complete job name: Merge shards + quality summary
+##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+with:
+  repository: ezcorp-org/EZHarness
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-depth: 1
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  MUTATION_SHARDS: 6
+##[endgroup]
+Syncing repository: ezcorp-org/EZHarness
+##[group]Getting Git version info
+Working directory is '/home/runner/work/EZHarness/EZHarness'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/d53024e6-75e8-4002-948f-bf1eb47a5c5d' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Deleting the contents of '/home/runner/work/EZHarness/EZHarness'
+##[group]Determining repository object format
+##[endgroup]
+##[group]Initializing the repository
+[command]/usr/bin/git init /home/runner/work/EZHarness/EZHarness
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+----- last 160 -----
+  what: Surviving StringLiteral mutant: the suite still passes when `""` becomes `"Stryker was here!"`.
+  fix:  Add or tighten an assertion that fails when `""` is replaced by `"Stryker was here!"`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:316
+  what: Surviving LogicalOperator mutant: the suite still passes when `selectedModel?.model ?? null` becomes `selectedModel?.model && null`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.model ?? null` is replaced by `selectedModel?.model && null`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:316
+  what: Surviving OptionalChaining mutant: the suite still passes when `selectedModel?.model` becomes `selectedModel.model`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.model` is replaced by `selectedModel.model`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:317
+  what: Surviving LogicalOperator mutant: the suite still passes when `selectedModel?.provider ?? null` becomes `selectedModel?.provider && null`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.provider ?? null` is replaced by `selectedModel?.provider && null`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:317
+  what: Surviving OptionalChaining mutant: the suite still passes when `selectedModel?.provider` becomes `selectedModel.provider`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.provider` is replaced by `selectedModel.provider`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:319
+  what: Surviving OptionalChaining mutant: the suite still passes when `lastMsg?.id` becomes `lastMsg.id`.
+  fix:  Add or tighten an assertion that fails when `lastMsg?.id` is replaced by `lastMsg.id`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:365
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!data.runId` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!data.runId` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:390
+  what: Surviving StringLiteral mutant: the suite still passes when ``active-run:${convId}`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``active-run:${convId}`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:391
+  what: Surviving StringLiteral mutant: the suite still passes when ``/api/conversations/${convId}/active-run`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``/api/conversations/${convId}/active-run`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:393
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ minIntervalMs: 4000 }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ minIntervalMs: 4000 }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:395
+  what: Surviving OptionalChaining mutant: the suite still passes when `res?.ok` becomes `res.ok`.
+  fix:  Add or tighten an assertion that fails when `res?.ok` is replaced by `res.ok`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:401
+  what: Surviving ConditionalExpression mutant: the suite still passes when `typeof data.stalenessMs === "number"` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `typeof data.stalenessMs === "number"` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:421
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!runId` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!runId` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:426
+  what: Surviving StringLiteral mutant: the suite still passes when ``active-run:${convId}`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``active-run:${convId}`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:427
+  what: Surviving StringLiteral mutant: the suite still passes when ``/api/conversations/${convId}/active-run`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``/api/conversations/${convId}/active-run`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:429
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ minIntervalMs: 4000 }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ minIntervalMs: 4000 }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:431
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!res?.ok` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!res?.ok` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:431
+  what: Surviving OptionalChaining mutant: the suite still passes when `res?.ok` becomes `res.ok`.
+  fix:  Add or tighten an assertion that fails when `res?.ok` is replaced by `res.ok`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:435
+  what: Surviving ConditionalExpression mutant: the suite still passes when `typeof data.stalenessMs === "number"` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `typeof data.stalenessMs === "number"` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:464
+  what: Surviving BlockStatement mutant: the suite still passes when `{ if (convId === undefined) reconnectCooldownByConv.clear(); else reconnectCooldownByConv.delete(convId); }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ if (convId === undefined) reconnectCooldownByConv.clear(); else reconnectCooldownByConv.delete(convId); }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving ConditionalExpression mutant: the suite still passes when `convId === undefined` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving EqualityOperator mutant: the suite still passes when `convId === undefined` becomes `convId !== undefined`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `convId !== undefined`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving ConditionalExpression mutant: the suite still passes when `convId === undefined` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:466
+  what: Surviving CallExpression mutant: the suite still passes when `reconnectCooldownByConv.delete(convId);` becomes `;`.
+  fix:  Add or tighten an assertion that fails when `reconnectCooldownByConv.delete(convId);` is replaced by `;`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:487
+  what: Surviving LogicalOperator mutant: the suite still passes when `options.now ?? (() => Date.now())` becomes `options.now && (() => Date.now())`.
+  fix:  Add or tighten an assertion that fails when `options.now ?? (() => Date.now())` is replaced by `options.now && (() => Date.now())`. An existing test already runs this line — it just does not check the result.
+
+Structured summary: /home/runner/work/EZHarness/EZHarness/coverage/quality/summary.json
+##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+with:
+  name: mutation-nightly-reports
+  path: coverage/quality
+  retention-days: 14
+  if-no-files-found: warn
+  compression-level: 6
+  overwrite: false
+  include-hidden-files: false
+  archive: true
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  MUTATION_SHARDS: 6
+##[endgroup]
+With the provided path, there will be 2 files uploaded
+Artifact name is valid!
+Root directory input is valid!
+Uploading artifact: mutation-nightly-reports.zip
+Beginning upload of artifact content to blob storage
+Uploaded bytes 1717544
+Finished uploading artifact content to blob storage!
+SHA256 digest of uploaded artifact is f33f2f1918da3451d4e4585f0486b290bdd66612443359abeeaf11585eee8bb0
+Finalizing artifact upload
+Artifact mutation-nightly-reports successfully finalized. Artifact ID 11778587808
+Artifact mutation-nightly-reports has been successfully uploaded! Final size is 1717544 bytes. Artifact ID is 11778587808
+Artifact download URL: https://github.com/ezcorp-org/EZHarness/actions/runs/38312450934/artifacts/11778587808
+Post job cleanup.
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/3c399988-9dd6-41f5-942a-a480e48dd76e' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+/home/runner/work/_temp/git-credentials-14a797db-82c3-4973-a5bb-1f897686e0c5.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-14a797db\-82c3\-4973\-a5bb\-1f897686e0c5\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+/home/runner/work/_temp/git-credentials-14a797db-82c3-4973-a5bb-1f897686e0c5.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-14a797db\-82c3\-4973\-a5bb\-1f897686e0c5\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-14a797db-82c3-4973-a5bb-1f897686e0c5.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-14a797db\-82c3\-4973\-a5bb\-1f897686e0c5\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-14a797db-82c3-4973-a5bb-1f897686e0c5.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-14a797db\-82c3\-4973\-a5bb\-1f897686e0c5\.config
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/home/runner/work/_temp/git-credentials-14a797db-82c3-4973-a5bb-1f897686e0c5.config'
+Cleaning up orphan processes

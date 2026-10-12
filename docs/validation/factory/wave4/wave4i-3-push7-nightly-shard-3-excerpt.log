@@ -1,0 +1,243 @@
+excerpt of nightly-mutation-shard-3-38312450934.log (13083 lines, 643314 bytes, sha256 b7e879fca68e37fcf47cb0ee8a5b99237910a4c55345eb807d18ab0551c4d52f): the first 80 and the last 160 lines, ANSI and timestamps stripped; the full log stays in the evidence dir
+----- first 80 -----
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {173b79f0-21e7-4ad6-b6e4-a96d0906a69a}
+Region: westus3
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Download action repository 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Complete job name: Mutation shard 3
+##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+with:
+  repository: ezcorp-org/EZHarness
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-depth: 1
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+##[endgroup]
+Syncing repository: ezcorp-org/EZHarness
+##[group]Getting Git version info
+Working directory is '/home/runner/work/EZHarness/EZHarness'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/07390d9d-1af8-49d6-85de-d741d2138efd' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Deleting the contents of '/home/runner/work/EZHarness/EZHarness'
+##[group]Determining repository object format
+##[endgroup]
+##[group]Initializing the repository
+[command]/usr/bin/git init /home/runner/work/EZHarness/EZHarness
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+----- last 160 -----
+
+[Survived] LogicalOperator
+src/lib/tool-display.ts:23:18
+-   	const primary = input.command ?? input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
++   	const primary = input.command && input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] ConditionalExpression
+src/lib/tool-display.ts:24:6
+-   	if (primary) return String(primary);
++   	if (true) return String(primary);
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] ConditionalExpression
+src/lib/tool-display.ts:24:6
+-   	if (primary) return String(primary);
++   	if (false) return String(primary);
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+Ran 13.54 tests per mutant on average.
+------------------------------|------------------|----------|-----------|------------|----------|----------|
+                              | % Mutation score |          |           |            |          |          |
+File                          |  total | covered | # killed | # timeout | # survived | # no cov | # errors |
+------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+All files                     |  55.86 |   72.19 |     1712 |         9 |        663 |      697 |        3 |
+ chat                         |  37.11 |   71.00 |      207 |         6 |         87 |      274 |        0 |
+  page-handlers               |  42.54 |   71.48 |      202 |         6 |         83 |      198 |        0 |
+   load-messages.ts           |  78.10 |   78.47 |      158 |         6 |         45 |        1 |        0 |
+   useSelectMode.svelte.ts    |  15.77 |   53.66 |       44 |         0 |         38 |      197 |        0 |
+  extension-toolbar-action.ts |   5.88 |   55.56 |        5 |         0 |          4 |       76 |        0 |
+ components                   |  62.96 |   65.16 |      187 |         0 |        100 |       10 |        0 |
+  tool-cards                  |  50.00 |   51.33 |       77 |         0 |         73 |        4 |        0 |
+   ez-propose-card-logic.ts   |  66.67 |   66.67 |       12 |         0 |          6 |        0 |        0 |
+   time-clock-logic.ts        |  47.79 |   49.24 |       65 |         0 |         67 |        4 |        0 |
+  ui                          |  87.50 |   87.50 |        7 |         0 |          1 |        0 |        0 |
+   format-map.ts              |  87.50 |   87.50 |        7 |         0 |          1 |        0 |        0 |
+  attachment-card-logic.ts    |  46.15 |   52.17 |       24 |         0 |         22 |        6 |        0 |
+  pull-to-refresh-logic.ts    |  95.18 |   95.18 |       79 |         0 |          4 |        0 |        0 |
+ ez                           |   0.00 |    0.00 |        0 |         0 |          0 |       31 |        0 |
+  api.ts                      |   0.00 |    0.00 |        0 |         0 |          0 |       31 |        0 |
+ factory                      |  99.04 |   99.23 |      518 |         0 |          4 |        1 |        0 |
+  client.ts                   |  99.25 |   99.50 |      399 |         0 |          2 |        1 |        0 |
+  run-format.ts               |  98.35 |   98.35 |      119 |         0 |          2 |        0 |        0 |
+ search                       |  86.05 |   86.05 |       37 |         0 |          6 |        0 |        0 |
+  deep-link-resolve.ts        |  86.05 |   86.05 |       37 |         0 |          6 |        0 |        0 |
+ stores                       |  82.86 |   82.86 |       29 |         0 |          6 |        0 |        0 |
+  extension-toolbar.svelte.ts |  82.86 |   82.86 |       29 |         0 |          6 |        0 |        0 |
+ utils                        |  73.15 |   73.83 |       79 |         0 |         28 |        1 |        0 |
+  fetch-policy.ts             |  73.15 |   73.83 |       79 |         0 |         28 |        1 |        0 |
+ workers                      |  51.27 |   54.73 |       81 |         0 |         67 |       10 |        0 |
+  kokoro-tts-worker.ts        |  51.27 |   54.73 |       81 |         0 |         67 |       10 |        0 |
+ admin-guard.ts               |  91.67 |   91.67 |       11 |         0 |          1 |        0 |        0 |
+ breadcrumb-tail.svelte.ts    | 100.00 |  100.00 |       21 |         0 |          0 |        0 |        0 |
+ chat-scroll-restore.ts       |  22.29 |   74.47 |       35 |         0 |         12 |      110 |        0 |
+ combobox-nav.ts              |   0.00 |    0.00 |        0 |         0 |          0 |       42 |        0 |
+ content-blocks.ts            |   0.00 |    0.00 |        0 |         0 |         16 |       51 |        0 |
+ diff-aggregator.ts           |  46.81 |   51.16 |       44 |         0 |         42 |        8 |        0 |
+ extension-tool-options.ts    |  66.67 |   68.85 |       42 |         0 |         19 |        2 |        0 |
+ format-duration.ts           |   9.46 |   12.73 |        7 |         0 |         48 |       19 |        0 |
+ highlight-diff.ts            |   2.78 |    2.90 |        2 |         0 |         67 |        3 |        0 |
+ invoke-inline-tool.ts        |  92.86 |   92.86 |       26 |         0 |          2 |        0 |        0 |
+ mention-display.ts           |  83.70 |   88.51 |      151 |         3 |         20 |       10 |        0 |
+ panel-persistence.ts         |   3.01 |   11.11 |        5 |         0 |         40 |      121 |        3 |
+ provider-meta.ts             |  20.45 |   20.45 |        9 |         0 |         35 |        0 |        0 |
+ safe-redirect.ts             | 100.00 |  100.00 |       19 |         0 |          0 |        0 |        0 |
+ settings-nav.ts              |  81.12 |   81.69 |      116 |         0 |         26 |        1 |        0 |
+ sw-runtime.ts                |  89.39 |   89.39 |       59 |         0 |          7 |        0 |        0 |
+ tool-display.ts              |   8.33 |    9.09 |        3 |         0 |         30 |        3 |        0 |
+ workflow-run-history.ts      | 100.00 |  100.00 |       24 |         0 |          0 |        0 |        0 |
+------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+23:10:59 (2355) ERROR MutationTestReportHelper Final mutation score 55.86 under breaking threshold 80, setting exit code to 1 (failure).
+23:10:59 (2355) INFO MutationTestReportHelper (improve mutation score or set `thresholds.break = null` to prevent this error in the future)
+23:10:59 (2355) INFO JsonReporter Your report can be found at: file:///home/runner/work/EZHarness/EZHarness/coverage/quality/mutation.json
+23:10:59 (2355) INFO MutationTestExecutor Done in 86 minutes and 21 seconds.
+
+✗ 2 mutated file(s) had NO test coverage at all — the score below is meaningless for them:
+
+    web/src/lib/combobox-nav.ts
+    web/src/lib/ez/api.ts
+
+  This is almost always Stryker's vitest `related` filter failing to follow a
+  $lib-aliased import (it warns: 'Vitest failed to find test files related to
+  mutated files'), NOT missing tests. Fix by either:
+    - excluding the file in mutation.mutateGlobs if the bun leg owns its tests, or
+    - having its test import the module by a path vitest's graph can follow.
+  Verify a scope change cheaply: bun scripts/mutation.ts --full --dry-run-only
+
+(--report-only: Stryker exited 1 on the threshold verdict; not failing the build)
+##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+with:
+  name: mutation-nightly-shard-3
+  path: coverage/quality
+  if-no-files-found: warn
+  retention-days: 3
+  compression-level: 6
+  overwrite: false
+  include-hidden-files: false
+  archive: true
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+##[endgroup]
+With the provided path, there will be 1 file uploaded
+Artifact name is valid!
+Root directory input is valid!
+Uploading artifact: mutation-nightly-shard-3.zip
+Beginning upload of artifact content to blob storage
+Uploaded bytes 467162
+Finished uploading artifact content to blob storage!
+SHA256 digest of uploaded artifact is 35171f102900b5c0ad072fab03e9fc2ece5fda2373b45beca85621b01121a106
+Finalizing artifact upload
+Artifact mutation-nightly-shard-3 successfully finalized. Artifact ID 11778133378
+Artifact mutation-nightly-shard-3 has been successfully uploaded! Final size is 467162 bytes. Artifact ID is 11778133378
+Artifact download URL: https://github.com/ezcorp-org/EZHarness/actions/runs/38312450934/artifacts/11778133378
+Post job cleanup.
+Post job cleanup.
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/1fecd344-1a05-4a8a-848a-8564a8754093' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+/home/runner/work/_temp/git-credentials-d4063ce3-05bd-4b69-a3af-7dfffd1df8f9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-d4063ce3\-05bd\-4b69\-a3af\-7dfffd1df8f9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+/home/runner/work/_temp/git-credentials-d4063ce3-05bd-4b69-a3af-7dfffd1df8f9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-d4063ce3\-05bd\-4b69\-a3af\-7dfffd1df8f9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-d4063ce3-05bd-4b69-a3af-7dfffd1df8f9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-d4063ce3\-05bd\-4b69\-a3af\-7dfffd1df8f9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-d4063ce3-05bd-4b69-a3af-7dfffd1df8f9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-d4063ce3\-05bd\-4b69\-a3af\-7dfffd1df8f9\.config
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/home/runner/work/_temp/git-credentials-d4063ce3-05bd-4b69-a3af-7dfffd1df8f9.config'
+Cleaning up orphan processes

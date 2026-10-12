@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""shard-check.py <stryker mutation.json> <label>: counts every mutant status, the zero-test survivors (status Survived and
+testsCompleted 0, the rule of scripts/mutation.ts survivorsWithoutTests) and the score (Killed+Timeout over every mutant except
+CompileError, RuntimeError and Ignored, as Stryker reports it). (integrator-5, W4H-23)
+v2 (the coordinator's binding addition after validator-8's F1, 2026-10-12): every Killed mutant whose killedBy names a
+"test file failed to load or collect" result (the patched runner's load-failure kill) is printed with file:line and statusReason;
+a load kill whose statusReason is an import-resolution error ("Failed to resolve import") is a FALSE kill (a test file that is
+broken without the mutant too). Exit 0 only when the zero-test survivors are 0 AND the resolution-reason load kills are 0."""
+import collections, json, sys
+LOAD = "failed to load or collect"; RESOLVE = "Failed to resolve import"
+d = json.load(open(sys.argv[1])); label = sys.argv[2]
+names = {}
+for tf, v in (d.get("testFiles") or {}).items():
+    for t in v.get("tests", []): names[str(t["id"])] = f"{tf}#{t.get('name', '')}"
+st = collections.Counter(); zero = []; load = []
+for f, v in d["files"].items():
+    for m in v["mutants"]:
+        st[m["status"]] += 1
+        where = f"{f}:{m['location']['start']['line']}"
+        if m["status"] == "Survived" and m.get("testsCompleted") == 0: zero.append(where)
+        if m["status"] == "Killed":
+            ks = [names.get(str(k), str(k)) for k in (m.get("killedBy") or [])]
+            lk = [k for k in ks if LOAD in k]
+            if lk: load.append((where, m.get("statusReason") or "", lk))
+valid = sum(n for s, n in st.items() if s not in ("CompileError", "RuntimeError", "Ignored"))
+det = st["Killed"] + st["Timeout"]
+bad = [x for x in load if RESOLVE in x[1]]
+print(f"{label}: files {len(d['files'])}, mutants {sum(st.values())}, " + ", ".join(f"{s} {n}" for s, n in sorted(st.items())))
+print(f"{label}: score {100 * det / valid:.2f}% (detected {det} / valid {valid}); zero-test survivors {len(zero)}" + (": " + " | ".join(zero[:20]) if zero else ""))
+print(f"{label}: load-failure kills {len(load)}; with an import-resolution reason (FALSE kill) {len(bad)}")
+for where, reason, lk in load:
+    print(f"  load kill {where}: {' '.join(reason.split())[:300]}  [by {', '.join(lk)[:200]}]" + ("  <- RESOLUTION REASON" if RESOLVE in reason else ""))
+sys.exit(1 if zero or bad else 0)

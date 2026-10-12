@@ -1,0 +1,97 @@
+ACCEPT wp/w4h-23-mutation-related at 308d362e3
+W4H-23 verdict (the mutation nightly counts a load failure as a kill), validator-8 (lane validator-8), 2026-10-12T18:3xZ
+
+VERDICT: REJECT wp/w4h-23-mutation-related at 614dafa9b, on ONE finding (F1): the patch can count a BASELINE-BROKEN test file as the
+killer of a mutant the tests do not detect — the ruled probe (a) failed, observed directly. Every other leg passes (listed below), and
+the fix for F1 is small and local.
+Commits on base 6eb1bbb33 (archy noreply, 2 of 2): ad88e73b3 (patch extension, pin test, stryker.config.json comment), 614dafa9b (gate
+file, todo, tasks/lessons.md). Owner report sha256 03cd7c2c04f8d5c3. Every hold ran on a git-archive snapshot outside the evidence dir.
+
+F1 — a false kill from a baseline-broken file (the binding contract "a failed test file kills ONLY if it loads cleanly WITHOUT the
+mutant"; the lead's probe (a) "a baseline-broken test file never kills a mutant").
+- My targeted Stryker run at the head (w4h-23-heavy/diag-head; --mutate settings-nav.ts:134-136, relative-time.ts:81; default
+  concurrency and timeout): the INITIAL run warned "22 test file(s) failed to load or collect", every one with
+  `Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts"` (the sandbox-
+  unresolvable class). In the same run the ObjectLiteral mutant of relative-time.ts:81 (`{ numeric: "auto" }` -> `{}`) is recorded
+  KILLED with 22 killedBy entries "…#StrykerJS: test file failed to load or collect" — exactly those 22 files — and its statusReason is
+  that same `$server` import error, which the mutant cannot cause.
+- The mutant is NOT detected by those tests: applied by hand without Stryker, all 22 files load and 236/236 tests pass
+  (w4h-23-killers2, mut-rt81-object); in the real shard 5 run and in 7 reruns it reads Survived (230 tests) or Timeout.
+- Cause (read in the patch): #killedByLoadFailure decides "loads without the mutant" by re-running each failed file ALONE and caches
+  that; it never uses the initial run's own failed-file list, which is the baseline in the run's sandbox. In this sandbox the `$server`
+  resolution failed in the combined runs while the file-alone check passed, so a baseline-broken file killed a mutant.
+- Frequency: 1 of 9 targeted runs (0 in 7 reruns: w4h-23-rt81, w4h-23-rt81b), and 0 in the two shard runs. It is intermittent, which is
+  why it matters: a false kill hides a real survivor and inflates the score silently, the opposite of what the guard is for.
+- Suggested fix (smallest form, the owner's to choose): seed the cache from the initial run — a file in the initial run's failedFiles
+  maps to "does not load without a mutant" and never kills — and keep the alone check for files the initial run did not list; optionally
+  also refuse a kill whose failure message equals that file's initial-run message. Add a pin case: a file that failed in the initial run
+  never kills, even when it loads alone later.
+
+PASSING LEGS (for the re-validation, unchanged unless the fix touches them)
+- Scope: the patch, the pin test, web/stryker.config.json (comment only: only the _comment key differs), the gate file, todo, and
+  tasks/lessons.md (the owner added three sound lessons directly to the shared lessons file — noted; the usual route is pending-lesson.md
+  folded by the coordinator). No change to thresholds, related, thresholds.break, the guards, scripts/, the lockfiles or workflows.
+  Identity 2/2; prune clean; config baseline (the shared file moved by branch/remote sections only, recorded).
+- The patch is applied after the frozen install (killedByLoadFailure and failedFileTestResults present in the installed dist).
+- Pin test 14/14 at head; 9/14 red with the base patch (equal to the owner's). My mutants on the installed runner, each red on exactly its
+  case: extension reverted; baseline condition dropped ("never kills a mutant on a file that fails to load without any mutant");
+  baseline even when a test failed ("needs no baseline when a test already failed"); no failed files (7 cases); no warning.
+- The mechanism: settings-nav.ts:134 is Survived/0 with the extension reverted and Killed by its load failure at head; by hand its 3
+  killer files fail as suites (TypeError) with the mutant and pass without it (76 tests). relative-time.ts:81's two string mutants ("en",
+  "auto" -> "") make all 22 files fail as suites (Intl RangeError) — genuine load kills, recorded so in the shards and reruns.
+- No vitest binary: Stryker stops with a plugin error and no report (a toolchain failure, never a kill).
+- Shards 3/6 and 5/6 as the workflow runs them: scores 59.04 and 50.37 (owner 59.72, 50.42), 0 zero-test survivors, one load kill each
+  (settings-nav.ts:134; relative-time.ts:81 "en"), both with mutant-caused reasons; merged with the hosted shards 0, 1, 2, 4: 56.25%.
+- gate-integrity base PASSED; main = exactly the 8. Lint 0; boundaries 0; gitleaks 0. Typecheck and svelte-check 0. Guard set 516/0.
+DISCLOSURE: my shard steps read exit 97 from my own wrapper (the mutation run filed as a test step; its output has no bun counts); the
+commands ended with "--report-only … not failing the build" and were judged from their logs and reports. My first killer-file check
+resolved only the settings-nav file (the pseudo-test ids are not in the report's test map); recomputed from the killedBy ids.
+Evidence: /tmp/factory-platform-evidence/validator-8/ w4h-23-light/, w4h-23-heavy/ (diag-head is F1's run), w4h-23-killers2/,
+w4h-23-rt81/, w4h-23-rt81b/; hold-w4h-23-*.sh, w4h-23-lib.sh.
+ADDENDUM (team-lead's messages after the run; append-only; the REJECT on F1 is unchanged):
+- web/stryker.config.json (@@ -66,7 +66,17 @@): verified COMMENT ONLY. Parsed as JSON at 6eb1bbb33 and at the head, the only key that
+  differs is "_comment" (10 added lines on the load-failure rule); no key outside _comment changed.
+- tasks/lessons.md "### W4H-23 (2026-10-12)" (kept by the lead's ruling), content judged:
+  1. "never edit a shell script while a run executes it" — correct, but a DUPLICATE of at least five existing lessons in the same file
+     (lines 234, 1258, 1541, 1588 and 1847 at 6eb1bbb33). It adds nothing new; folding it into one of those would keep the file DRY.
+  2. "a guard that turns a silent artifact into a red can expose a second silent artifact; measure a new failure kind's baseline" —
+     new and sound. F1 is an instance of exactly this lesson: the baseline was measured (the initial run's list) but not used.
+  3. "a green nightly can measure nothing; read the per-mutant test counts" — new for mutation runs; close in spirit to the existing
+     "a test leg that ran zero tests must fail loudly" (1705) and "zero tests is VOID" (1977), but specific enough to keep.
+- gate-integrity under the new binding (main shares the gate tooling since PR 318; main leg = exactly 0 findings, any finding = STOP):
+  at the head 614dafa9b against origin/main = 6ffd887848d5d1215d80f3c88db140eee296c42e: "Gate integrity PASSED", 0 findings. Base leg
+  against 6eb1bbb33 PASSED again (w4h-23-gi/). My earlier main leg (pinned at e3309906d, the retired "exactly the 8") is superseded.
+
+RE-VALIDATION at 308d362e3 (2026-10-12T19:2x-19:5xZ; the R4 fix of F1; the REJECT text above is kept byte-equal in
+verdict-w4h-23-at-614dafa9b.txt). VERDICT NOW: ACCEPT wp/w4h-23-mutation-related at 308d362e3. F1 is fixed; every leg passes.
+Commits after 614dafa9b (archy noreply): 54c5e493b (a file the initial run could not load never kills), 28adbc34d (the alone check needs
+a passing run), 308d362e3 (gate file and todo). Owner report sha256 cf5d0abd7e0f1a08; its receipts match.
+1. Scope of the delta: only the runner patch, the pin test, web/stryker.config.json (the _comment array only: parsed as JSON, only
+   "_comment" differs from 6eb1bbb33), the gate file and todo. Byte-unchanged vs base: scripts, the lockfiles, web/package.json, .github,
+   src, packages. Identity, prune clean, receipts.
+2. The contract (read in the patch): the initial run writes its failed files with their messages to stryker-initial-load-failures.json
+   in the sandbox; in a mutant run a load failure never kills when that record is missing, when the initial run listed the file (even if
+   it loads alone later), or when its message equals any initial-run message; any other file kills only if its alone run reports THAT
+   file with state pass (a cancelled or unreported alone run proves nothing). Every other path keeps the runner's verdict.
+3. The patch is applied after the frozen web install (initialLoadFailuresFile and readInitialLoadFailures in the installed dist).
+   Pin test 19/19 at the head; against the 614dafa9b patch 7 red — exactly the R4 cases ("never kills on a file the initial run listed,
+   even when it loads alone later", "…whose message equals an initial-run failure message", "reads the initial run's list in another
+   worker through the record file", "…when no initial-run record exists", the two alone-run cases, and the recording warning).
+4. Nine mutants on the installed runner, each RED on exactly its case(s): m1 extension reverted; m2 the alone pass not required (3 cases);
+   m3 baseline even when a test failed; m4 no failed files (9); m5 no warning; m6 the initial list not seeded ("never kills on a file the
+   initial run listed, even when it loads alone later"); m7 the equal-message refusal dropped; m8 a missing record kills; m9 back to
+   "absence of a failure" (the two alone-run cases).
+5. F1's own form, five times at the head (--mutate settings-nav.ts:134-136,relative-time.ts:81; default concurrency and timeout):
+   every run identical — settings-nav.ts:134 BlockStatement Killed by 3 load failures ("Cannot read properties of undefined");
+   relative-time.ts:81 both StringLiterals Killed by 18 load failures ("Incorrect locale information", "Value out of range …numeric");
+   the ObjectLiteral SURVIVED (230 tests); 0 load kills with a non-mutant reason, 0 from a file in the initial warning. Control with the
+   extension reverted: the four load-kill mutants read Survived (134: 0 tests; 81: 13 tests) — the defect the package fixes.
+6. Shard 5/6 as the workflow runs it (a measure step): score 50.29 (owner 50.22), "--report-only … not failing the build", 0 zero-test
+   survivors, 6 load kills — relative-time.ts:81 x2 (Intl RangeErrors) and chat-turn-collapse.ts:37, 38, 41, 44 (TypeErrors at
+   collection; Killed here, Timeout in my first run) — each with a mutant-caused reason, none from a warned file. Shard 3/6 is left to
+   integrator-5's merge hold, as ruled.
+7. gate-integrity at 308d362e3: the main leg against origin/main 6ffd887848d5d1215d80f3c88db140eee296c42e = "Gate integrity PASSED",
+   0 findings; the base leg vs 6eb1bbb33 PASSED. Lint 0; boundaries 0; gitleaks 0. Typecheck and svelte-check 0 in-lock (pinned Node).
+   Guard set 41 files 516 pass 0 fail. Config: the shared file differs from the baseline only in [branch]/[remote] sections (recorded).
+Evidence: /tmp/factory-platform-evidence/validator-8/ w4h-23r4-light/, w4h-23r4-heavy/ (f1-1..5/, control-reverted/, shard5-mutation.json);
+hold-w4h-23r4-{light,heavy}.sh.

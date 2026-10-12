@@ -1,0 +1,203 @@
+excerpt of heavy-mutation-shard-5.log (20283 lines, 943654 bytes, sha256 d632d393390ec70e92de7f98f3c472a821cafecaecaa2132e6dc23e39985a1b2): the first 80 and the last 120 lines; the full log stays in the evidence dir
+----- first 80 -----
+Mutation: 200 file(s) in scope (579 matched mutateGlobs, 379 not measured by vitest)
+Mutation: shard 5/6 → 33 file(s):
+  web/src/lib/api.ts
+  web/src/lib/build/preview-pipeline-guard.ts
+  web/src/lib/chat-turn-collapse.ts
+  web/src/lib/chat/historical-tool-calls.ts
+  web/src/lib/chat/page-handlers/send-message.ts
+  web/src/lib/chat/reconcile-stream.ts
+  web/src/lib/command-source-label.ts
+  web/src/lib/components/goal-row-logic.ts
+  web/src/lib/components/tool-cards/city-conditions-card-logic.ts
+  web/src/lib/components/tool-cards/grade-delta-logic.ts
+  web/src/lib/components/tool-cards/weather-card-element.ts
+  web/src/lib/components/ui/types.ts
+  web/src/lib/conversation-grouping.ts
+  web/src/lib/diff-review/review-model.ts
+  web/src/lib/extensions/canvas-bridge.ts
+  web/src/lib/ez/page-context.ts
+  web/src/lib/factory/download.ts
+  web/src/lib/factory/workspace-view.ts
+  web/src/lib/graph/canvas-view.ts
+  web/src/lib/hub.ts
+  web/src/lib/loaded-tools-logic.ts
+  web/src/lib/message-copy.ts
+  web/src/lib/personal-pr.ts
+  web/src/lib/rbac-grants-view.ts
+  web/src/lib/scroll-to-hash.ts
+  web/src/lib/search/search-mode.ts
+  web/src/lib/settings-search.ts
+  web/src/lib/styles.ts
+  web/src/lib/theme.ts
+  web/src/lib/tool-scope-logic.ts
+  web/src/lib/utils/relative-time.ts
+  web/src/lib/workflow-builder-logic.ts
+  web/src/lib/workflow-yaml.ts
+
+Mutation: break threshold 80% (mutation.scoreThreshold in scripts/quality-gates.json)
+
+16:19:50 (3528110) INFO ProjectReader Found 33 of 8694 file(s) to be mutated.
+16:19:50 (3528110) INFO Instrumenter Instrumented 33 source file(s) with 4740 mutant(s)
+16:19:52 (3528110) INFO ConcurrencyTokenProvider Creating 31 test runner process(es).
+16:19:53 (3528110) INFO BroadcastReporter Detected that current console does not support the "progress" reporter, downgrading to "progress-append-only" reporter
+16:19:55 (3528110) INFO DryRunExecutor Starting initial test run (vitest test runner with "perTest" coverage analysis). This may take a while.
+16:22:06 (3529928) WARN VitestTestRunner 30 test file(s) failed to load or collect in the initial test run. Their tests never run, so the code only they cover reads NoCoverage:
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/__tests__/AgentDetailPanel.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/__tests__/EzPanel.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/__tests__/MetaAgentChat.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/__tests__/main-chat-uses-chatthread.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatInput.prop-forward.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatMessage.excludedPill.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.abretry.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.behavior.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.coverage.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.prompt-nav.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.render-branches.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.restore-leaf.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.rewind.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/ChatThread.turn-collapse.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/routes/(app)/__tests__/layout-active-project-sync.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/__tests__/ChatMessage-ez-action-result.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/__tests__/ChatMessage-preprocess-result.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/__tests__/ChatMessage-propose-content-guard.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-FSYHO3/src/lib/components/__tests__/ChatMessage.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+16:22:06 (3528110) INFO DryRunExecutor Initial test run succeeded. Ran 1574 tests in 2 minutes and 11 seconds (net 30139.222349000338 ms, overhead 101012.77765099966 ms).
+16:22:06 (3528110) WARN MutantTestPlanner Detected 139 static mutants (3% of total) that are estimated to take 89% of the time running the tests!
+  You might want to enable "ignoreStatic" to ignore these static mutants for your next run. 
+  For more information about static mutants visit: https://stryker-mutator.io/docs/mutation-testing-elements/static-mutants
+  (disable "warnings.slow" to ignore this warning)
+Mutation testing 0% (elapsed: <1m, remaining: ~2h 4m) 1738/4740 tested (11 survived, 0 timed out)
+Mutation testing 1% (elapsed: <1m, remaining: ~19m) 1889/4740 tested (74 survived, 0 timed out)
+Mutation testing 1% (elapsed: <1m, remaining: ~25m) 2121/4740 tested (93 survived, 2 timed out)
+Mutation testing 2% (elapsed: <1m, remaining: ~31m) 2316/4740 tested (125 survived, 2 timed out)
+Mutation testing 2% (elapsed: <1m, remaining: ~37m) 2460/4740 tested (137 survived, 2 timed out)
+Mutation testing 2% (elapsed: ~1m, remaining: ~40m) 2606/4740 tested (159 survived, 2 timed out)
+Mutation testing 2% (elapsed: ~1m, remaining: ~41m) 2702/4740 tested (201 survived, 3 timed out)
+Mutation testing 4% (elapsed: ~1m, remaining: ~31m) 2788/4740 tested (220 survived, 3 timed out)
+Mutation testing 5% (elapsed: ~1m, remaining: ~27m) 2895/4740 tested (265 survived, 3 timed out)
+Mutation testing 5% (elapsed: ~1m, remaining: ~29m) 3077/4740 tested (302 survived, 3 timed out)
+Mutation testing 5% (elapsed: ~1m, remaining: ~30m) 3283/4740 tested (354 survived, 11 timed out)
+----- last 120 -----
+
+[NoCoverage] StringLiteral
+src/lib/workflow-yaml.ts:71:94
+-     for (const key of ["name", "description", "inputSchema", "defaultModel", "outputTemplate", "steps"]) {
++     for (const key of ["name", "description", "inputSchema", "defaultModel", "outputTemplate", ""]) {
+
+[NoCoverage] BlockStatement
+src/lib/workflow-yaml.ts:71:104
+-     for (const key of ["name", "description", "inputSchema", "defaultModel", "outputTemplate", "steps"]) {
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
+-     }
++     for (const key of ["name", "description", "inputSchema", "defaultModel", "outputTemplate", "steps"]) {}
+
+[NoCoverage] ConditionalExpression
+src/lib/workflow-yaml.ts:72:9
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (true) out[key] = workflow[key];
+
+[NoCoverage] ConditionalExpression
+src/lib/workflow-yaml.ts:72:9
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (false) out[key] = workflow[key];
+
+[NoCoverage] LogicalOperator
+src/lib/workflow-yaml.ts:72:9
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (workflow[key] !== undefined || workflow[key] !== null) out[key] = workflow[key];
+
+[NoCoverage] ConditionalExpression
+src/lib/workflow-yaml.ts:72:9
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (true && workflow[key] !== null) out[key] = workflow[key];
+
+[NoCoverage] EqualityOperator
+src/lib/workflow-yaml.ts:72:9
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (workflow[key] === undefined && workflow[key] !== null) out[key] = workflow[key];
+
+[NoCoverage] ConditionalExpression
+src/lib/workflow-yaml.ts:72:40
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (workflow[key] !== undefined && true) out[key] = workflow[key];
+
+[NoCoverage] EqualityOperator
+src/lib/workflow-yaml.ts:72:40
+-       if (workflow[key] !== undefined && workflow[key] !== null) out[key] = workflow[key];
++       if (workflow[key] !== undefined && workflow[key] === null) out[key] = workflow[key];
+
+Ran 4.93 tests per mutant on average.
+---------------------------------|------------------|----------|-----------|------------|----------|----------|
+                                 | % Mutation score |          |           |            |          |          |
+File                             |  total | covered | # killed | # timeout | # survived | # no cov | # errors |
+---------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+All files                        |  50.26 |   78.10 |     2366 |        13 |        667 |     1687 |        7 |
+ build                           |  81.25 |   81.25 |       13 |         0 |          3 |        0 |        0 |
+  preview-pipeline-guard.ts      |  81.25 |   81.25 |       13 |         0 |          3 |        0 |        0 |
+ chat                            |   0.77 |   45.45 |        5 |         0 |          6 |      636 |        0 |
+  page-handlers                  |   0.00 |    0.00 |        0 |         0 |          0 |      525 |        0 |
+   send-message.ts               |   0.00 |    0.00 |        0 |         0 |          0 |      525 |        0 |
+  historical-tool-calls.ts       |  31.25 |   45.45 |        5 |         0 |          6 |        5 |        0 |
+  reconcile-stream.ts            |   0.00 |    0.00 |        0 |         0 |          0 |      106 |        0 |
+ components                      |  84.36 |   85.01 |      658 |         0 |        116 |        6 |        2 |
+  tool-cards                     |  83.60 |   84.29 |      617 |         0 |        115 |        6 |        2 |
+   city-conditions-card-logic.ts |  87.30 |   88.49 |      323 |         0 |         42 |        5 |        0 |
+   grade-delta-logic.ts          |  86.12 |   86.12 |      242 |         0 |         39 |        0 |        0 |
+   weather-card-element.ts       |  59.77 |   60.47 |       52 |         0 |         34 |        1 |        2 |
+  goal-row-logic.ts              |  97.62 |   97.62 |       41 |         0 |          1 |        0 |        0 |
+ diff-review                     |  67.36 |   67.83 |       97 |         0 |         46 |        1 |        0 |
+  review-model.ts                |  67.36 |   67.83 |       97 |         0 |         46 |        1 |        0 |
+ extensions                      |   0.00 |    0.00 |        0 |         0 |         15 |      212 |        4 |
+  canvas-bridge.ts               |   0.00 |    0.00 |        0 |         0 |         15 |      212 |        4 |
+ ez                              |  81.02 |   81.98 |      405 |         9 |         91 |        6 |        0 |
+  page-context.ts                |  81.02 |   81.98 |      405 |         9 |         91 |        6 |        0 |
+ factory                         |  96.00 |   96.00 |       24 |         0 |          1 |        0 |        0 |
+  download.ts                    | 100.00 |  100.00 |       13 |         0 |          0 |        0 |        0 |
+  workspace-view.ts              |  91.67 |   91.67 |       11 |         0 |          1 |        0 |        0 |
+ graph                           |  49.55 |   57.75 |      164 |         0 |        120 |       47 |        1 |
+  canvas-view.ts                 |  49.55 |   57.75 |      164 |         0 |        120 |       47 |        1 |
+ search                          |  72.97 |   75.00 |       27 |         0 |          9 |        1 |        0 |
+  search-mode.ts                 |  72.97 |   75.00 |       27 |         0 |          9 |        1 |        0 |
+ utils                           |  84.62 |   85.94 |      110 |         0 |         18 |        2 |        0 |
+  relative-time.ts               |  84.62 |   85.94 |      110 |         0 |         18 |        2 |        0 |
+ api.ts                          |  17.34 |   62.70 |      115 |         1 |         69 |      484 |        0 |
+ chat-turn-collapse.ts           |  97.50 |   97.50 |       76 |         2 |          2 |        0 |        0 |
+ command-source-label.ts         |   5.00 |   20.00 |        2 |         0 |          8 |       30 |        0 |
+ conversation-grouping.ts        |  62.65 |   72.22 |       51 |         1 |         20 |       11 |        0 |
+ hub.ts                          |  96.64 |   96.64 |      115 |         0 |          4 |        0 |        0 |
+ loaded-tools-logic.ts           |  93.33 |  100.00 |       14 |         0 |          0 |        1 |        0 |
+ message-copy.ts                 |   0.00 |    0.00 |        0 |         0 |          0 |       27 |        0 |
+ personal-pr.ts                  |  89.55 |   89.55 |       60 |         0 |          7 |        0 |        0 |
+ rbac-grants-view.ts             |   0.00 |    0.00 |        0 |         0 |          0 |       10 |        0 |
+ scroll-to-hash.ts               |  58.82 |   58.82 |       10 |         0 |          7 |        0 |        0 |
+ settings-search.ts              |  89.13 |   89.13 |       41 |         0 |          5 |        0 |        0 |
+ styles.ts                       |   0.00 |    0.00 |        0 |         0 |          1 |        0 |        0 |
+ theme.ts                        |   0.00 |    0.00 |        0 |         0 |          1 |      100 |        0 |
+ tool-scope-logic.ts             |  86.00 |   87.76 |       43 |         0 |          6 |        1 |        0 |
+ workflow-builder-logic.ts       |  67.47 |   75.00 |      336 |         0 |        112 |       50 |        0 |
+ workflow-yaml.ts                |   0.00 |    0.00 |        0 |         0 |          0 |       62 |        0 |
+---------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+16:29:13 (3528110) ERROR MutationTestReportHelper Final mutation score 50.26 under breaking threshold 80, setting exit code to 1 (failure).
+16:29:13 (3528110) INFO MutationTestReportHelper (improve mutation score or set `thresholds.break = null` to prevent this error in the future)
+16:29:13 (3528110) INFO JsonReporter Your report can be found at: file:///home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/coverage/quality/mutation.json
+16:29:13 (3528110) INFO MutationTestExecutor Done in 9 minutes and 29 seconds.
+
+✗ 5 mutated file(s) had NO test coverage at all — the score below is meaningless for them:
+
+    web/src/lib/chat/page-handlers/send-message.ts
+    web/src/lib/chat/reconcile-stream.ts
+    web/src/lib/message-copy.ts
+    web/src/lib/rbac-grants-view.ts
+    web/src/lib/workflow-yaml.ts
+
+  This is almost always Stryker's vitest `related` filter failing to follow a
+  $lib-aliased import (it warns: 'Vitest failed to find test files related to
+  mutated files'), NOT missing tests. Fix by either:
+    - excluding the file in mutation.mutateGlobs if the bun leg owns its tests, or
+    - having its test import the module by a path vitest's graph can follow.
+  Verify a scope change cheaply: bun scripts/mutation.ts --full --dry-run-only
+
+(--report-only: Stryker exited 1 on the threshold verdict; not failing the build)

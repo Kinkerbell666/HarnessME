@@ -1,0 +1,13 @@
+Checked 2 files in 9ms. No fixes applied.
+── Tests (staged) ─────────────────────────────────
+  vitest: src/__tests__/stryker-vitest-runner-patch.unit.test.ts
+
+ RUN  v5.0.3 /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web
+
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  16:01:06
+   Duration  482ms (transform 42%, import 29%, setup 22%, tests 6%, worker 1%)
+
+[detached HEAD fdf8ac512] merge: wp/w4h-23-mutation-related 308d362e3 into integ/w00 (the mutation nightly counts a load failure as a kill)

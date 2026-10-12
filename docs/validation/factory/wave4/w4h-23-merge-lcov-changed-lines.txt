@@ -1,0 +1,2 @@
+per-file lcov proof: merge fdf8ac512 vs base bfce8cd5d; lcov /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merged.lcov
+TOTAL instrumented added lines 0, uncovered 0

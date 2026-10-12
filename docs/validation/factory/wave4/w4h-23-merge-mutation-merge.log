@@ -1,0 +1,49 @@
+Mutation merge: 6 shard report(s) found, 6 expected
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/0/mutation.json
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/1/mutation.json
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/2/mutation.json
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/3/mutation.json
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/4/mutation.json
+  /tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related/merge-input/5/mutation.json
+
+Mutation merge: 196 file(s) → /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/coverage/quality/mutation.json
+Final mutation score 56.08% (threshold 80%): 11306 killed, 107 timed out, 3542 survived, 5396 no coverage
+
+✗ 33 mutated file(s) had NO test coverage at all — a scope error, not a score (see scripts/mutation.ts):
+    web/src/lib/actions/hover-tooltip.ts
+    web/src/lib/chat/attachment-client.ts
+    web/src/lib/chat/page-handlers/handle-extension-turn.ts
+    web/src/lib/commands.ts
+    web/src/lib/message-window.ts
+    web/src/lib/tier-ladder-view.ts
+    web/src/lib/workers/agent-fuzzy-search-bridge.ts
+    web/src/lib/audit/conversation-buckets.ts
+    web/src/lib/connection-banner-logic.ts
+    web/src/lib/ez/pill-visibility.ts
+    web/src/lib/model-selector-logic.ts
+    web/src/lib/routing-experiments-view.ts
+    web/src/lib/workers/agent-fuzzy-search-worker.ts
+    web/src/lib/workflow-provenance.ts
+    web/src/lib/ws.ts
+    web/src/lib/active-agents-href.ts
+    web/src/lib/auth-keepalive.ts
+    web/src/lib/chat/chat-window-drop.ts
+    web/src/lib/chat/page-handlers/inline-tool-handlers.ts
+    web/src/lib/clipboard.ts
+    web/src/lib/connection-grace.ts
+    web/src/lib/group-active-agents.ts
+    web/src/lib/workers/kokoro-tts-bridge.ts
+    web/src/lib/combobox-nav.ts
+    web/src/lib/ez/api.ts
+    web/src/lib/chat/filter-empty-turns.ts
+    web/src/lib/chat/reconcile-after-stream.ts
+    web/src/lib/chat-stick-to-bottom.ts
+    web/src/lib/chat/page-handlers/send-message.ts
+    web/src/lib/chat/reconcile-stream.ts
+    web/src/lib/message-copy.ts
+    web/src/lib/rbac-grants-view.ts
+    web/src/lib/workflow-yaml.ts
+
+✗ Final mutation score 56.08% under breaking threshold 80%
+
+(report-only: not failing the build; pass --enforce to gate on the merged verdict)

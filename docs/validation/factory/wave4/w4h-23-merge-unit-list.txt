@@ -1,0 +1,2 @@
+./src/__tests__/mutation-nightly-workflow.test.ts
+./src/__tests__/quality-report-fail-closed.test.ts

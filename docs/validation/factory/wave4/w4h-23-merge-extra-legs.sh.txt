@@ -1,0 +1,31 @@
+# W4H-23 (integrator-5; lead's prep order 2026-10-12): the Stryker vitest runner patch lets a test file that fails to load kill the mutant
+# that broke it (web/patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch, web/stryker.config.json comment, the pin test). No full combined
+# run (lead's ruling). Merge gates BIND vs the first parent (web/patches, web/stryker.config.json and the web test are outside SOURCE_GLOBS:
+# new-file and patch read vacuous). origin/main leg: exactly 0 findings (the shared expected file is empty since the sync).
+N=/tmp/factory-platform-evidence/w00/w4h-merge/w4h-23-mutation-related
+# The patched runner is INSTALLED (commit.sh's fresh frozen install now also triggers on a changed patches/*.patch).
+# 308d362e3: the patch seeds the initial run's load failures (stryker-initial-load-failures.json, #readInitialLoadFailures); all three
+# symbols, the initial-run record WRITER and the alone check's POSITIVE proof (the file is reported with state pass; 28adbc34d) must be
+# in the INSTALLED runner (BINDING; lead's word 2026-10-12).
+NOTEST=1 leg runner-patch-installed bash -c 'p="web/patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"; r=web/node_modules/@stryker-mutator/vitest-runner/dist/src/vitest-test-runner.js
+  echo "patch sha256 $(sha256sum "$p" | cut -c1-64)"; ok=1
+  for s in killedByLoadFailure readInitialLoadFailures stryker-initial-load-failures.json "writeFileSync(this.initialLoadFailuresFile" loadsWithoutMutant "file.result?.state === '"'"'pass'"'"'"; do n=$(grep -c -- "$s" $r); echo "installed runner: $s refs $n"; [ "$n" -gt 0 ] || ok=0; done; [ $ok = 1 ]'
+# The pin test with V8 lcov (vitest, the hook-mapped suite); vitest reports no coverage for the patched file under node_modules.
+leg pin-test-lcov bash /tmp/factory-platform-evidence/w16/repro/web-vitest-lcov.sh "$REPO" "$REPO/$C/pin-test" src/__tests__/stryker-vitest-runner-patch.unit.test.ts
+NOTEST=1 leg pin-test-19-cases bash -c 'grep -E "Tests +19 passed \(19\)" "$0"' "$D/heavy-pin-test-lcov.log"   # BINDING: the 19-case pin test, all 19
+tc_leg typecheck-all bun run typecheck
+tc_leg web-check bash -c 'cd web && bun run check'
+# The two red shards AS THE WORKFLOW RUNS THEM (mutation-nightly.yml "Mutate shard": bun scripts/mutation.ts --full --shard I/6 --report-only),
+# Node pinned to .node-version 24.14.1 (the workflow uses setup-node 22; StrykerJS 10 needs >= 22). BINDING: exit 0 and 0 zero-test survivors.
+for i in 3 5; do
+  rm -rf coverage/quality
+  NOTEST=1 leg mutation-shard-$i env PATH=/tmp/factory-tools/node-24.14.1/bin:$PATH timeout 10800 bun scripts/mutation.ts --full --shard "$i/6" --report-only
+  mkdir -p $N/merge-input/$i && cp coverage/quality/mutation.json $N/merge-input/$i/mutation.json || { echo "shard $i: no coverage/quality/mutation.json" >> "$S"; st=1; }
+  NOTEST=1 leg mutation-shard-$i-check python3 -I $N/shard-check.py $N/merge-input/$i/mutation.json shard$i
+done
+# The workflow's merge step over 6 reports: shards 3 and 5 from this hold + the hosted reports of shards 0, 1, 2, 4 of nightly 38238981958
+# (6eb1bbb33, the PREVIOUS patch; downloaded with gh run download). LIMITATION: four of six inputs predate the fix. BINDING: exit 0 (6 of 6).
+for i in 0 1 2 4; do mkdir -p $N/merge-input/$i && cp $N/hosted-38238981958/mutation-nightly-shard-$i/mutation.json $N/merge-input/$i/mutation.json; done
+rm -rf coverage/quality
+NOTEST=1 leg mutation-merge bun scripts/merge-mutation-reports.ts --shards 6 "$N/merge-input/*/*.json"
+NOTEST=1 leg mutation-quality-summary bun scripts/quality-report.ts --text --limit 40 --expect mutation

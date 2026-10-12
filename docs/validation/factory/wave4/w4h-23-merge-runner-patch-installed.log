@@ -1,0 +1,7 @@
+patch sha256 3fd1f54ee3bbeb863c852d3a236ce9c905a49f88281dd87c9d94e2ce8b462925
+installed runner: killedByLoadFailure refs 3
+installed runner: readInitialLoadFailures refs 2
+installed runner: stryker-initial-load-failures.json refs 1
+installed runner: writeFileSync(this.initialLoadFailuresFile refs 1
+installed runner: loadsWithoutMutant refs 4
+installed runner: file.result?.state === 'pass' refs 1

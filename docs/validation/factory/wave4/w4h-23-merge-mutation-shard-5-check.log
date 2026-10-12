@@ -1,0 +1,9 @@
+shard5: files 32, mutants 4740, Killed 2366, NoCoverage 1687, RuntimeError 7, Survived 667, Timeout 13
+shard5: score 50.26% (detected 2379 / valid 4733); zero-test survivors 0
+shard5: load-failure kills 6; with an import-resolution reason (FALSE kill) 0
+  load kill src/lib/utils/relative-time.ts:81: Incorrect locale information provided  [by src/__tests__/extension-detail-mcp-connection.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/components/__tests__/ProvidersSection.component.test.ts#StrykerJS: test file fai]
+  load kill src/lib/utils/relative-time.ts:81: Value out of range for Intl.RelativeTimeFormat options property numeric  [by src/__tests__/extension-detail-mcp-connection.component.test.ts#StrykerJS: test file failed to load or collect, src/__tests__/expired-grants-banner.component.test.ts#StrykerJS: test file failed to loa]
+  load kill src/lib/chat-turn-collapse.ts:44: Cannot read properties of undefined (reading 'replyIds')  [by src/lib/chat-turn-collapse.unit.test.ts#StrykerJS: test file failed to load or collect]
+  load kill src/lib/chat-turn-collapse.ts:38: Cannot read properties of undefined (reading 'push')  [by src/lib/chat-turn-collapse.unit.test.ts#StrykerJS: test file failed to load or collect]
+  load kill src/lib/chat-turn-collapse.ts:41: Cannot read properties of undefined (reading 'push')  [by src/lib/chat-turn-collapse.unit.test.ts#StrykerJS: test file failed to load or collect]
+  load kill src/lib/chat-turn-collapse.ts:37: Cannot read properties of undefined (reading 'forEach')  [by src/lib/chat-turn-collapse.unit.test.ts#StrykerJS: test file failed to load or collect]

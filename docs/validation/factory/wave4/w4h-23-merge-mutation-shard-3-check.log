@@ -1,0 +1,4 @@
+shard3: files 33, mutants 3084, Killed 1733, NoCoverage 697, RuntimeError 4, Survived 593, Timeout 57
+shard3: score 58.12% (detected 1790 / valid 3080); zero-test survivors 0
+shard3: load-failure kills 1; with an import-resolution reason (FALSE kill) 0
+  load kill src/lib/settings-nav.ts:134: Cannot read properties of undefined (reading '0')  [by src/__tests__/settings-layout.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/settings-nav.unit.test.ts#StrykerJS: test file failed to load or collect, src/lib/settings-searc]

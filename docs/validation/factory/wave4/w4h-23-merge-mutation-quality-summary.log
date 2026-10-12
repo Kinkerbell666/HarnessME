@@ -1,0 +1,168 @@
+
+=== Quality gates: FAIL ===
+  expected: mutation
+  mutation: {"score":56.08,"threshold":80,"passed":false,"killed":11306,"timeout":107,"survived":3542,"noCoverage":5396}
+
+8938 finding(s) (showing 40):
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:211
+  what: Surviving StringLiteral mutant: the suite still passes when ``active-run:${convId}`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``active-run:${convId}`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:214
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ minIntervalMs: 4000 }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ minIntervalMs: 4000 }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:216
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!res?.ok || gen !== host.loadGeneration()` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!res?.ok || gen !== host.loadGeneration()` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:216
+  what: Surviving LogicalOperator mutant: the suite still passes when `!res?.ok || gen !== host.loadGeneration()` becomes `!res?.ok && gen !== host.loadGeneration()`.
+  fix:  Add or tighten an assertion that fails when `!res?.ok || gen !== host.loadGeneration()` is replaced by `!res?.ok && gen !== host.loadGeneration()`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:216
+  what: Surviving OptionalChaining mutant: the suite still passes when `res?.ok` becomes `res.ok`.
+  fix:  Add or tighten an assertion that fails when `res?.ok` is replaced by `res.ok`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:216
+  what: Surviving ConditionalExpression mutant: the suite still passes when `gen !== host.loadGeneration()` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `gen !== host.loadGeneration()` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:218
+  what: Surviving ConditionalExpression mutant: the suite still passes when `gen !== host.loadGeneration()` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `gen !== host.loadGeneration()` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:222
+  what: Surviving ConditionalExpression mutant: the suite still passes when `gen === host.loadGeneration()` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `gen === host.loadGeneration()` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:226
+  what: Surviving ConditionalExpression mutant: the suite still passes when `gen !== host.loadGeneration()` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `gen !== host.loadGeneration()` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:261
+  what: Surviving LogicalOperator mutant: the suite still passes when `perm.cardType ?? undefined` becomes `perm.cardType && undefined`.
+  fix:  Add or tighten an assertion that fails when `perm.cardType ?? undefined` is replaced by `perm.cardType && undefined`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:263
+  what: Surviving LogicalOperator mutant: the suite still passes when `perm.category ?? undefined` becomes `perm.category && undefined`.
+  fix:  Add or tighten an assertion that fails when `perm.category ?? undefined` is replaced by `perm.category && undefined`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:283
+  what: Surviving ConditionalExpression mutant: the suite still passes when `tc.id === entry.toolCallId` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `tc.id === entry.toolCallId` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:292
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ question: entry.question, options: entry.options }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ question: entry.question, options: entry.options }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:308
+  what: Surviving MethodExpression mutant: the suite still passes when `all.some((m) => m.id === placeholderId)` becomes `all.every(m => m.id === placeholderId)`.
+  fix:  Add or tighten an assertion that fails when `all.some((m) => m.id === placeholderId)` is replaced by `all.every(m => m.id === placeholderId)`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:314
+  what: Surviving StringLiteral mutant: the suite still passes when `"assistant"` becomes `""`.
+  fix:  Add or tighten an assertion that fails when `"assistant"` is replaced by `""`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:315
+  what: Surviving StringLiteral mutant: the suite still passes when `""` becomes `"Stryker was here!"`.
+  fix:  Add or tighten an assertion that fails when `""` is replaced by `"Stryker was here!"`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:316
+  what: Surviving LogicalOperator mutant: the suite still passes when `selectedModel?.model ?? null` becomes `selectedModel?.model && null`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.model ?? null` is replaced by `selectedModel?.model && null`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:317
+  what: Surviving LogicalOperator mutant: the suite still passes when `selectedModel?.provider ?? null` becomes `selectedModel?.provider && null`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.provider ?? null` is replaced by `selectedModel?.provider && null`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:316
+  what: Surviving OptionalChaining mutant: the suite still passes when `selectedModel?.model` becomes `selectedModel.model`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.model` is replaced by `selectedModel.model`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:317
+  what: Surviving OptionalChaining mutant: the suite still passes when `selectedModel?.provider` becomes `selectedModel.provider`.
+  fix:  Add or tighten an assertion that fails when `selectedModel?.provider` is replaced by `selectedModel.provider`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:319
+  what: Surviving OptionalChaining mutant: the suite still passes when `lastMsg?.id` becomes `lastMsg.id`.
+  fix:  Add or tighten an assertion that fails when `lastMsg?.id` is replaced by `lastMsg.id`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:365
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!data.runId` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!data.runId` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:390
+  what: Surviving StringLiteral mutant: the suite still passes when ``active-run:${convId}`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``active-run:${convId}`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:391
+  what: Surviving StringLiteral mutant: the suite still passes when ``/api/conversations/${convId}/active-run`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``/api/conversations/${convId}/active-run`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:393
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ minIntervalMs: 4000 }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ minIntervalMs: 4000 }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:395
+  what: Surviving OptionalChaining mutant: the suite still passes when `res?.ok` becomes `res.ok`.
+  fix:  Add or tighten an assertion that fails when `res?.ok` is replaced by `res.ok`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:401
+  what: Surviving ConditionalExpression mutant: the suite still passes when `typeof data.stalenessMs === "number"` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `typeof data.stalenessMs === "number"` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:421
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!runId` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!runId` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:426
+  what: Surviving StringLiteral mutant: the suite still passes when ``active-run:${convId}`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``active-run:${convId}`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:429
+  what: Surviving ObjectLiteral mutant: the suite still passes when `{ minIntervalMs: 4000 }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ minIntervalMs: 4000 }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:427
+  what: Surviving StringLiteral mutant: the suite still passes when ``/api/conversations/${convId}/active-run`` becomes ````.
+  fix:  Add or tighten an assertion that fails when ``/api/conversations/${convId}/active-run`` is replaced by ````. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:431
+  what: Surviving ConditionalExpression mutant: the suite still passes when `!res?.ok` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `!res?.ok` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:431
+  what: Surviving OptionalChaining mutant: the suite still passes when `res?.ok` becomes `res.ok`.
+  fix:  Add or tighten an assertion that fails when `res?.ok` is replaced by `res.ok`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:435
+  what: Surviving ConditionalExpression mutant: the suite still passes when `typeof data.stalenessMs === "number"` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `typeof data.stalenessMs === "number"` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:464
+  what: Surviving BlockStatement mutant: the suite still passes when `{ if (convId === undefined) reconnectCooldownByConv.clear(); else reconnectCooldownByConv.delete(convId); }` becomes `{}`.
+  fix:  Add or tighten an assertion that fails when `{ if (convId === undefined) reconnectCooldownByConv.clear(); else reconnectCooldownByConv.delete(convId); }` is replaced by `{}`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving ConditionalExpression mutant: the suite still passes when `convId === undefined` becomes `true`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `true`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving ConditionalExpression mutant: the suite still passes when `convId === undefined` becomes `false`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `false`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:465
+  what: Surviving EqualityOperator mutant: the suite still passes when `convId === undefined` becomes `convId !== undefined`.
+  fix:  Add or tighten an assertion that fails when `convId === undefined` is replaced by `convId !== undefined`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:466
+  what: Surviving CallExpression mutant: the suite still passes when `reconnectCooldownByConv.delete(convId);` becomes `;`.
+  fix:  Add or tighten an assertion that fails when `reconnectCooldownByConv.delete(convId);` is replaced by `;`. An existing test already runs this line — it just does not check the result.
+
+[mutation] web/src/lib/chat/page-handlers/stream-resume.svelte.ts:487
+  what: Surviving LogicalOperator mutant: the suite still passes when `options.now ?? (() => Date.now())` becomes `options.now && (() => Date.now())`.
+  fix:  Add or tighten an assertion that fails when `options.now ?? (() => Date.now())` is replaced by `options.now && (() => Date.now())`. An existing test already runs this line — it just does not check the result.
+
+Structured summary: /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/coverage/quality/summary.json

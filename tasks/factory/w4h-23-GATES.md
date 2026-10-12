@@ -1,7 +1,7 @@
 # W4H-23: the nightly mutation workflow on main is red since the merge of PR 318
 
 Brief: /tmp/factory-platform-evidence/w00/briefs/w4h-23.md. Branch `wp/w4h-23-mutation-related` from origin/main 6eb1bbb33.
-Code commit: ad88e73b3 (tree 9eeb06c48b97). Evidence: /tmp/factory-platform-evidence/w4h-23/ (paths below are relative to it).
+Code commits: ad88e73b3 (R2), then 54c5e493b and 28adbc34d (R4, validator-8 F1; head tree fbaac29558fe). Evidence: /tmp/factory-platform-evidence/w4h-23/ (paths below are relative to it).
 Hosted red: run 38238981958 (jobs 114776612873 shard 5, 114776613002 shard 3; logs copied read-only). Hosted green: run
 38042900360 on e3309906d. Pins: bun and bunx 1.4.2 (.bun-version), node 24.14.1. Scope ruling (lead): R2 = A + C; B (the 33
 no-coverage files) is a leftover.
@@ -64,13 +64,13 @@ runner's verdicts.
   commit, the previous patch): 56.36 percent (hosted merged: 55.68). Limitation: four of the six reports predate the fix.
   EVIDENCE: r3/heavy.log (07c96d03c4aefb56), r3/heavy.exit (0), r3/shard3-mutation.json, r3/shard5-mutation.json,
   r3/merge.log (60e361ccab760a95).
-- [x] G7: the legs at ad88e73b3. CHECK: legs/final-legs.log (7f054f2982351c6d) and legs/heavy.log (da966517f3071c3c, under
+- [x] G7: the legs at ad88e73b3. CHECK: legs/ad88e73b3/final-legs.log (7f054f2982351c6d) and legs/ad88e73b3/heavy.log (da966517f3071c3c, under
   the lock). RESULT: lint 0 findings; boundaries and lanes pass; prune scan clean; gate-integrity, default base and
   BASE_REF=origin/main (the same commit here), both PASS; new-file and patch coverage PASS and vacuous (no file under
   SOURCE_GLOBS: web/patches, web/stryker.config.json, one test file, tasks docs); CRAP --changed 0 functions (the first try had
-  no lcov file; the rerun used the workflow registration test's lcov, removed after: legs/final-crap-changed-lcov.log);
+  no lcov file; the rerun used the workflow registration test's lcov, removed after: legs/ad88e73b3/final-crap-changed-lcov.log);
   typecheck exit 0 and svelte-check 620 files 0 errors under the tc rule (lowest MemAvailable 11.2 and 12.7 GiB:
-  legs/tc-gate.log); guard set 41 files, 516 pass, 2 skip, 0 fail (legs/heavy-guard.log); the workflow registration test and
+  legs/ad88e73b3/tc-gate.log); guard set 41 files, 516 pass, 2 skip, 0 fail (legs/ad88e73b3/heavy-guard.log); the workflow registration test and
   the container registration test (it names the patch file) pass. actionlint: not run, no workflow changed.
 - [x] G8: changed lines. The patch's new runner lines are outside SOURCE_GLOBS, and vitest reports no coverage for files under
   node_modules even with an explicit include (legs/cb6e98cf2/runner-coverage.log: 0 of 0). Each new line runs in a named
@@ -83,12 +83,61 @@ runner's verdicts.
   9eeb06c48b97 equal to c65c314f8; the hook mapped 0). None of these SHAs was reported before the final one. Author and
   committer: archy, noreply address. EVIDENCE: commit-1.log, commit-1-amend2.log, commit-1-amend3.log.
 
+## R4: validator-8 F1, a false kill from a baseline-broken file (REJECT of 614dafa9b)
+
+F1 (verdict /tmp/factory-platform-evidence/validator-8/verdict-w4h-23.txt, e0cfd62aaf81a86d): in 1 of 9 targeted runs the
+relative-time.ts:81 ObjectLiteral mutant was Killed by the 22 test files that the same run's initial test had listed as
+unloadable (`$server` import), with that same message. The alone check had said "loads without the mutant".
+
+Fix (two commits, same patch file, same patchedDependencies entry):
+- 54c5e493b, the ruled fix. The initial test run writes its failed-file list with messages to
+  `stryker-initial-load-failures.json` in the sandbox directory. Every worker runs there, and only one runs the initial test,
+  so an in-memory seed would not reach the others. A load failure kills only when (1) the record exists, (2) the initial run
+  did not list the file, (3) its message equals no initial-run failure message, and (4) the alone check passes.
+- 28adbc34d, the alone check's root cause. "Loads alone" meant "no reported file failed". A file the alone run cancelled, or
+  did not report, passed that check. It now means "the file is reported and its state is pass". Likely cause of F1's
+  "loaded alone", named from Vitest's code (not reproduced on demand): `runFiles` clears `isCancelling` at the start of a run,
+  while the previous mutant run's bail calls `cancelCurrentRun` asynchronously. A late cancel then cancels the alone run, and
+  `state.cancelFiles` registers the file with no result (web/node_modules/vitest/dist/chunks/index.C-uw7tH9.js, runFiles and
+  cancelCurrentRun near lines 21036 and 21205, the pool's cancel branch near 11710, cancelFiles near 19175). The sandbox's
+  `$server` alias points to `web/.stryker-tmp/src`, which does not exist, so the import itself never resolves there.
+
+- [x] G10: pin cases, red first. CHECK: `bunx vitest run src/__tests__/stryker-vitest-runner-patch.unit.test.ts` on each
+  installed runner. RESULT: 614dafa9b runner 5 of 17 red (listed file, equal message, second worker, no record, the record
+  itself), r4/red-on-614dafa9b-patch.log (5b6782df1480ad2a). 54c5e493b runner 2 of 19 red (cancelled, not reported),
+  r4/red-at-54c5e493b.log (861bd73f90a89f8b). 28adbc34d: 19 of 19, r4/green-positive-evidence.log (8ad5396a3e0dd210); the
+  commit hook ran 19 of 19 (commit-4.log).
+- [x] G11: mutant forms of the installed runner, each red. CHECK: scripts/r4-mutants.sh. RESULT: drop the seeding, drop the
+  message rule, a missing record counts as empty, and "no failure means clean" each turn exactly their own case red; the record
+  not written, no alone check and the whole extension reverted turn their cases red, plus cases that assert the alone runs.
+  The installed runner is restored (sha256 84e88c7c38f0fd88). EVIDENCE: r4/mutants-final.txt (7d6cdd87aa8f64ce).
+- [x] G12: the targeted run FIVE times at 28adbc34d, under the lock (`--mutate src/lib/settings-nav.ts:134-136,
+  src/lib/utils/relative-time.ts:81-81`, default concurrency and timeout). RESULT, every run: the initial run lists 22
+  unloadable files; 0 kills with a "Failed to resolve import" reason; 0 zero-test survivors; settings-nav.ts:134 Killed (3);
+  the relative-time.ts:81 "en" and "auto" string mutants Killed by the real Intl RangeError (31 each); the ObjectLiteral
+  mutant Survived (230 tests). The same five runs at 54c5e493b gave the same result (r4/at-54c5e493b/). EVIDENCE:
+  r4/heavy.log (9ad85cc4680d5d82), r4/diag1..5-mutation.json.
+- [x] G13: shard 5/6 as the workflow runs it, at 28adbc34d, under the lock. RESULT: exit 0; 0 zero-test survivors; score
+  50.22; the 5 no-coverage files unchanged; six load kills, every one with a mutant-caused message (relative-time.ts:81 x2
+  Intl RangeError; chat-turn-collapse.ts:37, 38, 41, 44 TypeError, Killed this time instead of Timeout). EVIDENCE:
+  r4/shard5-mutation.json (babfb5f555eff61d), r4/shard5.log. Shard 3/6 is the integrator's.
+- [x] G14: the legs at 28adbc34d. RESULT: lint 0; boundaries, lanes, prune clean; gate-integrity PASS against origin/main
+  (6ffd88784, merge base 6eb1bbb33) and against 6eb1bbb33; new-file and patch PASS and vacuous; CRAP 0 functions; typecheck 0
+  and svelte-check 620 files 0 errors under the tc rule in the lock (lowest MemAvailable 14.5 and 15.6 GiB); guard set 41
+  files, 516 pass, 2 skip, 0 fail; the pin test 19 of 19; the workflow and container registration tests pass. EVIDENCE:
+  legs/final-legs.log (29880d657febf1ac), legs/heavy.log (aa64206cd3b61280), legs/final-gate-integrity-base-6eb1bbb33.log.
+- [x] G15: changed lines. Each new runner line runs in a named pin case: the record write (the record case, second worker);
+  the reader and its cache (every case after an initial run; no record); the two filters (listed file, equal message); the
+  positive alone check (kill, fails alone, cancelled, not reported). Hooks: 54c5e493b mapped 1 suite, 17 of 17
+  (commit-3.log); 28adbc34d mapped 1 suite, 19 of 19 (commit-4.log). Lesson: pending-lesson.md (ac99ec9d14ee7571), not
+  tasks/lessons.md.
+
 ## Leftovers (out of scope by the lead's ruling)
 
 - B: 33 files are 100 percent NoCoverage in every night (5396 mutants). One named cause: 30 to 33 test files per shard cannot
   load in the Stryker sandbox, because they import code outside web/ (for example `$server/runtime/routing/default-selection`
   via src/lib/model-selector-logic.ts). The initial run now names them in a warning.
 - The real merged score is about 55 to 56 percent against the 80 threshold: a maintainer decision, not a workflow fix.
-- On this host the static re-run of chat-turn-collapse's related files exceeds the default per-mutant timeout (Timeout, which
-  counts as detected). The hosted runner returned in time.
+- On this host the static re-run of chat-turn-collapse's related files can exceed the default per-mutant timeout (Timeout,
+  which counts as detected); at 28adbc34d the shard read them Killed.
 - The green commit e3309906d was not run locally: /tmp/factory-tools/bun-1.3.14/bun-linux-x64 is empty (accepted by the lead).

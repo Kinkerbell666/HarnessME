@@ -153,7 +153,7 @@ index fa4f8138ab3b2aba64f4e715be2d8126da6ccf8b..02ee2bb4522c62d12cbc9468a1f0ed23
      if (!suite) {
          return undefined;
 diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
-index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed9734f3a9b6 100644
+index 84f1ca026503b8e92b7adc952ec6c6a401943656..13a21d9a644aa6a93b73908911fe8f227ba75bdb 100644
 --- a/dist/src/vitest-test-runner.js
 +++ b/dist/src/vitest-test-runner.js
 @@ -7,7 +7,8 @@ import { commonTokens, tokens, } from '@stryker-mutator/api/plugin';
@@ -166,7 +166,17 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
  const STRYKER_SETUP = fileURLToPath(new URL('./stryker-setup.js', import.meta.url));
  export class VitestTestRunner {
      log;
-@@ -25,6 +26,16 @@ export class VitestTestRunner {
+@@ -20,11 +21,26 @@ export class VitestTestRunner {
+     ctx;
+     options;
+     localSetupFile = path.resolve(`./stryker-setup-${process.env.STRYKER_MUTATOR_WORKER ?? 0}.js`);
++    /**
++     * The initial test run's failed-file list, shared with every worker: they all
++     * run in the same sandbox directory, and only one of them runs the initial test.
++     */
++    initialLoadFailuresFile = path.resolve('./stryker-initial-load-failures.json');
+     constructor(options, log, globalNamespace) {
+         this.log = log;
          this.globalNamespace = globalNamespace;
          this.options = options;
      }
@@ -183,7 +193,7 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
      capabilities() {
          return { reloadEnvironment: true };
      }
-@@ -83,6 +94,7 @@ export class VitestTestRunner {
+@@ -83,6 +99,7 @@ export class VitestTestRunner {
          });
          this.ctx.provide('globalNamespace', this.globalNamespace);
          this.ctx.provide('isGreaterThanVitest4Point1', semver.satisfies(vitestWrapper.version, '>=4.1.0'));
@@ -191,7 +201,7 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
          this.ctx.config.browser.screenshotFailures = false;
          this.ctx.projects.forEach((project) => {
              project.config.setupFiles = [
-@@ -111,6 +123,10 @@ export class VitestTestRunner {
+@@ -111,6 +128,14 @@ export class VitestTestRunner {
              !options.testFiles) {
              this.log.warn('Vitest failed to find test files related to mutated files. Either disable `vitest.related` or import your source files directly from your test files. See https://stryker-mutator.io/docs/stryker-js/troubleshooting/#vitest-failed-to-find-test-files-related-to-mutated-files');
          }
@@ -199,10 +209,14 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
 +            const shown = testResult.failedFiles.slice(0, 20).map(({ fileName, failureMessage }) => `  ${fileName}: ${failureMessage}`);
 +            this.log.warn(`${testResult.failedFiles.length} test file(s) failed to load or collect in the initial test run. Their tests never run, so the code only they cover reads NoCoverage:\n${shown.join('\n')}`);
 +        }
++        if (testResult.status === DryRunStatus.Complete) {
++            const files = testResult.failedFiles.map(({ fileName, failureMessage }) => ({ fileName, failureMessage }));
++            fs.writeFileSync(this.initialLoadFailuresFile, JSON.stringify({ files }));
++        }
          const mutantCoverage = this.readMutantCoverage();
          if (testResult.status === DryRunStatus.Complete) {
              return {
-@@ -132,7 +148,14 @@ export class VitestTestRunner {
+@@ -132,7 +157,14 @@ export class VitestTestRunner {
          });
          const hitCount = this.readHitCount();
          const timeOut = determineHitLimitReached(hitCount, options.hitLimit);
@@ -218,7 +232,7 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
      }
      async run({ testIds = [], relatedFiles, testFiles: explicitTestFiles, } = {}) {
          this.resetContext();
-@@ -173,10 +196,13 @@ export class VitestTestRunner {
+@@ -173,10 +205,13 @@ export class VitestTestRunner {
              .filter((test) => test.result); // if no result: it was skipped because of bail
          let failure = false;
          const testResults = tests.map((test) => {
@@ -233,7 +247,7 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
          if (!failure && this.ctx.state.errorsSet.size > 0) {
              const errorText = [...this.ctx.state.errorsSet]
                  .map(errorToString)
-@@ -186,8 +212,27 @@ export class VitestTestRunner {
+@@ -186,8 +221,44 @@ export class VitestTestRunner {
                  errorMessage: `An error occurred outside of a test run: ${errorText}`,
              };
          }
@@ -241,14 +255,23 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
 +        return { tests: testResults, status: DryRunStatus.Complete, failedFiles };
 +    }
 +    /**
-+     * The failed-file results a mutant caused: a file that fails with the mutant
-+     * active AND loads cleanly without it. A file that also fails without any
-+     * mutant (an import the sandbox cannot resolve) never kills a mutant. The
-+     * answer is cached per file; each unknown file runs ALONE so bail cannot
-+     * cancel it.
++     * The failed-file results a mutant caused. A load failure never kills when the
++     * initial run left no record, when the initial run listed the same file (the
++     * baseline of this sandbox, even if the file loads alone later), or when its
++     * message equals any initial-run failure message (a resolution error is never
++     * mutant-caused). Any other file kills only if it also loads cleanly ALONE
++     * without the mutant; that answer is cached per file, and the file runs alone
++     * so bail cannot cancel it.
 +     */
 +    async #killedByLoadFailure(failedFiles) {
-+        for (const { fileName } of failedFiles) {
++        const initial = this.#readInitialLoadFailures();
++        if (!initial) {
++            return [];
++        }
++        const initialFiles = new Set(initial.files.map(({ fileName }) => fileName));
++        const initialMessages = new Set(initial.files.map(({ failureMessage }) => failureMessage));
++        const candidates = failedFiles.filter(({ fileName, failureMessage }) => !initialFiles.has(fileName) && !initialMessages.has(failureMessage));
++        for (const { fileName } of candidates) {
 +            if (this.#loadsWithoutMutant.has(fileName)) {
 +                continue;
 +            }
@@ -256,9 +279,17 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..dfc3edec766dc502e0d5a5a04486ed97
 +            await this.run({ testFiles: [fileName] });
 +            this.#loadsWithoutMutant.set(fileName, !this.ctx.state.getFiles().some((file) => file.result?.state === 'fail'));
 +        }
-+        return failedFiles.filter(({ fileName }) => this.#loadsWithoutMutant.get(fileName));
-     }
++        return candidates.filter(({ fileName }) => this.#loadsWithoutMutant.get(fileName));
++    }
 +    #loadsWithoutMutant = new Map();
++    /** The initial run's record, read once it exists; undefined before (then no load failure kills). */
++    #readInitialLoadFailures() {
++        if (this.#initialLoadFailures === undefined && fs.existsSync(this.initialLoadFailuresFile)) {
++            this.#initialLoadFailures = JSON.parse(fs.readFileSync(this.initialLoadFailuresFile, 'utf8'));
++        }
++        return this.#initialLoadFailures;
+     }
++    #initialLoadFailures = undefined;
      setEnv() {
          // Set node environment for issues like these: https://github.com/stryker-mutator/stryker-js/issues/4289
          process.env.NODE_ENV = 'test';

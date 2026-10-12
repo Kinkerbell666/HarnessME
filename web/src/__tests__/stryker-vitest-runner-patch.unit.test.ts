@@ -17,7 +17,9 @@
  */
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { StrykerOptions } from "@stryker-mutator/api/core";
 import type { Logger } from "@stryker-mutator/api/logging";
 import {
@@ -123,26 +125,36 @@ describe("the mutant verdict Stryker derives from a run", () => {
 	});
 });
 
-// ── The runner: a load failure kills a mutant only when the file loads without it ──
+// ── The runner: a load failure kills a mutant only when the mutant caused it ──
 
-type Mode = "dry-run" | "mutant";
 const A = "/repo/web/src/lib/settings-nav.unit.test.ts";
 const B = "/repo/web/src/lib/model-selector-logic.unit.test.ts";
 const C = "/repo/web/src/lib/chat-turn-collapse.unit.test.ts";
+const UNRESOLVED = 'Failed to resolve import "$server/runtime/routing/default-selection"';
+
+/** Where each phase fails to load: the initial run, a mutant run, and a file run alone without a mutant. */
+type LoadFails = { initial?: string[]; mutant?: string[]; alone?: string[] };
 
 /**
  * A runner over a fake Vitest context. `start(undefined)` runs the related set
- * [A, B, C]; `start(files)` runs exactly those files. A file named in
- * `loadFails[mode]` fails to load in that mode; a file named in `testFails`
- * runs one failing test; every other file runs one passing test.
+ * [A, B, C]; `start(files)` runs exactly those files (the alone check). A file
+ * named for the phase fails to load with `messages["<phase>:<file>"]`, else
+ * `messages[file]`, else `cannot load <file>`; a file in `testFails` runs one failing test; every
+ * other file runs one passing test. `record` is the initial-run record file
+ * (a fresh temporary path unless a test shares one between two runners).
  */
 function fakeRunner(
-	loadFails: Record<Mode, string[]>,
-	testFails: string[] = [],
-	extra: { hitCount?: number; unhandled?: Error[] } = {},
+	fails: LoadFails,
+	opts: {
+		testFails?: string[];
+		messages?: Record<string, string>;
+		hitCount?: number;
+		unhandled?: Error[];
+		record?: string;
+	} = {},
 ) {
 	const provided: Record<string, unknown> = {};
-	const starts: { mode: Mode; files: string[] | undefined }[] = [];
+	const starts: { mode: string; files: string[] | undefined }[] = [];
 	let files: FileTask[] = [];
 	const ctx = {
 		config: {},
@@ -150,16 +162,18 @@ function fakeRunner(
 		provide: (key: string, value: unknown) => {
 			provided[key] = value;
 		},
-		state: { filesMap: new Map(), errorsSet: new Set(extra.unhandled ?? []), getFiles: () => files },
+		state: { filesMap: new Map(), errorsSet: new Set(opts.unhandled ?? []), getFiles: () => files },
 		start: async (requested?: string[]) => {
-			const mode = provided.mode as Mode;
+			const mode = provided.mode as string;
 			starts.push({ mode, files: requested });
+			const phase = mode === "mutant" ? "mutant" : requested ? "alone" : "initial";
 			files = (requested ?? [A, B, C]).map((path) => {
-				if (loadFails[mode].includes(path)) {
-					const failed = file(path.slice("/repo/web/".length), { state: "fail", errors: [{ message: `cannot load ${path}` }] });
-					return { ...failed, meta: { hitCount: extra.hitCount } };
+				if ((fails[phase] ?? []).includes(path)) {
+					const message = opts.messages?.[`${phase}:${path}`] ?? opts.messages?.[path] ?? `cannot load ${path}`;
+					const failed = file(path.slice("/repo/web/".length), { state: "fail", errors: [{ message }] });
+					return { ...failed, meta: { hitCount: opts.hitCount } };
 				}
-				const state = testFails.includes(path) ? "fail" : "pass";
+				const state = opts.testFails?.includes(path) ? "fail" : "pass";
 				return { ...file(path.slice("/repo/web/".length), { state }, [testTask("works", state)]), meta: {} };
 			});
 		},
@@ -167,8 +181,9 @@ function fakeRunner(
 	const warnings: string[] = [];
 	const log = { warn: (m: string) => warnings.push(m), debug: () => {}, isDebugEnabled: () => false } as unknown as Logger;
 	const runner = new VitestTestRunner({ vitest: { related: true } } as unknown as StrykerOptions, log, "__stryker__");
-	Object.assign(runner, { ctx });
-	return { runner, starts, warnings };
+	const record = opts.record ?? join(mkdtempSync(join(tmpdir(), "w4h23-pin-")), "initial-load-failures.json");
+	Object.assign(runner, { ctx, initialLoadFailuresFile: record });
+	return { runner, starts, warnings, record };
 }
 
 const STATIC_MUTANT = {
@@ -178,68 +193,108 @@ const STATIC_MUTANT = {
 	testFilter: undefined,
 	hitLimit: undefined,
 } as unknown as MutantRunOptions;
+const INITIAL_RUN = { files: [], coverageAnalysis: "perTest", disableBail: false, timeout: 1000 } as never;
+const aloneRuns = (starts: { mode: string; files: string[] | undefined }[]) =>
+	starts.filter((s) => s.mode === "dry-run" && s.files !== undefined);
 
 describe("VitestTestRunner with the patch", () => {
-	it("kills a mutant whose file fails to load with it and loads cleanly without it", async () => {
-		const { runner, starts } = fakeRunner({ mutant: [A], "dry-run": [] });
+	it("kills a mutant whose file fails to load with it, was not in the initial run's list, and loads alone", async () => {
+		const { runner, starts } = fakeRunner({ mutant: [A] });
+		await runner.dryRun(INITIAL_RUN);
 		const verdict = await runner.mutantRun(STATIC_MUTANT);
 		expect(verdict).toMatchObject({ status: MutantRunStatus.Killed, failureMessage: `cannot load ${A}` });
 		expect(verdict.status === MutantRunStatus.Killed && verdict.killedBy).toEqual([
 			expect.stringContaining("settings-nav.unit.test.ts#StrykerJS: test file failed to load or collect"),
 		]);
-		// The baseline ran the failed file alone, with no mutant active.
 		expect(starts).toEqual([
+			{ mode: "dry-run", files: undefined },
 			{ mode: "mutant", files: undefined },
 			{ mode: "dry-run", files: [resolve(A)] },
 		]);
 	});
 
-	it("never kills a mutant on a file that fails to load without any mutant", async () => {
-		const { runner } = fakeRunner({ mutant: [B], "dry-run": [B] });
+	it("never kills on a file the initial run listed, even when it loads alone later", async () => {
+		// A different message under the mutant: only the initial run's list can refuse this kill.
+		const { runner, starts } = fakeRunner({ initial: [B], mutant: [B] }, { messages: { [`mutant:${B}`]: `TypeError in ${B}` } });
+		await runner.dryRun(INITIAL_RUN);
 		const verdict = await runner.mutantRun(STATIC_MUTANT);
 		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
+		expect(aloneRuns(starts)).toEqual([]);
 	});
 
-	it("checks each failed file without the mutant once per runner", async () => {
-		const { runner, starts } = fakeRunner({ mutant: [B], "dry-run": [B] });
+	it("never kills on a failure whose message equals an initial-run failure message", async () => {
+		const messages = { [B]: UNRESOLVED, [C]: UNRESOLVED };
+		const { runner, starts } = fakeRunner({ initial: [B], mutant: [C] }, { messages });
+		await runner.dryRun(INITIAL_RUN);
+		const verdict = await runner.mutantRun(STATIC_MUTANT);
+		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
+		expect(aloneRuns(starts)).toEqual([]);
+	});
+
+	it("reads the initial run's list in another worker through the record file", async () => {
+		const first = fakeRunner({ initial: [B] });
+		await first.runner.dryRun(INITIAL_RUN);
+		const second = fakeRunner({ mutant: [B] }, { record: first.record });
+		const verdict = await second.runner.mutantRun(STATIC_MUTANT);
+		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived });
+		expect(aloneRuns(second.starts)).toEqual([]);
+		expect(JSON.parse(readFileSync(first.record, "utf8"))).toEqual({
+			files: [{ fileName: resolve(B), failureMessage: `cannot load ${B}` }],
+		});
+	});
+
+	it("never kills by a load failure when no initial-run record exists", async () => {
+		const { runner, starts } = fakeRunner({ mutant: [A] });
+		const verdict = await runner.mutantRun(STATIC_MUTANT);
+		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
+		expect(aloneRuns(starts)).toEqual([]);
+	});
+
+	it("never kills on a file that also fails alone, and checks it alone once per runner", async () => {
+		const { runner, starts } = fakeRunner({ mutant: [B], alone: [B] });
+		await runner.dryRun(INITIAL_RUN);
+		const first = await runner.mutantRun(STATIC_MUTANT);
 		await runner.mutantRun(STATIC_MUTANT);
-		await runner.mutantRun(STATIC_MUTANT);
-		expect(starts.filter((s) => s.mode === "dry-run")).toEqual([{ mode: "dry-run", files: [resolve(B)] }]);
+		expect(first).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
+		expect(aloneRuns(starts)).toEqual([{ mode: "dry-run", files: [resolve(B)] }]);
 	});
 
 	it("needs no baseline when a test already failed: the failed test kills the mutant", async () => {
-		const { runner, starts } = fakeRunner({ mutant: [A], "dry-run": [] }, [C]);
+		const { runner, starts } = fakeRunner({ mutant: [A] }, { testFails: [C] });
+		await runner.dryRun(INITIAL_RUN);
 		const verdict = await runner.mutantRun(STATIC_MUTANT);
 		expect(verdict).toMatchObject({ status: MutantRunStatus.Killed });
 		expect(verdict.status === MutantRunStatus.Killed && verdict.killedBy).toEqual([
 			expect.stringMatching(/chat-turn-collapse\.unit\.test\.ts#.*works$/),
 		]);
-		expect(starts.filter((s) => s.mode === "dry-run")).toEqual([]);
+		expect(aloneRuns(starts)).toEqual([]);
 	});
 
 	it("reports a hit-limit timeout before any baseline, as the unpatched runner does", async () => {
-		const { runner, starts } = fakeRunner({ mutant: [A], "dry-run": [] }, [], { hitCount: 10 });
+		const { runner, starts } = fakeRunner({ mutant: [A] }, { hitCount: 10 });
+		await runner.dryRun(INITIAL_RUN);
 		const verdict = await runner.mutantRun({ ...STATIC_MUTANT, hitLimit: 5 });
 		expect(verdict.status).toBe(MutantRunStatus.Timeout);
-		expect(starts.filter((s) => s.mode === "dry-run")).toEqual([]);
+		expect(aloneRuns(starts)).toEqual([]);
 	});
 
 	it("reports an error outside any test as an error, with no baseline", async () => {
-		const { runner, starts } = fakeRunner({ mutant: [A], "dry-run": [] }, [], { unhandled: [new Error("worker crashed")] });
+		const { runner, starts } = fakeRunner({ mutant: [A] }, { unhandled: [new Error("worker crashed")] });
 		const verdict = await runner.mutantRun(STATIC_MUTANT);
 		expect(verdict).toMatchObject({ status: MutantRunStatus.Error, errorMessage: expect.stringContaining("worker crashed") });
-		expect(starts.filter((s) => s.mode === "dry-run")).toEqual([]);
+		expect(aloneRuns(starts)).toEqual([]);
 	});
 
-	it("keeps an initial test run with an unloadable file complete and names the file in a warning", async () => {
-		const { runner, warnings } = fakeRunner({ mutant: [], "dry-run": [B] });
-		const result = await runner.dryRun({ files: [], coverageAnalysis: "perTest", disableBail: false, timeout: 1000 } as never);
+	it("keeps an initial test run with an unloadable file complete, names the file in a warning, and records it", async () => {
+		const { runner, warnings, record } = fakeRunner({ initial: [B] });
+		const result = await runner.dryRun(INITIAL_RUN);
 		expect(result.status).toBe(DryRunStatus.Complete);
 		expect(result.status === DryRunStatus.Complete && result.tests.map((t) => t.status)).toEqual([
 			TestStatus.Success,
 			TestStatus.Success,
 		]);
-		expect(warnings).toEqual([expect.stringContaining(`1 test file(s) failed to load or collect`)]);
+		expect(warnings).toEqual([expect.stringContaining("1 test file(s) failed to load or collect")]);
 		expect(warnings[0]).toContain(`${resolve(B)}: cannot load ${B}`);
+		expect(JSON.parse(readFileSync(record, "utf8")).files.map((f: { fileName: string }) => f.fileName)).toEqual([resolve(B)]);
 	});
 });

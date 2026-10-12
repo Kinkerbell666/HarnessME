@@ -1,0 +1,8 @@
+Dependency audit — floor: high | roots: ., web
+  · .: 0 advisory/advisories
+  · web: 1 advisory/advisories
+
+Below the high floor (1) — not blocking:
+  moderate sprintf-js  GHSA-hp3w-g68c-fv3c
+
+✔ dependency audit clean at the high floor (0 allowlisted, 1 below floor).

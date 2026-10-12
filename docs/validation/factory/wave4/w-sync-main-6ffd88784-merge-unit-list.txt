@@ -1,0 +1,9 @@
+./src/__tests__/dependency-denylist.test.ts
+./src/__tests__/pi-package-pin-alignment.test.ts
+./src/__tests__/root-dependency-security.test.ts
+./src/__tests__/bundled-source-lock.test.ts
+./src/__tests__/manifest-tamper.test.ts
+./src/__tests__/regenerate-manifest-lock.test.ts
+./scripts/build-workspace-packages.test.ts
+./src/__tests__/build-pi-agent-stream-fn.test.ts
+./src/__tests__/build-pi-agent-compaction.test.ts

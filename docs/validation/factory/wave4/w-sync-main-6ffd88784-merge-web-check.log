@@ -1,0 +1,6 @@
+$ svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/lib/build/preview-pipeline-guard" without a file extension (vite.config.ts:6:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+1791828347132 START "/home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web"
+1791828347135 COMPLETED 620 FILES 0 ERRORS 0 WARNINGS 0 FILES_WITH_PROBLEMS

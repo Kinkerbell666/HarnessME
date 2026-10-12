@@ -1,0 +1,3 @@
+PASS json parses as a list
+PASS entry removed (--allow-removal: the pin credits the line; the patch gate must cover it without an attestation)
+conditions (1)+(2): PASS (removal)

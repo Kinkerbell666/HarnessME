@@ -5615,6 +5615,9 @@ order, error code or message. The existing suites cover every changed line, so n
       (w00/w-sync-merge/ruling-patch-base-after-sync.txt) and the check-web-vitest-coverage.ts decision
       (w00/w-sync-merge/gate-change-decision.txt) were both unused.
 - [x] PR #318 reads BLOCKED and MERGEABLE at `2fd05e200` (it was DIRTY before the sync).
+- [x] Post-merge main syncs (W-SYNC-4 and W-SYNC-5): origin/main 6eb1bbb33 (the PR 318 merge) merged at 94b17348f (0 files, ancestry only; main leg 0
+      findings under the new binding; receipts 25a22ac3f); origin/main 6ffd88784 (Pi 0.99.2 #333 and the four web bumps #335) merged at f430182c8
+      (the 4 manifest and lock files equal main's blobs; root and web frozen installs; hold status 0: lockfiles byte-identical after the installs, Pi 0.99.2 installed, 9 manifest and Pi suites, typecheck and svelte-check 0, deps-audit clean, the whole web vitest pool 7952/7952, guard 516/0, main leg 0 findings; receipts bfce8cd5d).
 
 ## Wave 4 close (2026-10-01): follow-ups and standing user items
 
@@ -5927,6 +5930,13 @@ wrong; the leg built to prove it disproved it, and the change it motivated was r
       hosted run; a bare Hub render takes 3.6 s locally; the toast lives 5 s): the case awaits the Hub page response and the title with the file's 20 s
       render wait, the add-folder response with status 200 and the exact ok:false body, then the toast inside its life; spec-only, no sleep:
       validator-8 ACCEPT 01349409e1e1d68d at a708a22c8; merge c329cb4f7 / receipts 06da341d7. Both land in one push (wave4i-3-push5).
+- [x] W4H-23 (post-merge: the nightly mutation workflow on main was red since 6eb1bbb33 — the wave's new zero-test-survivor guard met 5 static mutants
+      that break a test file at load time, which runner 10.0.0 records as "Survived, 0 tests"; the earlier green nights had measured almost nothing):
+      the runner patch now lets a test file that fails to load kill the mutant that broke it, only when the initial run loaded that file and an alone
+      run without the mutant is reported and passes; a file the initial run could not load never kills, and a kill whose reason equals the file's initial-run failure is
+      refused (validator-8 F1 at 614dafa9b: a false kill from a $server import that resolved only some of the time; REJECT e0cfd62aaf81a86d);
+      a 19-case pin test; shards 3/6 and 5/6 green with 0 zero-test survivors and 0 resolution-reason kills: validator-8
+      REJECT e0cfd62aaf81a86d at 614dafa9b then ACCEPT 1aebc9e9b61cdefa at 308d362e3 (R4: 54c5e493b initial-run seeding + message rule, 28adbc34d positive alone-run proof); merge fdf8ac512 / receipts 888f39653. Lands in the follow-up PR after the two main syncs.
 
 ## Leftover after wave 4i — 2026-10-05
 
@@ -5998,6 +6008,21 @@ Added after wave4i-2 (coordinator, 2026-10-06…08; details in w00/wave4h/leftov
       red cannot show what the page looked like. Enable trace/screenshot on failure for the proof lanes and upload them (W4H-22 finding).
 - [ ] The orchestrator test "continues only from a quiescent state and restores absolute timers" takes 60.0 s in every run (a real 60 s wait); it is the
       likely site of the hosted hang and sets the per-test timeout floor. Make the wait fake-clocked or bounded (W4H-21 finding).
+- [ ] Nightly mutation: 33 web/src/lib files report every mutant as NoCoverage at both e3309906d and 6eb1bbb33 because Stryker's vitest `related` filter
+      cannot follow their tests' $lib-aliased imports (the same set, reshuffled across shards as the scope grew 190 → 200). Per file: exclude it in
+      mutateGlobs when the bun leg owns its tests, or make its test import followable (W4H-23 finding B; not the red).
+- [ ] Nightly mutation: the honest merged score is about 50–56 percent against the 80 break threshold. Before the Vitest 5 testNamePattern patch
+      (81dfe3cb4) the green nights measured almost nothing (11772 of 18934 mutants with 0 tests on run 38042900360). Whether to keep 80, lower it
+      with a plan, or stay report-only is a maintainer decision (W4H-23).
+- [ ] Nightly mutation: 30–33 web test files per shard never load inside the Stryker sandbox because they import code outside web/ ($server/runtime/
+      routing/default-selection via src/lib/model-selector-logic.ts 128 times, other $server paths, extensions/); they ran on no night. Decide per file:
+      make the import sandbox-safe, or exclude the module from mutateGlobs with the reason (W4H-23 finding; the runner patch now WARNs with the list).
+- [ ] Nightly mutation: inside the Stryker sandbox the `$server` alias points to web/.stryker-tmp/src, which does not exist, so
+      `$server/runtime/routing/default-selection` never resolves there and 22 test files fail to load on every run (W4H-23 R4). The false kill
+      validator-8 saw came from Vitest's late-bail cancel race (runFiles clears isCancelling while the previous mutant run's bail still cancels; a
+      cancelled file is registered with no result), named from Vitest's code and not reproduced on demand. Decide: point the sandbox alias at the
+      copied source, or exclude the 22 files with the reason. Until then the runner patch never counts a kill from a file the initial run could not
+      load, needs a passing alone run as proof, and WARNs the list; shard-check.py binds "0 kills with a resolution reason".
 
 ## W4H-11 — bundled bootstrap deadline on the hosted 4-CPU runner (branch `wp/w4h-11-bootstrap-deadline` from integ/w00 1bc5f63c7; gates `tasks/factory/w4h-11-GATES.md`)
 

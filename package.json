@@ -8,8 +8,8 @@
     "packages/@ezcorp/*"
   ],
   "overrides": {
-    "@earendil-works/pi-ai": "0.87.1",
-    "@earendil-works/pi-telemetry": "0.87.1",
+    "@earendil-works/pi-ai": "0.99.2",
+    "@earendil-works/pi-telemetry": "0.99.2",
     "esbuild": "0.28.1",
     "zod": "4.5.4",
     "sharp": "0.35.5",
@@ -66,8 +66,8 @@
     "@aws-sdk/client-kms": "3.1131.0",
     "@aws-sdk/client-s3": "3.1131.0",
     "@balena/dockerignore": "1.0.2",
-    "@earendil-works/pi-agent-core": "0.87.1",
-    "@earendil-works/pi-ai": "0.87.1",
+    "@earendil-works/pi-agent-core": "0.99.2",
+    "@earendil-works/pi-ai": "0.99.2",
     "@electric-sql/pglite": "0.5.8",
     "@electric-sql/pglite-pgvector": "0.0.9",
     "@ezcorp/ai-kit": "workspace:*",

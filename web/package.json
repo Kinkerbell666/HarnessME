@@ -32,7 +32,7 @@
 		"@testing-library/svelte": "^5.3.1",
 		"@types/jsdom": "^30.0.0",
 		"@typescript/native": "npm:typescript@7.0.2",
-		"@vitest/coverage-v8": "5.0.2",
+		"@vitest/coverage-v8": "5.0.3",
 		"ast-v8-to-istanbul": "1.0.7",
 		"istanbul-lib-coverage": "3.2.2",
 		"jsdom": "^30.1.1",
@@ -41,14 +41,14 @@
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "^4.2.1",
 		"typescript": "^6.0.3",
-		"vite": "^8.3.1",
-		"vitest": "5.0.2"
+		"vite": "^8.3.2",
+		"vitest": "5.0.3"
 	},
 	"dependencies": {
 		"@electric-sql/pglite": "0.5.8",
 		"@electric-sql/pglite-pgvector": "0.0.9",
 		"@huggingface/transformers": "^4.3.0",
-		"@xyflow/svelte": "1.6.6",
+		"@xyflow/svelte": "1.7.0",
 		"ansi_up": "^6.0.6",
 		"diff2html": "^3.4.56",
 		"elkjs": "0.12.0",

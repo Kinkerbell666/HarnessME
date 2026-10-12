@@ -1,0 +1,243 @@
+excerpt of per-file-coverage-gate.raw (699 lines, 68505 bytes, sha256 6130d9df29bf8a56eab2ed2dfc7ebd2732406ce2722037c7faa7aa2e8134b0be): the first 80 and the last 160 lines, ANSI and timestamps stripped; the full log stays in the evidence dir
+----- first 80 -----
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {8a7dec20-f88a-4f66-9c81-29d1bb7bb5ee}
+Region: westus
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Complete job name: Per-file coverage gate
+##[group]Run if [ "success" != "success" ] || \
+if [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ] || \
+   [ "success" != "success" ]; then
+  echo "::error::coverage producers failed — coverage data is incomplete"
+  exit 1
+fi
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+with:
+  fetch-depth: 0
+  repository: ezcorp-org/EZHarness
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+Syncing repository: ezcorp-org/EZHarness
+##[group]Getting Git version info
+Working directory is '/home/runner/work/EZHarness/EZHarness'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/9e02f552-fe0b-4ac8-b8e1-7b0fdb5998bc' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+----- last 160 -----
+  skip-decompress: false
+  digest-mismatch: error
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+Downloading single artifact
+Preparing to download the following artifacts:
+- browser-route-coverage (ID: 11780735031, Size: 588127, Expected Digest: sha256:98a7af4591ad33b3ea641bde0667aadb480cc035a89e4faa6cf1693e37630936)
+Redirecting to blob download url: https://productionresultssa1.blob.core.windows.net/actions-results/831265e9-866f-8f8c-b727-82d765f3f7cc/workflow-job-run-2fe60fe6-0158-56d7-9dc3-dd1ee4f39e5d/artifacts/31a667bc1b4082b557b006b9977037425556ff5d446189040d1ed5cf566a6c9b.zip
+Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/browser-route-coverage-artifact
+(node:2498) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+SHA256 digest of downloaded artifact is 98a7af4591ad33b3ea641bde0667aadb480cc035a89e4faa6cf1693e37630936
+Artifact download completed successfully.
+Total of 1 artifact(s) downloaded
+Download artifact has finished successfully
+##[group]Run test -s browser-route-coverage-artifact/lcov.info
+test -s browser-route-coverage-artifact/lcov.info
+cp browser-route-coverage-artifact/lcov.info coverage-artifacts/lcov_browser_routes.info
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+##[group]Run bun scripts/check-web-vitest-coverage.ts coverage-artifacts/lcov_web_vitest_*.info
+bun scripts/check-web-vitest-coverage.ts coverage-artifacts/lcov_web_vitest_*.info
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+web Vitest coverage records every configured executable source (619 candidates)
+##[group]Run mkdir -p coverage
+mkdir -p coverage
+bun scripts/merge-lcov.ts "coverage-artifacts/*.info" coverage/lcov.info
+bun scripts/check-coverage.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+merged 2385 source files → coverage/lcov.info
+Coverage gate PASSED: 2234 enforced file(s) at or above threshold.
+##[group]Run bun scripts/check-new-file-coverage.ts
+bun scripts/check-new-file-coverage.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+  BASE_REF: origin/main
+##[endgroup]
+New-file coverage gate PASSED: no new source files in this diff.
+##[group]Run bun scripts/check-patch-coverage.ts
+bun scripts/check-patch-coverage.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+  BASE_REF: origin/main
+##[endgroup]
+Patch coverage gate PASSED: all changed executable lines covered (0 file(s)).
+##[group]Run bun scripts/check-global-coverage.ts
+bun scripts/check-global-coverage.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+
+Global line coverage: 98.09% (213694/217855 lines across 2368 files), floor 90%
+✓ at or above the 90% floor (margin 8.09 points)
+##[group]Run bun scripts/crap-score.ts --changed
+bun scripts/crap-score.ts --changed
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+  BASE_REF: origin/main
+##[endgroup]
+CRAP: --changed against origin/main → 0 measured file(s) in diff
+
+CRAP: 0 functions in 0 files (max 30, warn 15)
+
+✓ no touched function exceeds CRAP 30
+##[group]Run bun scripts/quality-report.ts --text --expect coverage,crap
+bun scripts/quality-report.ts --text --expect coverage,crap
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+
+=== Quality gates: PASS ===
+  expected: coverage, crap
+  coverage: {"passed":true,"linePct":98.09,"threshold":90}
+  crap: {"passed":true,"mode":"touched-functions","violations":0,"functionsScored":0,"maxScore":30}
+
+No failures.
+Structured summary: /home/runner/work/EZHarness/EZHarness/coverage/quality/summary.json
+##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+with:
+  name: quality-reports
+  path: coverage/quality
+  retention-days: 7
+  if-no-files-found: warn
+  compression-level: 6
+  overwrite: false
+  include-hidden-files: false
+  archive: true
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+With the provided path, there will be 3 files uploaded
+Artifact name is valid!
+Root directory input is valid!
+Uploading artifact: quality-reports.zip
+Beginning upload of artifact content to blob storage
+Uploaded bytes 1939
+Finished uploading artifact content to blob storage!
+SHA256 digest of uploaded artifact is b80c4eb9b2d6e27b9e31ba689581379a0d59295b4f4d68057adee4957e4bb216
+Finalizing artifact upload
+Artifact quality-reports successfully finalized. Artifact ID 11780146838
+Artifact quality-reports has been successfully uploaded! Final size is 1939 bytes. Artifact ID is 11780146838
+Artifact download URL: https://github.com/ezcorp-org/EZHarness/actions/runs/38322209985/artifacts/11780146838
+Post job cleanup.
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/0ab410a3-dcc9-46ee-b75b-2aa2c425f349' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+/home/runner/work/_temp/git-credentials-675e57cc-564a-457c-af1e-1480b2f067d9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-675e57cc\-564a\-457c\-af1e\-1480b2f067d9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+/home/runner/work/_temp/git-credentials-675e57cc-564a-457c-af1e-1480b2f067d9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-675e57cc\-564a\-457c\-af1e\-1480b2f067d9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-675e57cc-564a-457c-af1e-1480b2f067d9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-675e57cc\-564a\-457c\-af1e\-1480b2f067d9\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-675e57cc-564a-457c-af1e-1480b2f067d9.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-675e57cc\-564a\-457c\-af1e\-1480b2f067d9\.config
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/home/runner/work/_temp/git-credentials-675e57cc-564a-457c-af1e-1480b2f067d9.config'
+Cleaning up orphan processes

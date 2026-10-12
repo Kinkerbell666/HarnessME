@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# integrator-5: push-checklist step 4, push8 (lead's word 2026-10-12): fast-forward feat/factory-platform-followup-1 from f0cde0407 to the
+# push7 receipts head 044253aa3 (branch only; the integ worktree stays on integ/w00) and push it ONCE from the integ worktree through tc_run lock-free
+# (pre-push hook = typecheck + svelte-check). No -u (it would write a branch section into the SHARED .git/config). No retry.
+set -u
+I=/home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration; P=/tmp/factory-platform-evidence/w00/wave4i-3/push8
+B=feat/factory-platform-followup-1; H=044253aa392d00b7eec3adefbf8f818e06a9edae; OLD=f0cde0407281bb7561b1f7a3221647e1d996d791
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
+cd "$I" || exit 2
+. /tmp/factory-platform-evidence/w00/bun-pin.sh; bun_pin "$I" || exit 95
+[ "$(git rev-parse HEAD)" = $H ] && [ "$(git rev-parse integ/w00)" = $H ] && [ -z "$(git status --porcelain)" ] && [ "$(git branch --show-current)" = integ/w00 ] || { echo "REFUSED: integ worktree not clean at $H on integ/w00"; exit 3; }
+python3 /tmp/factory-platform-evidence/w00/config-check.py --check-only || { echo "STOP: config"; exit 1; }
+[ "$(git rev-parse $B)" = $OLD ] && [ "$(git ls-remote origin refs/heads/$B | cut -c1-40)" = $OLD ] || { echo "REFUSED: $B is not at $OLD locally and remotely"; exit 4; }
+git merge-base --is-ancestor $OLD $H || { echo "REFUSED: not a fast-forward"; exit 5; }
+git branch -f $B $H || exit 5; echo "fast-forwarded $B $OLD -> $(git rev-parse $B)"
+. /tmp/factory-platform-evidence/w00/tc-gate.sh
+echo "try 1 $(date -u +%FT%TZ)"
+TC_IN_LOCK=0 tc_run push $P/tc-gate.log git push origin "refs/heads/$B:refs/heads/$B"; rc=$?
+echo "push exit=$rc $(date -u +%FT%TZ)"
+git fetch origin $B >/dev/null 2>&1
+echo "local $B $(git rev-parse $B) remote $(git ls-remote origin refs/heads/$B | cut -c1-40)"
+python3 /tmp/factory-platform-evidence/w00/config-check.py --check-only
+exit $rc

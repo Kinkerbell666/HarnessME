@@ -1,0 +1,386 @@
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {34582bc2-686f-4fa8-ab0c-a93643b37db8}
+Region: westus3
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Complete job name: Gate integrity
+##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+with:
+  fetch-depth: 0
+  repository: ezcorp-org/EZHarness
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+Syncing repository: ezcorp-org/EZHarness
+##[group]Getting Git version info
+Working directory is '/home/runner/work/EZHarness/EZHarness'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/855af2aa-177d-4015-bbf5-77e5089b612b' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Deleting the contents of '/home/runner/work/EZHarness/EZHarness'
+##[group]Determining repository object format
+##[endgroup]
+##[group]Initializing the repository
+[command]/usr/bin/git init /home/runner/work/EZHarness/EZHarness
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /home/runner/work/EZHarness/EZHarness/.git/
+[command]/usr/bin/git remote add origin https://github.com/ezcorp-org/EZHarness
+##[endgroup]
+##[group]Disabling automatic garbage collection
+[command]/usr/bin/git config --local gc.auto 0
+##[endgroup]
+##[group]Setting up auth
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+[command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+[command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path /home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+##[endgroup]
+##[group]Fetching the repository
+[command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +15ed3187d6ad95f0f72a1045fd349e185c950a42:refs/remotes/pull/337/merge
+From https://github.com/ezcorp-org/EZHarness
+ * [new branch]          chore/biome-2.5.6                        -> origin/chore/biome-2.5.6
+ * [new branch]          chore/biome-denylist-and-no-explicit-any -> origin/chore/biome-denylist-and-no-explicit-any
+ * [new branch]          chore/dependabot-group-pglite-pair       -> origin/chore/dependabot-group-pglite-pair
+ * [new branch]          chore/drop-unused-svelte-drawer          -> origin/chore/drop-unused-svelte-drawer
+ * [new branch]          chore/enable-biome-formatter             -> origin/chore/enable-biome-formatter
+ * [new branch]          chore/lint-worktree-fix-and-codeowners   -> origin/chore/lint-worktree-fix-and-codeowners
+ * [new branch]          chore/nested-resolver-comment-and-ratchet-assessment -> origin/chore/nested-resolver-comment-and-ratchet-assessment
+ * [new branch]          chore/path-independent-assertions        -> origin/chore/path-independent-assertions
+ * [new branch]          chore/pi-085-combined                    -> origin/chore/pi-085-combined
+ * [new branch]          chore/projects-root-followup             -> origin/chore/projects-root-followup
+ * [new branch]          chore/recover-dropped-test-and-prune-plan -> origin/chore/recover-dropped-test-and-prune-plan
+ * [new branch]          chore/shrink-noexplicitany-override      -> origin/chore/shrink-noexplicitany-override
+ * [new branch]          chore/testing-infra-review               -> origin/chore/testing-infra-review
+ * [new branch]          chore/unsafe-optional-chaining           -> origin/chore/unsafe-optional-chaining
+ * [new branch]          ci/coverage-gate-tells-the-truth         -> origin/ci/coverage-gate-tells-the-truth
+ * [new branch]          ci/coverage-retry-preserve-instrumentation -> origin/ci/coverage-retry-preserve-instrumentation
+ * [new branch]          ci/dependabot-exclude-breaking           -> origin/ci/dependabot-exclude-breaking
+ * [new branch]          ci/dependency-audit-gate                 -> origin/ci/dependency-audit-gate
+ * [new branch]          ci/dependency-boundary-guard             -> origin/ci/dependency-boundary-guard
+ * [new branch]          ci/gate-integrity-biome-awareness        -> origin/ci/gate-integrity-biome-awareness
+ * [new branch]          ci/gitleaks-secret-scan                  -> origin/ci/gitleaks-secret-scan
+ * [new branch]          ci/harden-gate-integrity-detectors       -> origin/ci/harden-gate-integrity-detectors
+ * [new branch]          ci/pin-actions-and-release-runtime       -> origin/ci/pin-actions-and-release-runtime
+ * [new branch]          ci/quality-gates                         -> origin/ci/quality-gates
+ * [new branch]          ci/test-pool-worker-watchdog             -> origin/ci/test-pool-worker-watchdog
+ * [new branch]          ci/wire-chat-e2e-into-blocking-lane      -> origin/ci/wire-chat-e2e-into-blocking-lane
+ * [new branch]          diagnostic/chromium-context-0733/20260907 -> origin/diagnostic/chromium-context-0733/20260907
+ * [new branch]          docs/local-verification-scope            -> origin/docs/local-verification-scope
+ * [new branch]          evidence/pr-303                          -> origin/evidence/pr-303
+ * [new branch]          feat/author-installations-names          -> origin/feat/author-installations-names
+ * [new branch]          feat/chat-turn-collapse                  -> origin/feat/chat-turn-collapse
+ * [new branch]          feat/composable-factory-platform         -> origin/feat/composable-factory-platform
+ * [new branch]          feat/extension-v4                        -> origin/feat/extension-v4
+ * [new branch]          feat/factory-platform-followup-1         -> origin/feat/factory-platform-followup-1
+ * [new branch]          feat/kb-share-a-file                     -> origin/feat/kb-share-a-file
+ * [new branch]          feat/kilo-provider                       -> origin/feat/kilo-provider
+ * [new branch]          feat/pi-0.83                             -> origin/feat/pi-0.83
+ * [new branch]          feat/pluggable-infrastructure-v1         -> origin/feat/pluggable-infrastructure-v1
+ * [new branch]          feat/projects-under-ezcorp               -> origin/feat/projects-under-ezcorp
+ * [new branch]          feat/trusted-local-runner                -> origin/feat/trusted-local-runner
+ * [new branch]          feat/workflow-output-template            -> origin/feat/workflow-output-template
+ * [new branch]          feat/workflow-run-card                   -> origin/feat/workflow-run-card
+ * [new branch]          fix/agents-page-breadcrumb               -> origin/fix/agents-page-breadcrumb
+ * [new branch]          fix/audit-mcp-sdk-sharp                  -> origin/fix/audit-mcp-sdk-sharp
+ * [new branch]          fix/audit-proxy-addr-source-map-js       -> origin/fix/audit-proxy-addr-source-map-js
+ * [new branch]          fix/bundled-auto-wire-reconcile          -> origin/fix/bundled-auto-wire-reconcile
+ * [new branch]          fix/bundled-bootstrap-runner-retry       -> origin/fix/bundled-bootstrap-runner-retry
+ * [new branch]          fix/chat-stick-to-bottom-latch           -> origin/fix/chat-stick-to-bottom-latch
+ * [new branch]          fix/compaction-readonly-and-implicit-any-let -> origin/fix/compaction-readonly-and-implicit-any-let
+ * [new branch]          fix/connection-fault-stop-reason         -> origin/fix/connection-fault-stop-reason
+ * [new branch]          fix/consent-hash-semantic-split          -> origin/fix/consent-hash-semantic-split
+ * [new branch]          fix/context-denominator-follows-model-switch -> origin/fix/context-denominator-follows-model-switch
+ * [new branch]          fix/default-extension-runner             -> origin/fix/default-extension-runner
+ * [new branch]          fix/devstack-diagnostics                 -> origin/fix/devstack-diagnostics
+ * [new branch]          fix/devstack-vite-ssr                    -> origin/fix/devstack-vite-ssr
+ * [new branch]          fix/duplication-audit-fixes              -> origin/fix/duplication-audit-fixes
+ * [new branch]          fix/e2e-hydration-readiness-gate         -> origin/fix/e2e-hydration-readiness-gate
+ * [new branch]          fix/effort-on-custom-models              -> origin/fix/effort-on-custom-models
+ * [new branch]          fix/etl-envelope-and-trigger-sweep       -> origin/fix/etl-envelope-and-trigger-sweep
+ * [new branch]          fix/extension-install-path-portability   -> origin/fix/extension-install-path-portability
+ * [new branch]          fix/extension-release-persistence        -> origin/fix/extension-release-persistence
+ * [new branch]          fix/extension-uninstall-path-containment -> origin/fix/extension-uninstall-path-containment
+ * [new branch]          fix/gate-vacuous-test-parser-extents     -> origin/fix/gate-vacuous-test-parser-extents
+ * [new branch]          fix/git-fixture-environment-isolation    -> origin/fix/git-fixture-environment-isolation
+ * [new branch]          fix/health-detail-unreachable            -> origin/fix/health-detail-unreachable
+ * [new branch]          fix/hook-tests-without-git-env           -> origin/fix/hook-tests-without-git-env
+ * [new branch]          fix/http-extension-uuid                  -> origin/fix/http-extension-uuid
+ * [new branch]          fix/mask-canonical-worktrees             -> origin/fix/mask-canonical-worktrees
+ * [new branch]          fix/mask-root-pi-secret                  -> origin/fix/mask-root-pi-secret
+ * [new branch]          fix/memory-dedup-write-columns           -> origin/fix/memory-dedup-write-columns
+ * [new branch]          fix/memory-extractor-silent-llm-failure  -> origin/fix/memory-extractor-silent-llm-failure
+ * [new branch]          fix/mock-cleanup-comment-scrape          -> origin/fix/mock-cleanup-comment-scrape
+ * [new branch]          fix/mock-llm-base-url-port               -> origin/fix/mock-llm-base-url-port
+ * [new branch]          fix/rbacscopes-diff-revert               -> origin/fix/rbacscopes-diff-revert
+ * [new branch]          fix/resources-proof-settle               -> origin/fix/resources-proof-settle
+ * [new branch]          fix/save-memory-vacuous-tests            -> origin/fix/save-memory-vacuous-tests
+ * [new branch]          fix/sharp-security-update                -> origin/fix/sharp-security-update
+ * [new branch]          fix/tool-call-persist-losses             -> origin/fix/tool-call-persist-losses
+ * [new branch]          fix/transformers-v4                      -> origin/fix/transformers-v4
+ * [new branch]          fix/ts7-tsgo-migration                   -> origin/fix/ts7-tsgo-migration
+ * [new branch]          fix/validate-coverage-oct12              -> origin/fix/validate-coverage-oct12
+ * [new branch]          main                                     -> origin/main
+ * [new branch]          perf/pglite-migrated-snapshot-cache      -> origin/perf/pglite-migrated-snapshot-cache
+ * [new branch]          refactor/extract-project-root-module     -> origin/refactor/extract-project-root-module
+ * [new branch]          refactor/own-session-types               -> origin/refactor/own-session-types
+ * [new branch]          security/api-registry-scope-ratchet      -> origin/security/api-registry-scope-ratchet
+ * [new branch]          security/file-organizer-path-containment -> origin/security/file-organizer-path-containment
+ * [new branch]          security/kb-retrieval-user-scope         -> origin/security/kb-retrieval-user-scope
+ * [new branch]          security/project-permission-mode-authz   -> origin/security/project-permission-mode-authz
+ * [new branch]          test/hermetic-drafts-handler             -> origin/test/hermetic-drafts-handler
+ * [new branch]          test/no-assertions-on-user-managed-data  -> origin/test/no-assertions-on-user-managed-data
+ * [new branch]          test/pin-wall-clock-and-parallelism      -> origin/test/pin-wall-clock-and-parallelism
+ * [new branch]          test/session-characterization            -> origin/test/session-characterization
+ * [new ref]             15ed3187d6ad95f0f72a1045fd349e185c950a42 -> pull/337/merge
+##[endgroup]
+##[group]Determining the checkout info
+##[endgroup]
+[command]/usr/bin/git sparse-checkout disable
+[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+##[group]Checking out the ref
+[command]/usr/bin/git checkout --progress --force refs/remotes/pull/337/merge
+Updating files:  44% (6695/15211)
+Updating files:  45% (6845/15211)
+Updating files:  46% (6998/15211)
+Updating files:  47% (7150/15211)
+Updating files:  48% (7302/15211)
+Updating files:  49% (7454/15211)
+Updating files:  50% (7606/15211)
+Updating files:  51% (7758/15211)
+Updating files:  52% (7910/15211)
+Updating files:  53% (8062/15211)
+Updating files:  54% (8214/15211)
+Updating files:  55% (8367/15211)
+Updating files:  56% (8519/15211)
+Updating files:  57% (8671/15211)
+Updating files:  58% (8823/15211)
+Updating files:  59% (8975/15211)
+Updating files:  60% (9127/15211)
+Updating files:  61% (9279/15211)
+Updating files:  62% (9431/15211)
+Updating files:  63% (9583/15211)
+Updating files:  64% (9736/15211)
+Updating files:  65% (9888/15211)
+Updating files:  66% (10040/15211)
+Updating files:  67% (10192/15211)
+Updating files:  68% (10344/15211)
+Updating files:  69% (10496/15211)
+Updating files:  70% (10648/15211)
+Updating files:  71% (10800/15211)
+Updating files:  72% (10952/15211)
+Updating files:  73% (11105/15211)
+Updating files:  74% (11257/15211)
+Updating files:  75% (11409/15211)
+Updating files:  76% (11561/15211)
+Updating files:  77% (11713/15211)
+Updating files:  78% (11865/15211)
+Updating files:  79% (12017/15211)
+Updating files:  80% (12169/15211)
+Updating files:  81% (12321/15211)
+Updating files:  82% (12474/15211)
+Updating files:  83% (12626/15211)
+Updating files:  84% (12778/15211)
+Updating files:  85% (12930/15211)
+Updating files:  86% (13082/15211)
+Updating files:  87% (13234/15211)
+Updating files:  88% (13386/15211)
+Updating files:  89% (13538/15211)
+Updating files:  90% (13690/15211)
+Updating files:  91% (13843/15211)
+Updating files:  92% (13995/15211)
+Updating files:  93% (14147/15211)
+Updating files:  94% (14299/15211)
+Updating files:  95% (14451/15211)
+Updating files:  96% (14603/15211)
+Updating files:  97% (14755/15211)
+Updating files:  98% (14907/15211)
+Updating files:  99% (15059/15211)
+Updating files: 100% (15211/15211)
+Updating files: 100% (15211/15211), done.
+Note: switching to 'refs/remotes/pull/337/merge'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at 15ed3187d Merge 044253aa392d00b7eec3adefbf8f818e06a9edae into 6ffd887848d5d1215d80f3c88db140eee296c42e
+##[endgroup]
+[command]/usr/bin/git log -1 --format=%H
+15ed3187d6ad95f0f72a1045fd349e185c950a42
+##[group]Run oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+with:
+  bun-version-file: .bun-version
+  no-cache: false
+  token: ***
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+Obtained version 1.4.2 from .bun-version
+Cache hit for: bun-gmoqYqdUbaYsI0KujeXt7Zg/p0I=
+Received 29360128 of 35684134 (82.3%), 28.0 MBs/sec
+Received 35684134 of 35684134 (100.0%), 32.3 MBs/sec
+Cache Size: ~34 MB (35684134 B)
+[command]/usr/bin/tar -xf /home/runner/work/_temp/fbe89b22-182d-4113-87de-9973dd3ac1d1/cache.tzst -P -C /home/runner/work/EZHarness/EZHarness --use-compress-program unzstd
+Cache restored successfully
+[command]/home/runner/.bun/bin/bun --revision
+1.4.2+744846f84
+Using a cached version of Bun: 1.4.2+744846f84
+##[group]Run git fetch --no-tags origin main
+git fetch --no-tags origin main
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+From https://github.com/ezcorp-org/EZHarness
+ * branch                main       -> FETCH_HEAD
+Prepare all required actions
+##[group]Run ./.github/actions/gate-integrity-deps
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+##[start-action display=Install gate-integrity parser;id=__self.__run]
+##[group]Run bun install --cwd .github/gate-integrity-deps --frozen-lockfile --ignore-scripts
+bun install --cwd .github/gate-integrity-deps --frozen-lockfile --ignore-scripts
+shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+bun install v1.4.2 (744846f84)
+
++ typescript@5.9.3
+
+1 package installed [146.00ms]
+##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=162]
+##[group]Run bun scripts/gate-integrity.ts
+bun scripts/gate-integrity.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+  BASE_REF: origin/main
+  GATE_CHANGE_APPROVED: 
+  NODE_PATH: /home/runner/work/EZHarness/EZHarness/.github/gate-integrity-deps/node_modules
+##[endgroup]
+Gate integrity PASSED: no gate-weakening or test-cheating changes detected.
+##[group]Run bun scripts/check-factory-lanes.ts
+bun scripts/check-factory-lanes.ts
+shell: /usr/bin/bash -e {0}
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+C11 lane inventory passed: 7 lanes with declared producers, artifacts, and runner labels.
+Post job cleanup.
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/fc9a9e31-6d33-418b-a11e-3ae13f020310' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+/home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-535050c2\-9435\-4d05\-9b93\-1bb6686847d3\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+/home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-535050c2\-9435\-4d05\-9b93\-1bb6686847d3\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-535050c2\-9435\-4d05\-9b93\-1bb6686847d3\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-535050c2\-9435\-4d05\-9b93\-1bb6686847d3\.config
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/home/runner/work/_temp/git-credentials-535050c2-9435-4d05-9b93-1bb6686847d3.config'
+Cleaning up orphan processes

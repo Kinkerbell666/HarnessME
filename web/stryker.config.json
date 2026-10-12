@@ -66,7 +66,18 @@
     "(run-format.ts: 97.98% on Vitest 4.1.11, 9.09% on 5.0.0, same tests). The",
     "patch mirrors the upstream fix (stryker-js issue 6210, PR 6214). Drop it once",
     "a released runner carries the fix; a version bump that silently drops it is",
-    "caught by scripts/mutation.ts (survivorsWithoutTests fails the run)."
+    "caught by scripts/mutation.ts (survivorsWithoutTests fails the run).",
+    "The same patch also lets a test FILE that fails to load or collect kill a",
+    "mutant. Runner 10.0.0 reads only per-test results, and bail=1 cancels the",
+    "other files, so a mutant that throws at import time (settings-nav.ts:162)",
+    "or in a describe body (chat-turn-collapse.unit.test.ts) was recorded",
+    "Survived with 0 tests although the tests detected it. The file counts only",
+    "when the initial test run did not list it, its message is not one of that",
+    "run's failure messages, and it runs ALONE without the mutant and passes: about",
+    "30 test files per shard cannot load in the sandbox at all (imports outside",
+    "web/), and they must never kill anything. The initial test run names them in",
+    "a warning and records them for every worker. web/src/__tests__/",
+    "stryker-vitest-runner-patch.unit.test.ts pins this."
   ],
 
   "packageManager": "npm",

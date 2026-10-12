@@ -2101,3 +2101,13 @@ smokes under the lock, detached-job wake-ups) are not repeated.
 - Runner homes and checkout snapshots live outside the evidence dir (/tmp/<pkg>-home-*/) or are removed after each run.
 - A public image you pulled (for example docker.io/pgvector/pgvector:pg15) is not your tag; leave public images in place. Only tags you
   built (localhost/<pkg>-*) are yours to remove by name.
+
+### W4H-23 (2026-10-12)
+- Owner: never edit a shell script while a run executes it. Bash reads a script as it goes, so an edit shifts the bytes the
+  running shell reads next. Copy the script to a new name and change the copy. (I edited my R2 wrapper mid-run and had to
+  restore its original bytes before the shell left its loop.)
+- Owner: a guard that turns a silent artifact into a red can expose a second silent artifact under it. Before counting a new
+  failure kind as a kill, measure its baseline: 30-33 test files per shard already fail to load in the Stryker sandbox, so
+  "a test file failed" must mean "failed WITH the mutant and loaded WITHOUT it".
+- Owner: a green nightly can measure nothing. The mutation nightly was green while 11772 of 18934 mutants ran zero tests;
+  read the per-mutant test counts, not the exit code, before calling a quality gate green.

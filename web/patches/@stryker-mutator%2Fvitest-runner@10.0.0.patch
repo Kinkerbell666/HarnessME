@@ -153,7 +153,7 @@ index fa4f8138ab3b2aba64f4e715be2d8126da6ccf8b..02ee2bb4522c62d12cbc9468a1f0ed23
      if (!suite) {
          return undefined;
 diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
-index 84f1ca026503b8e92b7adc952ec6c6a401943656..13a21d9a644aa6a93b73908911fe8f227ba75bdb 100644
+index 84f1ca026503b8e92b7adc952ec6c6a401943656..83b3b9b0775b43493d3ff8f30b96d7f265e38fb9 100644
 --- a/dist/src/vitest-test-runner.js
 +++ b/dist/src/vitest-test-runner.js
 @@ -7,7 +7,8 @@ import { commonTokens, tokens, } from '@stryker-mutator/api/plugin';
@@ -247,7 +247,7 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..13a21d9a644aa6a93b73908911fe8f22
          if (!failure && this.ctx.state.errorsSet.size > 0) {
              const errorText = [...this.ctx.state.errorsSet]
                  .map(errorToString)
-@@ -186,8 +221,44 @@ export class VitestTestRunner {
+@@ -186,8 +221,45 @@ export class VitestTestRunner {
                  errorMessage: `An error occurred outside of a test run: ${errorText}`,
              };
          }
@@ -259,9 +259,8 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..13a21d9a644aa6a93b73908911fe8f22
 +     * initial run left no record, when the initial run listed the same file (the
 +     * baseline of this sandbox, even if the file loads alone later), or when its
 +     * message equals any initial-run failure message (a resolution error is never
-+     * mutant-caused). Any other file kills only if it also loads cleanly ALONE
-+     * without the mutant; that answer is cached per file, and the file runs alone
-+     * so bail cannot cancel it.
++     * mutant-caused). Any other file kills only if it runs ALONE without the
++     * mutant and passes; that answer is cached per file.
 +     */
 +    async #killedByLoadFailure(failedFiles) {
 +        const initial = this.#readInitialLoadFailures();
@@ -277,7 +276,9 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..13a21d9a644aa6a93b73908911fe8f22
 +            }
 +            this.ctx.provide('mode', 'dry-run');
 +            await this.run({ testFiles: [fileName] });
-+            this.#loadsWithoutMutant.set(fileName, !this.ctx.state.getFiles().some((file) => file.result?.state === 'fail'));
++            // Positive evidence only: the file ran and passed. A file the alone run cancelled (a late bail
++            // from the previous run) or did not report at all has proved nothing and never kills.
++            this.#loadsWithoutMutant.set(fileName, this.ctx.state.getFiles().some((file) => path.resolve(file.filepath) === fileName && file.result?.state === 'pass'));
 +        }
 +        return candidates.filter(({ fileName }) => this.#loadsWithoutMutant.get(fileName));
 +    }

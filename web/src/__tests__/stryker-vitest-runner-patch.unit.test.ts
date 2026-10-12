@@ -132,8 +132,12 @@ const B = "/repo/web/src/lib/model-selector-logic.unit.test.ts";
 const C = "/repo/web/src/lib/chat-turn-collapse.unit.test.ts";
 const UNRESOLVED = 'Failed to resolve import "$server/runtime/routing/default-selection"';
 
-/** Where each phase fails to load: the initial run, a mutant run, and a file run alone without a mutant. */
-type LoadFails = { initial?: string[]; mutant?: string[]; alone?: string[] };
+/**
+ * Where each phase fails to load: the initial run, a mutant run, and a file run alone without a mutant.
+ * `cancelled` files come back from the alone run with no result (a late bail cancels the run);
+ * `missing` files are not reported by the alone run at all.
+ */
+type LoadFails = { initial?: string[]; mutant?: string[]; alone?: string[]; cancelled?: string[]; missing?: string[] };
 
 /**
  * A runner over a fake Vitest context. `start(undefined)` runs the related set
@@ -167,7 +171,11 @@ function fakeRunner(
 			const mode = provided.mode as string;
 			starts.push({ mode, files: requested });
 			const phase = mode === "mutant" ? "mutant" : requested ? "alone" : "initial";
-			files = (requested ?? [A, B, C]).map((path) => {
+			const reported = (requested ?? [A, B, C]).filter((path) => phase !== "alone" || !(fails.missing ?? []).includes(path));
+			files = reported.map((path) => {
+				if (phase === "alone" && (fails.cancelled ?? []).includes(path)) {
+					return { ...file(path.slice("/repo/web/".length), undefined), meta: {} };
+				}
 				if ((fails[phase] ?? []).includes(path)) {
 					const message = opts.messages?.[`${phase}:${path}`] ?? opts.messages?.[path] ?? `cannot load ${path}`;
 					const failed = file(path.slice("/repo/web/".length), { state: "fail", errors: [{ message }] });
@@ -257,6 +265,21 @@ describe("VitestTestRunner with the patch", () => {
 		await runner.mutantRun(STATIC_MUTANT);
 		expect(first).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
 		expect(aloneRuns(starts)).toEqual([{ mode: "dry-run", files: [resolve(B)] }]);
+	});
+
+	it("never kills when the alone run cancels the file before it reports a result", async () => {
+		const { runner, starts } = fakeRunner({ mutant: [A], cancelled: [A] });
+		await runner.dryRun(INITIAL_RUN);
+		const verdict = await runner.mutantRun(STATIC_MUTANT);
+		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
+		expect(aloneRuns(starts)).toEqual([{ mode: "dry-run", files: [resolve(A)] }]);
+	});
+
+	it("never kills when the alone run does not report the file at all", async () => {
+		const { runner } = fakeRunner({ mutant: [A], missing: [A] });
+		await runner.dryRun(INITIAL_RUN);
+		const verdict = await runner.mutantRun(STATIC_MUTANT);
+		expect(verdict).toMatchObject({ status: MutantRunStatus.Survived, nrOfTests: 2 });
 	});
 
 	it("needs no baseline when a test already failed: the failed test kills the mutant", async () => {

@@ -73,7 +73,7 @@
     "or in a describe body (chat-turn-collapse.unit.test.ts) was recorded",
     "Survived with 0 tests although the tests detected it. The file counts only",
     "when the initial test run did not list it, its message is not one of that",
-    "run's failure messages, and it loads cleanly ALONE without the mutant: about",
+    "run's failure messages, and it runs ALONE without the mutant and passes: about",
     "30 test files per shard cannot load in the sandbox at all (imports outside",
     "web/), and they must never kill anything. The initial test run names them in",
     "a warning and records them for every worker. web/src/__tests__/",

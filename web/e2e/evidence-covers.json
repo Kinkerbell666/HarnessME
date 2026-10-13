@@ -38,7 +38,8 @@
   ],
   "web/e2e/streaming-toolbar.spec.ts": [
     "web/src/lib/components/ShortcutHelp.svelte",
-    "web/src/lib/components/ChatInput.svelte"
+    "web/src/lib/components/ChatInput.svelte",
+    "web/src/lib/components/ChatMessage.svelte"
   ],
   "web/e2e/tool-card-rendering.spec.ts": [
     "web/src/lib/components/tool-cards/SearchResultsCard.svelte"
@@ -102,6 +103,9 @@
   ],
   "web/e2e/admin-routing-cost.spec.ts": [
     "web/src/routes/(app)/admin/dashboard/+page.svelte"
+  ],
+  "web/e2e/account-page.spec.ts": [
+    "web/src/routes/(app)/account/+page.svelte"
   ],
   "web/e2e/agent-panel-parity.spec.ts": [
     "web/src/lib/components/ChatThread.svelte",
@@ -536,7 +540,9 @@
   ],
   "web/e2e/reliability.spec.ts": [
     "web/src/lib/components/ChatThread.svelte",
-    "web/src/lib/components/ChatMessage.svelte"
+    "web/src/lib/components/ChatMessage.svelte",
+    "web/src/lib/components/chat/ConnectionBanner.svelte",
+    "web/src/lib/components/ChatInput.svelte"
   ],
   "web/e2e/bottom-sheet-pickers.spec.ts": [
     "web/src/lib/components/ExtensionAttachPicker.svelte"

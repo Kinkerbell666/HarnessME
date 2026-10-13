@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { browserBuild } from "../src/browser";
 
-const spec = { schemaVersion: 1, entrypoint: "app.js", html: "index.html", styles: ["style.css"], tools: ["echo"] };
+const spec = { schemaVersion: 1 as const, entrypoint: "app.js", html: "index.html", styles: ["style.css"], tools: ["echo"] };
 const files = { "app.js": "", "index.html": "", "style.css": "" };
 
 test("browser build is explicit and admits only bounded frozen text inputs", () => {

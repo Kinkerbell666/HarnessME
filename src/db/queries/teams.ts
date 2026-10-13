@@ -29,6 +29,7 @@ export async function deleteTeam(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/** Add a member, or set the role of an existing one (unique on team + user). */
 export async function addTeamMember(
   teamId: string,
   userId: string,
@@ -37,6 +38,7 @@ export async function addTeamMember(
   const rows = await getDb()
     .insert(teamMembers)
     .values({ teamId, userId, role })
+    .onConflictDoUpdate({ target: [teamMembers.teamId, teamMembers.userId], set: { role } })
     .returning();
   return rows[0]!;
 }

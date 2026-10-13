@@ -554,6 +554,22 @@ describe("storage-handler handleList branches", () => {
     const keys = (resp.result as any).keys.map((k: any) => k.key).sort();
     expect(keys).toEqual(["alpha-1", "alpha-2"]);
   });
+
+  test.each([["abc"], [-1], [2.5]])("list with an invalid limit %p → -32602, not an unbounded or failed query", async (limit) => {
+    const ext = uniqueExtId("ext-list-badlimit");
+    const m = makeManifest(ext, "1MB");
+    await insertExtension(ext, m);
+    const resp = await handleStorageRpc(ext, rpc("list", { limit }), makeCtx(m));
+    expect(resp.error?.code).toBe(-32602);
+  });
+
+  test("list with a non-string prefix → -32602", async () => {
+    const ext = uniqueExtId("ext-list-badprefix");
+    const m = makeManifest(ext, "1MB");
+    await insertExtension(ext, m);
+    const resp = await handleStorageRpc(ext, rpc("list", { prefix: 42 }), makeCtx(m));
+    expect(resp.error?.code).toBe(-32602);
+  });
 });
 
 // ── handleBatch branches ───────────────────────────────────────────

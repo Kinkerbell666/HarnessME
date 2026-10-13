@@ -385,6 +385,24 @@ export function insertMentionToken(
 }
 
 /**
+ * Commit a built-in literal command (e.g. `/goal`) picked from the popover.
+ *
+ * Literal commands render as a compact pill whose width slightly exceeds its
+ * short raw text, so in the overlay the pill overflows and visually swallows
+ * a single trailing space. Commit TWO trailing spaces (normalising whatever
+ * the entry carried) so the pill clears the cursor and the user gets a
+ * visible gap to type the argument. The `/goal` interceptor trims
+ * everything after the token, so the extra space has no wire effect.
+ */
+export function commitCommandLiteral(
+	value: string,
+	cursorPos: number,
+	insertText: string,
+): { text: string; cursor: number } {
+	return insertCommandLiteral(value, cursorPos, insertText.trimEnd() + "  ");
+}
+
+/**
  * Replace the active `/` slash-command trigger span with raw literal text
  * (e.g. `"/goal "`) instead of a structured `/[cmd:name]` token.
  *

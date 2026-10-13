@@ -293,24 +293,28 @@ export async function listRecentConversationsForUser(
     .limit(options?.limit ?? 10);
 }
 
-export async function getTestConversations(agentConfigId: string): Promise<Conversation[]> {
+// Agent configs are shared, but a test conversation belongs to the user who
+// ran it: both queries see only `userId`'s rows.
+function ownTestConversations(agentConfigId: string, userId: string) {
+  return and(
+    eq(conversations.agentConfigId, agentConfigId),
+    eq(conversations.test, true),
+    eq(conversations.userId, userId),
+  );
+}
+
+export async function getTestConversations(agentConfigId: string, userId: string): Promise<Conversation[]> {
   return getDb()
     .select()
     .from(conversations)
-    .where(and(
-      eq(conversations.agentConfigId, agentConfigId),
-      eq(conversations.test, true),
-    ))
+    .where(ownTestConversations(agentConfigId, userId))
     .orderBy(desc(conversations.createdAt));
 }
 
-export async function deleteTestConversations(agentConfigId: string): Promise<number> {
+export async function deleteTestConversations(agentConfigId: string, userId: string): Promise<number> {
   const rows = await getDb()
     .delete(conversations)
-    .where(and(
-      eq(conversations.agentConfigId, agentConfigId),
-      eq(conversations.test, true),
-    ))
+    .where(ownTestConversations(agentConfigId, userId))
     .returning({ id: conversations.id });
   return rows.length;
 }

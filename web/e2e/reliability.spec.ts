@@ -191,6 +191,40 @@ test("Connected flash + re-enabled input after a real (post-grace) outage", asyn
 	await expect(textarea).toHaveAttribute("placeholder", "Send a message...");
 });
 
+test("after moving between chats, the banner and composer still follow the connection @evidence", async ({
+	page,
+	mockApi,
+}, testInfo) => {
+	const proj = makeProject({ id: "proj-1" });
+	const convs = [
+		makeConversation({ id: "conv-1", projectId: "proj-1", title: "First chat" }),
+		makeConversation({ id: "conv-2", projectId: "proj-1", title: "Second chat" }),
+	];
+	await mockApi({ projects: [proj], conversations: convs });
+	await installSseOutageHarness(page);
+	await page.goto("/project/proj-1/chat/conv-1");
+	await waitForChatReady(page);
+
+	// The composer and the banner subscribe on mount and unsubscribe on
+	// unmount; a client-side move to another chat must leave exactly one
+	// live subscription that still drives both.
+	await page.locator('[data-testid="chat-nav-thread"][data-conversation-id="conv-2"]').first().click();
+	await expect(page).toHaveURL(/\/chat\/conv-2$/);
+	await waitForChatReady(page);
+
+	await dropSse(page);
+	await elapseGrace(page);
+	await expect(page.getByText(/Connection lost\. Reconnecting/)).toBeVisible();
+	const textarea = page.locator("textarea");
+	await expect(textarea).toHaveAttribute("placeholder", "Reconnecting...");
+	await captureEvidence(page, testInfo, "connection-banner-reconnecting");
+
+	await restoreSse(page);
+	await expect(page.getByText("Connected")).toBeVisible();
+	await expect(textarea).toBeEnabled();
+	await expect(textarea).toHaveAttribute("placeholder", "Send a message...");
+});
+
 test("connection banner shows Connection failed with Retry button", async ({ page, mockApi }) => {
 	await mockApi(chatSetup());
 	await installSseOutageHarness(page);

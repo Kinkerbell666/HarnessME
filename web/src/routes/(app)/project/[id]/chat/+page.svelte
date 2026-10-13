@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
 	import { createConversation, fetchConversations } from "$lib/api.js";
 	import { store, refreshQuickstart, notifyConversationsChanged } from "$lib/stores.svelte.js";
 	import ConversationList from "$lib/components/ConversationList.svelte";
@@ -17,7 +16,13 @@
 
 	// Redirect to last-opened chat, or most recent conversation.
 	// On mobile we never auto-redirect — the chat index is the list view.
-	onMount(() => {
+	// An effect, not onMount: SvelteKit reuses this page when only `?all` or
+	// the project changes (the sidebar's Chat label from All chats, or a
+	// project switch), and each of those must decide the redirect again.
+	$effect(() => {
+		const forProject = projectId;
+		const showAllNow = showAll;
+		checked = false;
 		// `cancelled` guards the post-await redirects: if the user navigates
 		// away while a conversation lookup is in flight, a late goto() would
 		// yank them back to this chat-index shell. Same guard as the hub
@@ -25,20 +30,20 @@
 		let cancelled = false;
 		void (async () => {
 			const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-			if (isMobile || showAll) {
+			if (isMobile || showAllNow) {
 				checked = true;
 				return;
 			}
 
 			// 1. Try the last chat the user had open for this project
-			const lastConvId = localStorage.getItem(`ezcorp-last-chat:${projectId}`);
+			const lastConvId = localStorage.getItem(`ezcorp-last-chat:${forProject}`);
 			if (lastConvId) {
 				try {
 					const { fetchConversation } = await import("$lib/api.js");
 					const conv = await fetchConversation(lastConvId);
 					if (cancelled) return;
-					if (conv && conv.projectId === projectId) {
-						goto(`/project/${projectId}/chat/${lastConvId}`, { replaceState: true });
+					if (conv && conv.projectId === forProject) {
+						goto(`/project/${forProject}/chat/${lastConvId}`, { replaceState: true });
 						return;
 					}
 				} catch { /* deleted or inaccessible — fall through */ }
@@ -46,10 +51,10 @@
 
 			// 2. Fall back to most recent conversation
 			try {
-				const convs = await fetchConversations(projectId, { limit: 1 });
+				const convs = await fetchConversations(forProject, { limit: 1 });
 				if (cancelled) return;
 				if (convs.length > 0) {
-					goto(`/project/${projectId}/chat/${convs[0].id}`, { replaceState: true });
+					goto(`/project/${forProject}/chat/${convs[0].id}`, { replaceState: true });
 					return;
 				}
 			} catch { /* fall through to empty state */ }

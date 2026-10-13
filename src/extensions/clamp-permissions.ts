@@ -15,7 +15,7 @@
  * remain inline at the route level — no behavior change.
  */
 import type { ExtensionManifestV2, ExtensionPermissions } from "./types";
-import { parseCron, type CronInstance } from "./cron";
+import { validateCron } from "./cron";
 import { capabilityToolsDisabled } from "./capability-flags";
 import {
   DIRECT_CARRIER_EVENT_TYPES,
@@ -403,66 +403,6 @@ export function clampLessonsPermission(
   };
 }
 
-function isFiveFieldCron(expr: string): boolean {
-  const trimmed = expr.trim();
-  // Reject @every/@hourly etc and anything with seconds (6-field).
-  if (trimmed.startsWith("@")) return false;
-  const parts = trimmed.split(/\s+/);
-  return parts.length === 5;
-}
-
-const MIN_INTERVAL_MS = 5 * 60_000;
-// Number of consecutive fires to inspect. A sub-5-minute gap always
-// shows up as adjacent fires, so a modest window is enough to surface
-// any dense cluster (`0-59 * * * *`, `1,2,3 * * * *`, `0/1 * * * *`).
-const MIN_INTERVAL_SAMPLES = 48;
-// Fixed reference instant — NOT `Date.now()`, so the gate is
-// deterministic and reproducible regardless of when it runs.
-const MIN_INTERVAL_REFERENCE = new Date(Date.UTC(2024, 0, 1, 0, 0, 0));
-
-/**
- * Enforce the 5-minute floor by WALKING actual fire times rather than
- * pattern-matching a handful of string forms. The old regex blocklist
- * (`* * * * *`, `*\/1..4`) let trivially-equivalent expressions through
- * — `0-59 * * * *`, `1,2,3 * * * *`, `0/1 * * * *` all fire at
- * minute resolution. Here we parse with the production cron engine and
- * require every consecutive gap to be >= 5 minutes.
- */
-function passesMinIntervalGate(expr: string): boolean {
-  let cron: CronInstance;
-  try {
-    cron = parseCron(expr, "UTC");
-  } catch {
-    // Unparseable → reject. (isFiveFieldCron already ran, so this is a
-    // defensive backstop for range/step errors validateCron catches.)
-    return false;
-  }
-  // Seed `prev` with the FIRST fire, not the reference instant — the
-  // reference is arbitrary and almost never a fire time, so measuring
-  // reference→first-fire would falsely reject e.g. `2 * * * *` (a 2-min
-  // offset from midnight, but a real 60-min cadence). We only care about
-  // the gap BETWEEN consecutive fires.
-  let prev: Date;
-  try {
-    prev = cron.next(MIN_INTERVAL_REFERENCE);
-  } catch {
-    // No fire within the engine's 4-year horizon → impossible/sparse
-    // schedule that can't violate the floor.
-    return true;
-  }
-  for (let i = 0; i < MIN_INTERVAL_SAMPLES; i++) {
-    let next: Date;
-    try {
-      next = cron.next(prev);
-    } catch {
-      return true;
-    }
-    if (next.getTime() - prev.getTime() < MIN_INTERVAL_MS) return false;
-    prev = next;
-  }
-  return true;
-}
-
 export function clampSchedulePermission(
   submitted: ExtensionPermissions["schedule"] | undefined,
   manifest: ExtensionManifestV2["permissions"]["schedule"] | undefined,
@@ -480,14 +420,13 @@ export function clampSchedulePermission(
 
   // Manifest is source of truth for crons (extension cannot smuggle
   // in extra schedules at activate time).
-  // Cap the candidate list BEFORE the per-cron interval walk — the walk
-  // can be expensive for impossible expressions (a 4-year no-match
-  // search), so bound how many we evaluate rather than walking an
-  // unbounded manifest array.
+  // Cap the candidate list BEFORE validation — its interval walk can be
+  // expensive for impossible expressions (a 4-year no-match search), so
+  // bound how many we evaluate rather than walking an unbounded array.
   const crons = (manifest.crons ?? [])
-    .filter((c) => typeof c === "string" && isFiveFieldCron(c))
+    .filter((c) => typeof c === "string")
     .slice(0, 8)
-    .filter((c) => passesMinIntervalGate(c));
+    .filter((c) => validateCron(c).ok);
   if (crons.length === 0) return undefined;
 
   const policyChoices = new Set(["skip", "fire-once", "fire-all"]);

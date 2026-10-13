@@ -20,6 +20,8 @@
 		unreadForkCount,
 	} from "$lib/conversation-grouping.js";
 	import { unreadStore } from "$lib/unread.js";
+	import { createLatestSearch } from "$lib/latest-search.js";
+	import { onDestroy } from "svelte";
 	import { CONVERSATIONS_CHANGED, notifyConversationsChanged } from "$lib/stores.svelte.js";
 	import DeleteConfirmDialog from "./DeleteConfirmDialog.svelte";
 	import MentionText from "./MentionText.svelte";
@@ -69,7 +71,7 @@
 
 	// Reactive unread tracking — bump revision on store changes
 	let unreadRev = $state(0);
-	unreadStore.subscribe(() => { unreadRev++; });
+	$effect(() => unreadStore.subscribe(() => { unreadRev++; }));
 
 	// Search state
 	let searchOpen = $state(false);
@@ -87,8 +89,17 @@
 	let messageResults = $state<MessageSearchHit[]>([]);
 	let lastResponse = $state<SearchMessagesResponse | null>(null);
 
-	// Debounce for API search
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+	// Debounced API search; a slower answer to an older query never lands.
+	const messageSearch = createLatestSearch<SearchMessagesResponse | null>({
+		delayMs: 300,
+		fallback: null,
+		onLoading: (loading) => { searchLoading = loading; },
+		onResult: (resp) => {
+			messageResults = resp?.hits ?? [];
+			lastResponse = resp;
+		},
+	});
+	onDestroy(messageSearch.cancel);
 
 	function openSearch() {
 		searchOpen = true;
@@ -100,32 +111,21 @@
 		searchQuery = "";
 		messageResults = [];
 		lastResponse = null;
-		searchLoading = false;
-		clearTimeout(searchTimer);
+		messageSearch.cancel();
 	}
 
 	function handleSearchInput() {
-		clearTimeout(searchTimer);
 		if (searchQuery.length < 2) {
 			messageResults = [];
 			lastResponse = null;
-			searchLoading = false;
+			messageSearch.cancel();
 			return;
 		}
 		const q = searchQuery;
 		const mode = searchMode;
+		// Show the spinner through the debounce too, not only once it fires.
 		searchLoading = true;
-		searchTimer = setTimeout(async () => {
-			try {
-				const resp = await searchMessages(projectId, q, { mode });
-				messageResults = resp.hits;
-				lastResponse = resp;
-			} catch {
-				messageResults = [];
-				lastResponse = null;
-			}
-			searchLoading = false;
-		}, 300);
+		messageSearch.schedule(() => searchMessages(projectId, q, { mode }));
 	}
 
 	// UI-01/UI-02: explicit mode selection. Persist to the global key, then
@@ -171,28 +171,37 @@
 		loadConversations();
 	}
 
+	// Loads overlap: a project switch, or several change events in a row.
+	// Only the latest load may write, or a slow answer for the previous
+	// project would replace the list the user is looking at.
+	let loadGeneration = 0;
+
 	async function loadConversations() {
+		const generation = ++loadGeneration;
 		conversationsLoading = true;
 		hasMore = true;
 		try {
 			const page = await fetchConversations(projectId, { limit: PAGE_SIZE, offset: 0 });
+			if (generation !== loadGeneration) return;
 			conversations = page;
 			hasMore = page.length === PAGE_SIZE;
 		} catch {
 			// silent
 		} finally {
-			conversationsLoading = false;
+			if (generation === loadGeneration) conversationsLoading = false;
 		}
 	}
 
 	async function loadMore() {
 		if (loadingMore || !hasMore || conversationsLoading || isSearchActive) return;
+		const generation = loadGeneration;
 		loadingMore = true;
 		try {
 			const page = await fetchConversations(projectId, {
 				limit: PAGE_SIZE,
 				offset: conversations.length,
 			});
+			if (generation !== loadGeneration) return;
 			// De-dupe in case items shifted between pages (e.g., updatedAt changed)
 			const seen = new Set(conversations.map((c) => c.id));
 			const fresh = page.filter((c) => !seen.has(c.id));

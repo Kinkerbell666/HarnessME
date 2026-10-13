@@ -41,11 +41,13 @@ export class SearchCache {
   }
 
   /** Build the canonical cache key: `provider:kind:query`. The query is
-   *  normalized (trim + lowercase) so trivially-different queries share
-   *  a slot; the `extra` segment carries result-count / char-cap so a
-   *  maxResults change doesn't serve a stale-sized payload. */
+   *  trimmed; a search query is also lowercased so trivially-different
+   *  queries share a slot. A read URL keeps its case — URL paths are
+   *  case-sensitive. The `extra` segment carries result-count / char-cap
+   *  so a maxResults change doesn't serve a stale-sized payload. */
   static key(provider: string, kind: "search" | "read", query: string, extra: string | number): string {
-    return `${provider}:${kind}:${query.trim().toLowerCase()}:${extra}`;
+    const trimmed = query.trim();
+    return `${provider}:${kind}:${kind === "search" ? trimmed.toLowerCase() : trimmed}:${extra}`;
   }
 
   get(key: string): string | undefined {

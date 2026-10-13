@@ -123,7 +123,7 @@ export type CapabilitySet = readonly Capability[];
  * tuple, the engine returns `prompt`. Phase 6 will wire the UI; Phase 1
  * treats `prompt` as `allow` to avoid behavioral regression.
  */
-export const SENSITIVE_KINDS: ReadonlySet<CapabilityKind> = new Set<CapabilityKind>([
+export const SENSITIVE_KINDS: ReadonlySet<CapabilityKind> = new Set<SensitiveCapabilityKind>([
   "shell",
   "fs.write",
   // Installing model-authored code that then runs with its declared
@@ -135,6 +135,13 @@ export const SENSITIVE_KINDS: ReadonlySet<CapabilityKind> = new Set<CapabilityKi
   // prompts every time and is never an always-allow grant.
   "ezcorp:extension:modify",
 ]);
+
+/** A capability the PDP may `prompt` for; named as-is in the user's prompt. */
+export type SensitiveCapabilityKind =
+  | "shell"
+  | "fs.write"
+  | "ezcorp:extension:install"
+  | "ezcorp:extension:modify";
 
 // DELIBERATE OMISSION — `ezcorp:mcp:invoke` is NOT sensitive.
 //

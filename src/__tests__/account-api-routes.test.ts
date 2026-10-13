@@ -19,6 +19,7 @@ import { PUT as passwordPut } from "../../web/src/routes/api/account/password/+s
 
 // ── DB helpers ───────────────────────────────────────────────────
 import { users, auditLog } from "../db/schema";
+import { createSession, listSessionsByUser } from "../db/queries/sessions";
 import { hashPassword, verifyPassword } from "../auth/password";
 import type { AuthUser } from "../auth/types";
 
@@ -253,7 +254,10 @@ describe("PUT /api/account/password", () => {
     expect(res.status).toBe(400);
   });
 
-  test("clears session cookie on success", async () => {
+  test("keeps the current session and its cookie, and revokes the user's other sessions", async () => {
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    const current = await createSession({ userId: testUserId, tokenHash: `pw-current-${crypto.randomUUID()}`, expiresAt });
+    const other = await createSession({ userId: testUserId, tokenHash: `pw-other-${crypto.randomUUID()}`, expiresAt });
     const event = createMockEvent({
       method: "PUT",
       url: "http://localhost/api/account/password",
@@ -261,12 +265,15 @@ describe("PUT /api/account/password", () => {
       user: testUser,
       cookies: { ezcorp_session: "some-session-token" },
     });
+    event.locals.sessionId = current.id;
 
-    await passwordPut(event);
+    const res = await passwordPut(event);
 
-    // Session cookie should be cleared (set to empty with maxAge 0)
-    const sessionCookie = event.cookies.get("ezcorp_session");
-    expect(sessionCookie === "" || sessionCookie === null).toBe(true);
+    expect(res.status).toBe(200);
+    expect(event.cookies.get("ezcorp_session")).toBe("some-session-token");
+    const remaining = (await listSessionsByUser(testUserId)).map((session) => session.id);
+    expect(remaining).toContain(current.id);
+    expect(remaining).not.toContain(other.id);
   });
 
   test("returns 401 for unauthenticated request", async () => {

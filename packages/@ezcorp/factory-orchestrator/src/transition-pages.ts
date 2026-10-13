@@ -17,13 +17,13 @@ import type {
 import { MAX_PAGE_BYTES, MAX_TRANSITION_BYTES } from "./contracts.ts";
 import { assertActivityPayloadSize, validateObjectReference } from "./validation.ts";
 
-interface TransitionWriter {
+export interface TransitionWriter {
   stageTransitionPage(request: TransitionPageRequest): Promise<TransitionPageReference>;
   finalizeTransitionArtifact(request: FactoryIdentity & { readonly sourceSequence: number; readonly encodedBytes: number; readonly eventId: string; readonly expectedEventHash?: string; readonly pages: readonly TransitionPageReference[] }): Promise<FinalizedTransitionArtifact>;
   recordTransition(record: TransitionRecord): Promise<void>;
 }
 
-type TransitionReader = Pick<FactoryActivities, "loadTransitionManifest" | "loadTransitionPage">;
+export type TransitionReader = Pick<FactoryActivities, "loadTransitionManifest" | "loadTransitionPage">;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });

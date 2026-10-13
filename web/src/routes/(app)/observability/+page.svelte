@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import EmptyState from "$lib/components/EmptyState.svelte";
 	import { store } from "$lib/stores.svelte.js";
 
@@ -11,6 +10,8 @@
 		avgResponseMs: number;
 		tokensByDay: { date: string; input: number; output: number }[];
 		topExtensions: { extensionId: string; callCount: number; successRate: number; avgDurationMs: number }[];
+		/** "all": every user's totals (admins); "own": the caller's conversations. */
+		scope: "all" | "own";
 	}
 
 	let stats = $state<GlobalStats | null>(null);
@@ -38,10 +39,7 @@
 		}
 	}
 
-	onMount(() => {
-		loadStats();
-	});
-
+	// Runs on mount too: an onMount load as well fetched everything twice.
 	$effect(() => {
 		void selectedRange;
 		loadStats();
@@ -66,7 +64,14 @@
 
 <div class="mx-auto max-w-4xl space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-[var(--color-text-primary)]">Analytics</h1>
+		<div>
+			<h1 class="text-2xl font-bold text-[var(--color-text-primary)]">Analytics</h1>
+			{#if stats}
+				<p class="text-xs text-[var(--color-text-muted)]" data-testid="analytics-scope">
+					{stats.scope === "all" ? "All users" : "Your conversations"}
+				</p>
+			{/if}
+		</div>
 		<div class="flex gap-1">
 			{#each RANGES as range}
 				<button

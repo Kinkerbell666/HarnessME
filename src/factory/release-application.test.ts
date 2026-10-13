@@ -68,6 +68,15 @@ test("release application authorizes reconciliation before provider lookup", asy
   expect(f.providers.resolve).not.toHaveBeenCalled();
 });
 
+test("release application authorizes a prepare before it reads the run's acceptance or resolves a profile", async () => {
+  const f = fixture();
+  f.grants.authorize.mockRejectedValueOnce(new Error("factory_forbidden"));
+  await expect(f.application.prepare(actor, "project-of-another-user", { runId: operation.runId, nodeInstanceId: operation.nodeInstanceId, candidateGeneration: 0, decisionId: operation.decisionId, candidateDigest: operation.candidateDigest, action: operation.action, destination: operation.destination, request: {}, estimatedSpendMicros: 1, deadlineMs: operation.deadlineMs }, "prepare-denied")).rejects.toThrow("factory_forbidden");
+  expect(f.grants.authorize).toHaveBeenCalledWith(actor, "project-of-another-user", "factory.release");
+  expect(f.releases.resolvePreparation).not.toHaveBeenCalled();
+  expect(f.releases.prepare).not.toHaveBeenCalled();
+});
+
 test("release application snapshots mutable public bodies before awaiting stores", async () => {
   const f = fixture();
   let finishContract!: () => void;

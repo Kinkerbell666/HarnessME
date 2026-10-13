@@ -925,8 +925,15 @@ export async function checkPrefixForWrite(
  */
 function buildStreamingFrames(
   id: number | string,
-  wireStr: string,
+  wire: string,
 ): string[] {
+  // Chunks are Latin-1 bytes (receivers `atob` each one), so escape every
+  // non-ASCII char as a JSON `\uXXXX` sequence. Otherwise a resolvedPath
+  // above U+00FF is truncated to one byte and the JSON does not parse.
+  const wireStr = wire.replace(
+    /[\u0080-\uffff]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
   const total = Math.ceil(wireStr.length / CHUNK_SIZE);
   const frames: string[] = [`\x02${id}:${total}\n`];
   for (let i = 0; i < total; i++) {

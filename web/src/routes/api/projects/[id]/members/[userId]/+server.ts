@@ -4,6 +4,7 @@ import { getProject } from "$server/db/queries/projects";
 import { checkProjectRole } from "$server/auth/middleware";
 import { requireScope } from "$lib/server/security/api-keys";
 import { errorJson } from "$lib/server/http-errors";
+import { lastOwnerConflict } from "../_owner-guard";
 import type { RequestHandler } from "./$types";
 
 /**
@@ -37,6 +38,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   if (count <= 1) {
     return errorJson(409, "A project must keep at least one member");
   }
+
+  const conflict = await lastOwnerConflict(params.id, params.userId);
+  if (conflict) return conflict;
 
   const removed = await memberQueries.removeProjectMember(params.id, params.userId);
   if (!removed) return errorJson(404, "Not found");

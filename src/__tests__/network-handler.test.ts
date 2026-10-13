@@ -86,6 +86,22 @@ function makeReq(params: Record<string, unknown> = {}): JsonRpcRequest {
   return { jsonrpc: "2.0", id: 42, method: "ezcorp/network.internal", params };
 }
 
+/** Allows only the listed hostnames, like a manifest network grant. */
+function makeHostEngine(allowed: string[], seen: string[] = []): NetworkInternalContext["engine"] {
+  return {
+    authorize: async (_ctx, needed) => {
+      const host = String(needed[0]?.value);
+      seen.push(host);
+      return allowed.includes(host)
+        ? { decision: "allow", auditId: "stub-allow" }
+        : { decision: "deny", reason: `no grant for ${host}`, auditId: "stub-deny" };
+    },
+    resolvePrompt: async () => {},
+    flushAudit: async () => {},
+    _resetCacheForTests: () => {},
+  };
+}
+
 // ── handleNetworkInternalRpc — input validation ──────────────────
 
 describe("handleNetworkInternalRpc — input validation", () => {
@@ -520,5 +536,90 @@ describe("isInternalHost — IPv4-mapped IPv6 loopback", () => {
   test("malformed mapped forms don't throw and stay external", () => {
     expect(isInternalHost("::ffff:nothex:zz")).toBe(false);
     expect(isInternalHost("::ffff:")).toBe(false);
+  });
+});
+
+// ── handleNetworkInternalRpc — redirects (real local servers) ────
+
+describe("handleNetworkInternalRpc — every redirect hop is gated", () => {
+  test("a granted host cannot redirect the host fetch to an ungranted host", async () => {
+    const secret = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("internal secret") });
+    const granted = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.redirect(`http://127.0.0.1:${secret.port}/admin`, 302),
+    });
+    try {
+      const seen: string[] = [];
+      const res = await handleNetworkInternalRpc(
+        makeReq({ url: `http://localhost:${granted.port}/start` }),
+        makeCtx({ engine: makeHostEngine(["localhost"], seen) }),
+      );
+      expect(res.result).toBeUndefined();
+      expect(res.error?.code).toBe(-32001);
+      expect(res.error?.message).toContain("127.0.0.1");
+      expect(seen).toEqual(["localhost", "127.0.0.1"]);
+    } finally {
+      granted.stop(true);
+      secret.stop(true);
+    }
+  });
+
+  test("a redirect inside the grant is followed, and a 303 turns a POST into a GET without a body", async () => {
+    const methods: string[] = [];
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: async (req) => {
+        methods.push(`${req.method}:${await req.text()}`);
+        return new URL(req.url).pathname === "/start"
+          ? new Response(null, { status: 303, headers: { location: "/done" } })
+          : new Response("done");
+      },
+    });
+    try {
+      const res = await handleNetworkInternalRpc(
+        makeReq({ url: `http://localhost:${server.port}/start`, init: { method: "POST", body: "x=1" } }),
+        makeCtx({ engine: makeHostEngine(["localhost"]) }),
+      );
+      const result = res.result as { status: number; body: string };
+      expect(result.status).toBe(200);
+      expect(Buffer.from(result.body, "base64").toString()).toBe("done");
+      expect(methods).toEqual(["POST:x=1", "GET:"]);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("credentials are not sent to a different origin after a redirect", async () => {
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, headers: { ...(init?.headers as Record<string, string>) } });
+      return calls.length === 1
+        ? new Response(null, { status: 307, headers: { location: "http://127.0.0.1:9/next" } })
+        : new Response("ok");
+    }) as unknown as typeof fetch;
+    const res = await handleNetworkInternalRpc(
+      makeReq({ url: "http://localhost:9/start", init: { headers: { Authorization: "Bearer t", "x-trace": "1" } } }),
+      makeCtx({ engine: makeHostEngine(["localhost", "127.0.0.1"]) }),
+      { fetchImpl },
+    );
+    expect((res.result as { status: number }).status).toBe(200);
+    expect(calls.map((c) => c.headers)).toEqual([{ Authorization: "Bearer t", "x-trace": "1" }, { "x-trace": "1" }]);
+  });
+
+  test.each([
+    ["a redirect loop", "http://localhost:9/loop", "too many redirects"],
+    ["a non-http location", "file:///etc/passwd", "invalid redirect location"],
+  ])("%s → -32000", async (_name, location, message) => {
+    const fetchImpl = (async () =>
+      new Response(null, { status: 302, headers: { location } })) as unknown as typeof fetch;
+    const res = await handleNetworkInternalRpc(
+      makeReq({ url: "http://localhost:9/start" }),
+      makeCtx({ engine: makeHostEngine(["localhost"]) }),
+      { fetchImpl },
+    );
+    expect(res.error?.code).toBe(-32000);
+    expect(res.error?.message).toContain(message);
   });
 });

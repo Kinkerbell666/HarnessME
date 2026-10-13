@@ -312,6 +312,47 @@ describe("kill switch", () => {
   });
 });
 
+describe("disabled extension (held until re-enable, like the schedule daemon)", () => {
+  async function setEnabled(name: string, enabled: boolean): Promise<void> {
+    await getTestDb().update(extensions).set({ enabled }).where(eq(extensions.name, name));
+  }
+
+  test("a queued delivery is not claimed while disabled, does not starve other extensions, and drains on re-enable", async () => {
+    const OTHER = "wh-daemon-other";
+    await getTestDb().insert(extensions).values({
+      name: OTHER, version: "0.0.1", description: "",
+      manifest: { schemaVersion: 2, name: OTHER, version: "0.0.1", description: "", author: { name: "t" }, permissions: {} } as never,
+      source: "test", enabled: true, grantedPermissions: {} as never,
+    }).onConflictDoNothing();
+    const [otherHook] = await getTestDb().insert(extensionWebhooks).values({ extensionId: OTHER, slug: "other", enabled: true })
+      .onConflictDoNothing().returning({ id: extensionWebhooks.id });
+    const held = await insertPending({ receivedAt: new Date("2026-07-16T09:00:00.000Z") });
+    const [otherRow] = await getTestDb().insert(webhookDeliveries).values({
+      webhookId: otherHook!.id, extensionId: OTHER, slug: "other", status: "pending",
+      contentType: "application/json", body: "{}", receivedAt: new Date("2026-07-16T10:00:00.000Z"),
+    }).returning({ id: webhookDeliveries.id });
+
+    await setEnabled(EXT_NAME, false);
+    try {
+      const sink: Fire[] = [];
+      const daemon = new WebhookDeliveryDaemon({ registry: makeRegistry(true, sink), resolveExtensionId, maxPerTick: 1 });
+      expect(await daemon.tick()).toEqual({ claimed: 1, dispatched: 1 });
+      expect(await statusOf(held)).toBe("pending");
+      expect(await statusOf(otherRow!.id)).toBe("ok");
+      expect(sink.map((f) => (f.params as { input: { slug: string } }).input.slug)).toEqual(["other"]);
+
+      await drainDelivery(held, makeRegistry(true, sink), () => new Date(), resolveExtensionId);
+      expect(await statusOf(held)).toBe("pending");
+
+      await setEnabled(EXT_NAME, true);
+      expect(await daemon.tick()).toEqual({ claimed: 1, dispatched: 1 });
+      expect(await statusOf(held)).toBe("ok");
+    } finally {
+      await setEnabled(EXT_NAME, true);
+    }
+  });
+});
+
 describe("crash reap", () => {
   test("a stale running row (old claimedAt) reverts to pending on start()", async () => {
     const id = await insertPending({

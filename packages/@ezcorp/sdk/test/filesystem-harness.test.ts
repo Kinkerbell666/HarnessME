@@ -47,7 +47,7 @@ test("in-process filesystem stub rejects unrelated host calls", async () => {
   const request = getChannel().request;
   try {
     await expect(request("ezcorp/network.fetch", {})).rejects.toThrow("unexpected RPC method");
-    expect(await request("ezcorp/fs.exists", { path: tmpdir() })).toEqual({ exists: true });
+    expect(await request<{ exists: boolean }>("ezcorp/fs.exists", { path: tmpdir() })).toEqual({ exists: true });
     await expect(request("ezcorp/fs.read", {})).rejects.toMatchObject({ code: -32602 });
   } finally {
     (request as typeof request & { mockRestore(): void }).mockRestore();

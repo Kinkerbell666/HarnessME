@@ -6,39 +6,45 @@ import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { TestWorkflowEnvironment, type TestWorkflowEnvironment as TestEnvironment } from "@temporalio/testing";
 import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
-import { bundleWorkflowCode, Worker, type WorkflowBundle } from "@temporalio/worker";
+import { bundleWorkflowCode, Worker, type WorkflowBundleWithSourceMap } from "@temporalio/worker";
 import { historyToJSON } from "@temporalio/common/lib/proto-utils.js";
 import { createFactoryWorker } from "../src/worker.ts";
 import { Context } from "@temporalio/activity";
 import { canonicalizeJson, compileFactory, createCompiledExecutionManifest, createCompiledPartitionArtifact, FACTORY_LAZY_INPUT_SCHEMA_VERSION } from "@ezcorp/factory-sdk";
 import { encodeFactoryPageBase64 } from "@ezcorp/factory-sdk/page-bytes";
 import { advanceKernel, createKernelState, factoryAdmissionRefusedEvent, factoryCommandFailedEvent } from "@ezcorp/factory-sdk/kernel";
-import type { KernelState } from "@ezcorp/factory-sdk/kernel-types";
-import { factoryWorkflowId, type FactoryWorkflowResult } from "../src/contracts.ts";
+import type { KernelEvent, KernelState } from "@ezcorp/factory-sdk/kernel-types";
+import type { CompiledFactory } from "@ezcorp/factory-sdk/types";
+import type { WorkflowHandle } from "@temporalio/client";
+import { factoryWorkflowId, type CommandExecution, type FactoryActivities, type FactoryTransitionManifest, type FactoryTransportCommand, type FactoryWorkflowInput, type FactoryWorkflowResult } from "../src/contracts.ts";
+import { asJson } from "./typing.ts";
 import { deliverFactoryCommand, reconcileFactoryCommand } from "../src/dispatcher.ts";
 
 const server = process.env.FACTORY_TEMPORAL_TEST_SERVER ?? "/tmp/factory-tools/temporal-test-server/temporal-test-server_1.38.0_linux_amd64/temporal-test-server";
 const queue = "factory-orchestrator";
 const namespace = "default";
 let environment: TestEnvironment;
-let bundle: WorkflowBundle;
+let bundle: WorkflowBundleWithSourceMap;
 let historyDirectory = "";
 
-const hash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
-const eventHash = (event) => hash(canonicalizeJson(event));
+const hash = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+const eventHash = (event: unknown) => hash(canonicalizeJson(asJson(event)));
 const packageDigest = hash("inert-package");
 const runner = { package: "inert", manifestName: "inert", version: "1", digest: packageDigest, export: "run" };
 const node = { id: "work", kind: "task", runner, deadlineMs: 600_000 };
 const lazyDataInput = { data: { type: "object", properties: { label: { type: "string" } }, required: ["label"] } };
 
-function compileDefinition(definition) {
+/** A raw definition node, as an author writes it before compilation. */
+type DefinitionNode = { readonly id: string; readonly kind: string; readonly factory?: unknown; readonly effects?: readonly string[]; readonly [key: string]: unknown };
+
+function compileDefinition(definition: unknown) {
   const result = compileFactory(definition);
   assert.equal(result.ok, true, JSON.stringify(result));
   if (!result.ok) throw new Error("test factory did not compile");
   return result.factory;
 }
 
-function compiled(nodes, id, inputPorts = {}) {
+function compiled(nodes: readonly DefinitionNode[], id: string, inputPorts: Record<string, unknown> = {}) {
   const childReferences = nodes.filter((item) => item.kind === "subfactory").map((item) => item.factory);
   const definition = {
     schemaVersion: "factory.v1", id, version: "1", interpreterCompatibility: "1",
@@ -52,7 +58,7 @@ function compiled(nodes, id, inputPorts = {}) {
 
 const factory = compiled([node], "test");
 
-function storedDefinition(compiledFactory) {
+function storedDefinition(compiledFactory: CompiledFactory) {
   const content = JSON.stringify(compiledFactory);
   const page = { index: 0, objectId: `definition:${compiledFactory.digest}`, digest: hash(content), encodedBytes: Buffer.byteLength(content) };
   const manifestContent = JSON.stringify({ schemaVersion: "factory.manifest-page.v1", definitionDigest: compiledFactory.digest, definitionEncodedBytes: page.encodedBytes, pages: [page] });
@@ -60,11 +66,11 @@ function storedDefinition(compiledFactory) {
   return { factory: compiledFactory, content, page, source: { definitionDigest: compiledFactory.digest, definitionEncodedBytes: page.encodedBytes, manifest } };
 }
 
-function storedPartition(compiledFactory, partitionId) {
+function storedPartition(compiledFactory: CompiledFactory, partitionId: string) {
   const manifestValue = createCompiledExecutionManifest(compiledFactory);
   const partitionValue = createCompiledPartitionArtifact(compiledFactory, partitionId);
-  const manifestContent = canonicalizeJson(manifestValue);
-  const partitionContent = canonicalizeJson(partitionValue);
+  const manifestContent = canonicalizeJson(asJson(manifestValue));
+  const partitionContent = canonicalizeJson(asJson(partitionValue));
   const partition = compiledFactory.partitions.find((candidate) => candidate.id === partitionId);
   assert.ok(partition);
   assert.equal(Buffer.byteLength(manifestContent), compiledFactory.executionManifest.encodedBytes);
@@ -80,11 +86,17 @@ function storedPartition(compiledFactory, partitionId) {
   };
 }
 
-function definitionActivities(...factories) {
+/** One effect command, narrowed to its kind. */
+type EffectCommand<Kind extends CommandExecution["command"]["kind"]> = Extract<CommandExecution["command"], { readonly kind: Kind }>;
+
+/** Every activity except the two each test supplies itself. */
+type DefinitionActivities = Omit<FactoryActivities, "recordTransition" | "executeCommand">;
+
+function definitionActivities(...factories: CompiledFactory[]): DefinitionActivities {
   const stored = factories.map(storedDefinition);
-  const find = (digest) => stored.find((item) => item.factory.digest === digest);
-  const transitionPages = new Map();
-  const transitionManifests = new Map();
+  const find = (digest: string) => stored.find((item) => item.factory.digest === digest);
+  const transitionPages = new Map<string, string>();
+  const transitionManifests = new Map<string, FactoryTransitionManifest>();
   return {
     stageTransitionPage: async (request) => {
       const key = `${request.logicalRunId}:${request.interpreterId}:${request.sourceSequence}:${request.index}`;
@@ -98,8 +110,8 @@ function definitionActivities(...factories) {
       const eventHash = hash(canonicalizeJson(transition.event));
       assert.equal(request.eventId, transition.event.id);
       if (request.expectedEventHash !== undefined) assert.equal(request.expectedEventHash, eventHash);
-      const manifestValue = { schemaVersion: "factory.transition-manifest.v1", tenantId: request.tenantId, projectId: request.projectId, logicalRunId: request.logicalRunId, interpreterId: request.interpreterId, sourceSequence: request.sourceSequence, eventId: request.eventId, eventHash, encodedBytes: Buffer.byteLength(content), pages: request.pages };
-      const manifestContent = canonicalizeJson(manifestValue);
+      const manifestValue = { schemaVersion: "factory.transition-manifest.v1" as const, tenantId: request.tenantId, projectId: request.projectId, logicalRunId: request.logicalRunId, interpreterId: request.interpreterId, sourceSequence: request.sourceSequence, eventId: request.eventId, eventHash, encodedBytes: Buffer.byteLength(content), pages: request.pages };
+      const manifestContent = canonicalizeJson(asJson(manifestValue));
       const manifest = { objectId: `transition-manifest:${request.logicalRunId}:${request.interpreterId}:${request.sourceSequence}`, digest: hash(manifestContent), encodedBytes: Buffer.byteLength(manifestContent) };
       transitionManifests.set(manifest.objectId, { ...manifestValue, self: manifest });
       return { manifest, eventHash };
@@ -142,18 +154,18 @@ function definitionActivities(...factories) {
   };
 }
 
-function workflowInput(compiledFactory, values) {
+function workflowInput(compiledFactory: CompiledFactory, values: Partial<FactoryWorkflowInput>): FactoryWorkflowInput {
   return { tenantId: "tenant", projectId: "project", logicalRunId: "run", interpreterId: "interpreter", startedAtMs: 1, definition: storedDefinition(compiledFactory).source, input: {}, ...values };
 }
 
-async function assertClosedReceipt(handle) {
+async function assertClosedReceipt(handle: WorkflowHandle) {
   const description = await handle.describe();
   assert.equal(description.status.name, "COMPLETED");
   assert.equal(description.raw.pendingActivities?.length ?? 0, 0);
   assert.equal(description.raw.pendingChildren?.length ?? 0, 0);
 }
 
-async function waitForContinuedRun(handle, previousRunId) {
+async function waitForContinuedRun(handle: WorkflowHandle, previousRunId: string) {
   for (let attempt = 0; attempt < 500; attempt += 1) {
     const runId = (await environment.client.workflow.getHandle(handle.workflowId).describe()).runId;
     if (runId !== previousRunId) return runId;
@@ -162,14 +174,14 @@ async function waitForContinuedRun(handle, previousRunId) {
   throw new Error(`workflow did not continue from run ${previousRunId}`);
 }
 
-async function waitForState(handle): Promise<KernelState> {
+async function waitForState(handle: WorkflowHandle): Promise<KernelState> {
   for (let attempt = 0; attempt < 500; attempt += 1) {
     try { return await environment.client.workflow.getHandle(handle.workflowId).query("factoryState"); } catch { await new Promise((resolve) => setTimeout(resolve, 10)); }
   }
   throw new Error(`workflow ${handle.workflowId} did not register its state query`);
 }
 
-async function waitForActivityCancellation(started) {
+async function waitForActivityCancellation(started?: () => void) {
   started?.();
   const context = Context.current();
   const heartbeat = setInterval(() => context.heartbeat(), 10);
@@ -180,11 +192,11 @@ async function waitForActivityCancellation(started) {
   }
 }
 
-async function waitForReleaseOrCancellation(released) {
+async function waitForReleaseOrCancellation(released: Promise<void>) {
   const context = Context.current();
   context.cancellationSignal.throwIfAborted();
-  let cancel = () => undefined;
-  const cancellation = new Promise((_, reject) => {
+  let cancel = (): void => undefined;
+  const cancellation = new Promise<never>((_, reject) => {
     cancel = () => reject(context.cancellationSignal.reason);
     context.cancellationSignal.addEventListener("abort", cancel, { once: true });
   });
@@ -214,7 +226,7 @@ describe("factory Temporal workflow", () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const logicalRunId = `repeated-start-${process.pid}`;
     const workflowId = `tenant/${logicalRunId}`;
-    const command = {
+    const command: FactoryTransportCommand = {
       commandId: `start-${logicalRunId}`,
       requestId: `start-${logicalRunId}`,
       tenantId: "tenant",
@@ -223,12 +235,12 @@ describe("factory Temporal workflow", () => {
       workflowId,
       kind: "start_run",
       interpreterId: "interpreter",
-      body: workflowInput(factory, { logicalRunId, startedAtMs }),
+      body: asJson(workflowInput(factory, { logicalRunId, startedAtMs })),
     };
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(factory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command: kernelCommand }) => {
+      executeCommand: async ({ command: kernelCommand }): Promise<KernelEvent | null> => {
         if (kernelCommand.kind === "request-admission") return { kind: "admission-result", id: `${kernelCommand.id}:admitted`, atMs: startedAtMs + 1, nodeId: kernelCommand.nodeId, commandId: kernelCommand.id, candidateGeneration: kernelCommand.candidateGeneration, granted: true };
         if (kernelCommand.kind === "dispatch-node") return { kind: "node-result", id: `${kernelCommand.id}:result`, atMs: startedAtMs + 2, nodeId: kernelCommand.nodeId, commandId: kernelCommand.id, candidateGeneration: kernelCommand.candidateGeneration, attempt: kernelCommand.attempt, output: {} };
         throw new Error(`unexpected ${kernelCommand.kind}`);
@@ -248,7 +260,7 @@ describe("factory Temporal workflow", () => {
   it("fails a malformed workflow input before it reads the definition", async () => {
     let definitionReads = 0;
     const baseActivities = definitionActivities(factory);
-    const activities = {
+    const activities: FactoryActivities = {
       ...baseActivities,
       resolveFactory: async (request) => {
         definitionReads += 1;
@@ -263,7 +275,7 @@ describe("factory Temporal workflow", () => {
         return baseActivities.loadDefinitionPage(request);
       },
       recordTransition: async () => undefined,
-      executeCommand: async () => {
+      executeCommand: async (): Promise<KernelEvent | null> => {
         throw new Error("invalid input must not execute effects");
       },
     };
@@ -285,12 +297,12 @@ describe("factory Temporal workflow", () => {
     let effects = 0;
     const missingDigest = hash("missing-definition");
     const input = workflowInput(factory, {});
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(factory),
       recordTransition: async () => {
         transitions += 1;
       },
-      executeCommand: async () => {
+      executeCommand: async (): Promise<KernelEvent | null> => {
         effects += 1;
         throw new Error("missing definition must not execute effects");
       },
@@ -311,11 +323,11 @@ describe("factory Temporal workflow", () => {
 
   it("records audit before effects and replays the saved real-server history", async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
-    const order = [];
-    const activities = {
+    const order: string[] = [];
+    const activities: FactoryActivities = {
       ...definitionActivities(factory),
       recordTransition: async (record) => { order.push(`audit:${record.sourceSequence}`); },
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         order.push(`effect:${command.kind}`);
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: startedAtMs + 1, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") return { kind: "node-result", id: `${command.id}:result`, atMs: startedAtMs + 2, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: command.attempt, output: {} };
@@ -341,15 +353,15 @@ describe("factory Temporal workflow", () => {
   it("replays a sealed repair input and preserves the prior candidate", async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const repairFactory = compiled([{ ...node, inputPorts: { instruction: { type: "string" } }, bindings: { instruction: { kind: "literal", value: "first" } }, repairableInputs: ["instruction"] }], "repair-replay");
-    let firstStarted = () => undefined;
+    let firstStarted: () => void = () => undefined;
     const started = new Promise<void>(resolve => { firstStarted = resolve; });
-    let releaseFirst = () => undefined;
+    let releaseFirst: () => void = () => undefined;
     const replacementStarted = new Promise<void>(resolve => { releaseFirst = resolve; });
-    const dispatched = [];
-    const activities = {
+    const dispatched: Array<{ generation: number; input: unknown }> = [];
+    const activities: FactoryActivities = {
       ...definitionActivities(repairFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") {
           dispatched.push({ generation: command.candidateGeneration, input: command.input });
@@ -373,8 +385,8 @@ describe("factory Temporal workflow", () => {
       const result = await handle.result();
       assert.equal(result.status, "completed");
       assert.deepEqual(dispatched, [{ generation: 0, input: { instruction: "first" } }, { generation: 1, input: { instruction: "second" } }]);
-      const state = await handle.query("factoryState");
-      assert.deepEqual(state.nodes.work.priorCandidates, [{ candidateGeneration: 0, status: "cancelled", inputOverride: { instruction: "first" } }]);
+      const state: KernelState = await handle.query("factoryState");
+      assert.deepEqual(state.nodes.work?.priorCandidates, [{ candidateGeneration: 0, status: "cancelled", inputOverride: { instruction: "first" } }]);
       const history = await handle.fetchHistory();
       await Worker.runReplayHistory({ workflowBundle: bundle }, JSON.parse(historyToJSON(history)), workflowId);
     });
@@ -386,14 +398,14 @@ describe("factory Temporal workflow", () => {
       { ...node, id: "candidate", inputPorts: { instruction: { type: "string" } }, bindings: { instruction: { kind: "literal", value: "first" } }, repairableInputs: ["instruction"], outputPorts: { candidate: { type: "string" } } },
       { id: "accept", kind: "acceptance", dependsOn: ["candidate"], contract: "test-acceptance", candidate: { kind: "ref", root: "node", name: "candidate", path: ["candidate"] }, evidence: { kind: "literal", value: [] }, maxRepairs: 1, outputPorts: { acceptedCandidate: { type: "string" } } },
     ], "remediation-replay");
-    let rejected = () => undefined;
+    let rejected: () => void = () => undefined;
     const rejection = new Promise<void>(resolve => { rejected = resolve; });
-    const decisions = [];
-    const stops = [];
-    const activities = {
+    const decisions: Array<{ generation: number; candidate: unknown }> = [];
+    const stops: string[] = [];
+    const activities: FactoryActivities = {
       ...definitionActivities(remediationFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") return { kind: "node-result", id: `${command.id}:result`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: command.attempt, output: { candidate: `tree-${command.candidateGeneration}` } };
         if (command.kind === "request-acceptance") {
@@ -401,7 +413,7 @@ describe("factory Temporal workflow", () => {
           if (command.candidateGeneration > 0) return { kind: "node-result", id: `${command.id}:accepted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, output: { acceptedCandidate: command.candidate } };
           // The rejected fact returns as an event. Throwing here would retry until the activity
           // timed out and the run would never reach its bounded repair.
-          const failure = { kind: "node-failed", id: `${command.id}:rejected`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, error: "factory_assurance_claim_failed", failureKind: "acceptance_rejected" };
+          const failure = { kind: "node-failed", id: `${command.id}:rejected`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, error: "factory_assurance_claim_failed", failureKind: "acceptance_rejected" } satisfies KernelEvent;
           setTimeout(rejected, 0);
           return failure;
         }
@@ -465,14 +477,14 @@ describe("factory Temporal workflow", () => {
       packages: [{ name: runner.package, version: runner.version, digest: runner.digest }, { name: validator.package, version: validator.version, digest: validator.digest }],
       capabilities: [], effects: ["none", "write", "publish"], bounds: { maxExpandedNodes: 100, maxScopeDepth: 16, runDeadlineMs: 600_000 },
     });
-    const releaseCommands = [];
+    const releaseCommands: EffectCommand<"request-release">[] = [];
     let approvalCommandId = "";
-    let prepared = () => undefined;
+    let prepared: () => void = () => undefined;
     const releasePrepared = new Promise<void>(resolve => { prepared = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(releaseFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") return { kind: "node-result", id: `${command.id}:result`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: command.attempt, output: { candidate: { manifest: "accepted" } } };
         if (command.kind === "request-acceptance") return { kind: "node-result", id: `${command.id}:accepted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, output: { acceptedCandidate: command.candidate } };
@@ -489,6 +501,7 @@ describe("factory Temporal workflow", () => {
       const handle = await environment.client.workflow.start("factoryWorkflow", { workflowId, taskQueue: queue, retry: { maximumAttempts: 1 }, args: [workflowInput(releaseFactory, { logicalRunId: "release-outcome", startedAtMs })] });
       await releasePrepared;
       const [command] = releaseCommands;
+      assert.ok(command);
       const waiting: KernelState = await waitForState(handle);
       assert.equal(waiting.nodes.release?.status, "waiting");
 
@@ -532,11 +545,13 @@ describe("factory Temporal workflow", () => {
     ], name);
   }
 
-  function inboxAcceptanceActivities(factory, seen: { acceptance: unknown[]; stops: string[] }, observed: () => void) {
+  type AcceptanceSeen = { acceptance: EffectCommand<"request-acceptance">[]; stops: string[] };
+
+  function inboxAcceptanceActivities(factory: CompiledFactory, seen: AcceptanceSeen, observed: () => void): FactoryActivities {
     return {
       ...definitionActivities(factory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") return { kind: "node-result", id: `${command.id}:result`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: command.attempt, output: { candidate: "tree-0" } };
         if (command.kind === "request-acceptance") { seen.acceptance.push(command); setTimeout(observed, 0); return null; }
@@ -546,7 +561,7 @@ describe("factory Temporal workflow", () => {
     };
   }
 
-  async function waitForAcceptanceWaiting(handle): Promise<KernelState> {
+  async function waitForAcceptanceWaiting(handle: WorkflowHandle): Promise<KernelState> {
     for (let attempt = 0; attempt < 500; attempt += 1) {
       const state: KernelState = await handle.query("factoryState");
       if (state.nodes.accept?.waitingReason === "external_reconciliation") return state;
@@ -558,9 +573,9 @@ describe("factory Temporal workflow", () => {
   it("keeps an acceptance node waiting on a null effect and completes it once from its inbox event", async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const factory = acceptanceFactory("acceptance-by-inbox", 0);
-    let observed = () => undefined;
+    let observed: () => void = () => undefined;
     const requested = new Promise<void>(resolve => { observed = resolve; });
-    const seen = { acceptance: [], stops: [] };
+    const seen: AcceptanceSeen = { acceptance: [], stops: [] };
     const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities: inboxAcceptanceActivities(factory, seen, () => observed()) });
     const workflowId = `tenant/acceptance-by-inbox-${process.pid}`;
     await worker.runUntil(async () => {
@@ -570,7 +585,8 @@ describe("factory Temporal workflow", () => {
       const waiting = await waitForAcceptanceWaiting(handle);
       assert.equal(waiting.nodes.accept?.status, "waiting");
       assert.notEqual((await handle.describe()).status.name, "COMPLETED");
-      const command = seen.acceptance[0] as { id: string; nodeId: string; candidateGeneration: number; candidate: string };
+      const command = seen.acceptance[0];
+      assert.ok(command);
       const decision = { kind: "node-result", id: `protected-acceptance:${command.id}`, atMs: startedAtMs + 1, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, output: { acceptedCandidate: command.candidate } };
       const envelope = { sequence: 1, eventId: decision.id, eventHash: eventHash(decision), event: decision };
       await handle.signal("factoryInbox", envelope);
@@ -598,16 +614,17 @@ describe("factory Temporal workflow", () => {
       const startedAtMs = Math.trunc(await environment.currentTimeMs());
       const name = `acceptance-unsettled-${maxRepairs}`;
       const factory = acceptanceFactory(name, maxRepairs);
-      let observed = () => undefined;
+      let observed: () => void = () => undefined;
       const requested = new Promise<void>(resolve => { observed = resolve; });
-      const seen = { acceptance: [], stops: [] };
+      const seen: AcceptanceSeen = { acceptance: [], stops: [] };
       const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities: inboxAcceptanceActivities(factory, seen, () => observed()) });
       const workflowId = `tenant/${name}-${process.pid}`;
       await worker.runUntil(async () => {
         const handle = await environment.client.workflow.start("factoryWorkflow", { workflowId, taskQueue: queue, retry: { maximumAttempts: 1 }, args: [workflowInput(factory, { logicalRunId: name, startedAtMs })] });
         await requested;
         await waitForAcceptanceWaiting(handle);
-        const command = seen.acceptance[0] as { id: string; nodeId: string; candidateGeneration: number };
+        const command = seen.acceptance[0];
+        assert.ok(command);
         const failure = { kind: "node-failed", id: `protected-acceptance-unsettled:${command.id}`, atMs: startedAtMs + 1, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, attempt: 1, error: "factory_validator_attempt_failed", failureKind: "execution" };
         await handle.signal("factoryInbox", { sequence: 1, eventId: failure.id, eventHash: eventHash(failure), event: failure });
         const result = await handle.result();
@@ -635,7 +652,7 @@ describe("factory Temporal workflow", () => {
     const factory = acceptanceFactory("acceptance-effect-failed", 0);
     const recorded: string[] = [];
     let effects = 0;
-    const activities = {
+    const activities: FactoryActivities = {
       ...inboxAcceptanceActivities(factory, { acceptance: [], stops: [] }, () => undefined),
       recordTransition: async (record) => { recorded.push(record.eventId); },
     };
@@ -675,7 +692,7 @@ describe("factory Temporal workflow", () => {
     const factory = compiled([{ ...node, outputPorts: {} }], "dispatch-refused");
     const recorded: string[] = [];
     const stops: string[] = [];
-    const activities = {
+    const activities: FactoryActivities = {
       ...inboxAcceptanceActivities(factory, { acceptance: [], stops: [] }, () => undefined),
       recordTransition: async (record) => { recorded.push(record.eventId); },
     };
@@ -708,7 +725,7 @@ describe("factory Temporal workflow", () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const factory = acceptanceFactory("acceptance-effect-named", 0);
     const recorded: string[] = [];
-    const activities = {
+    const activities: FactoryActivities = {
       ...inboxAcceptanceActivities(factory, { acceptance: [], stops: [] }, () => undefined),
       recordTransition: async (record) => { recorded.push(record.eventId); },
     };
@@ -741,12 +758,12 @@ describe("factory Temporal workflow", () => {
       { ...node, id: "d", dependsOn: ["a"] },
     ], "parallel");
     const completed = new Set();
-    let successorsFinished = () => undefined;
+    let successorsFinished: () => void = () => undefined;
     const successors = new Promise<void>((resolve) => { successorsFinished = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(parallelFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node" && command.nodeId === "c") {
           await waitForActivityCancellation();
@@ -812,10 +829,10 @@ describe("factory Temporal workflow", () => {
     let zAdvancedBeforeSlow = false;
     let activeEffects = 0;
     let maximumActiveEffects = 0;
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(largeFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         activeEffects += 1;
         maximumActiveEffects = Math.max(maximumActiveEffects, activeEffects);
         try {
@@ -859,7 +876,8 @@ describe("factory Temporal workflow", () => {
       });
       await zStarted;
       assert.equal(zAdvancedBeforeSlow, true);
-      assert.equal((await source.query("factoryState")).nodes["slow-0000"].status, "running");
+      const sourceState: KernelState = await source.query("factoryState");
+      assert.equal(sourceState.nodes["slow-0000"]?.status, "running");
       slowReleased = true;
       releaseSlow();
       assert.equal((await source.result()).status, "completed");
@@ -895,10 +913,15 @@ describe("factory Temporal workflow", () => {
     assert.ok(middleHoldId);
     const logicalRunId = `partition-repair-${process.pid}`;
     const partitions = [sourcePartition, middlePartition, targetPartition];
-    const workflowId = (partitionId) => `tenant/${logicalRunId}/partitions/${partitionId}`;
-    const handles = new Map();
-    const sequences = new Map();
-    const send = async (partitionId, event) => {
+    const workflowId = (partitionId: string) => `tenant/${logicalRunId}/partitions/${partitionId}`;
+    const handles = new Map<string, WorkflowHandle>();
+    const handleOf = (partitionId: string): WorkflowHandle => {
+      const handle = handles.get(partitionId);
+      assert.ok(handle, `no workflow started for partition ${partitionId}`);
+      return handle;
+    };
+    const sequences = new Map<string, number>();
+    const send = async (partitionId: string, event: { readonly id: string; readonly [field: string]: unknown }) => {
       const handle = handles.get(partitionId);
       assert.ok(handle);
       const sequence = (sequences.get(partitionId) ?? 0) + 1;
@@ -911,16 +934,16 @@ describe("factory Temporal workflow", () => {
     const sourceHold = new Promise<void>((resolve) => { releaseSourceHold = resolve; });
     let releaseMiddleHold!: () => void;
     const middleHold = new Promise<void>((resolve) => { releaseMiddleHold = resolve; });
-    const approvals = [];
+    const approvals: EffectCommand<"request-approval">[] = [];
     let approvalArrived!: () => void;
     let nextApproval = new Promise<void>((resolve) => { approvalArrived = resolve; });
     let publishCount = 0;
     let targetInvalidationDelivered!: () => void;
     const targetInvalidation = new Promise<void>((resolve) => { targetInvalidationDelivered = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(repairFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") {
           if (command.nodeId === sourceHoldId) await waitForReleaseOrCancellation(sourceHold);
@@ -969,8 +992,8 @@ describe("factory Temporal workflow", () => {
         new Promise<never>((_resolve, reject) => { setTimeout(() => reject(new Error("target invalidation command was not delivered")), 5_000); }),
       ]);
       for (let attempt = 0; attempt < 100; attempt += 1) {
-        const state = await handles.get(targetPartition.id).query("factoryState");
-        if (state.nodes["z-approval"].candidateGeneration === 1 && state.nodes["z-approval"].status === "blocked") break;
+        const state: KernelState = await handleOf(targetPartition.id).query("factoryState");
+        if (state.nodes["z-approval"]?.candidateGeneration === 1 && state.nodes["z-approval"].status === "blocked") break;
         if (attempt === 99) assert.fail("target approval was not transitively invalidated");
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
@@ -986,24 +1009,24 @@ describe("factory Temporal workflow", () => {
       assert.equal(publishCount, 0);
       const currentDecision = { kind: "approval-decided", id: "current-partition-approval", atMs: Date.now(), nodeId: "z-approval", commandId: newApproval.id, choice: "approve" };
       await send(targetPartition.id, currentDecision);
-      assert.equal((await handles.get(targetPartition.id).result()).status, "completed");
+      assert.equal((await handleOf(targetPartition.id).result()).status, "completed");
       assert.equal(publishCount, 1);
       releaseSourceHold();
       releaseMiddleHold();
-      for (const partition of partitions.slice(0, 2)) assert.equal((await handles.get(partition.id).result()).status, "completed");
-      for (const partition of partitions) await assertClosedReceipt(handles.get(partition.id));
+      for (const partition of partitions.slice(0, 2)) assert.equal((await handleOf(partition.id).result()).status, "completed");
+      for (const partition of partitions) await assertClosedReceipt(handleOf(partition.id));
     });
   });
 
   it("cancels an in-flight activity and waits for the fenced stop acknowledgement", async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     let cancelledResult: FactoryWorkflowResult | undefined;
-    let dispatchStarted = () => undefined;
+    let dispatchStarted: () => void = () => undefined;
     const started = new Promise<void>((resolve) => { dispatchStarted = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(factory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: startedAtMs + 1, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") {
           await waitForActivityCancellation(dispatchStarted);
@@ -1027,23 +1050,24 @@ describe("factory Temporal workflow", () => {
       });
       const cancel = { kind: "cancel", id: "cancel-event", atMs: startedAtMs + 2, reason: "requested" };
       await handle.signal("factoryInbox", { sequence: 1, eventId: cancel.id, eventHash: eventHash(cancel), event: cancel });
-      cancelledResult = await handle.result();
-      assert.equal(cancelledResult.status, "cancelled", JSON.stringify(cancelledResult));
-      assert.equal(cancelledResult.state.nodes.work.attempts[0].stopped, true);
+      const result: FactoryWorkflowResult = await handle.result();
+      cancelledResult = result;
+      assert.equal(result.status, "cancelled", JSON.stringify(result));
+      assert.equal(result.state.nodes.work?.attempts[0]?.stopped, true);
       await assertClosedReceipt(handle);
     });
     assert.equal(cancelledResult?.status, "cancelled");
-    assert.equal(cancelledResult?.state.nodes.work.attempts[0].stopped, true);
+    assert.equal(cancelledResult?.state.nodes.work?.attempts[0]?.stopped, true);
   });
 
   it("uses a durable retry timer and succeeds on the second fenced attempt", async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const retryFactory = compiled([{ ...node, retry: { maxAttempts: 3, initialDelayMs: 0, maximumDelayMs: 0 } }], "retry");
     let dispatches = 0;
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(retryFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: startedAtMs + dispatches, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") {
           dispatches += 1;
@@ -1071,11 +1095,11 @@ describe("factory Temporal workflow", () => {
       { ...node, bindings: { value: { kind: "ref", root: "input", name: "data", path: ["label"] } }, inputPorts: { value: { type: "string" } }, outputPorts: { value: { type: "string" } } },
     ], "lazy-field", lazyDataInput);
     const artifact = { artifactId: "lazy-field", digest: packageDigest, encodedBytes: 70_000 };
-    const observed = [];
-    const activities = {
+    const observed: string[] = [];
+    const activities: FactoryActivities = {
       ...definitionActivities(lazyFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         observed.push(command.kind);
         if (command.kind === "read-input-value") {
           assert.deepEqual(command, { ...command, name: "data", artifact, path: ["label"], maxBytes: 32 * 1024 });
@@ -1112,14 +1136,14 @@ describe("factory Temporal workflow", () => {
     let resolvedCommandId: string | undefined;
     let childLogicalRunId: string | undefined;
     const baseActivities = definitionActivities(parentFactory, childFactory);
-    const activities = {
+    const activities: FactoryActivities = {
       ...baseActivities,
       resolveFactory: async (request) => {
         resolvedCommandId = request.commandId;
         return baseActivities.resolveFactory(request);
       },
       recordTransition: async () => undefined,
-      executeCommand: async ({ logicalRunId, command }) => {
+      executeCommand: async ({ logicalRunId, command }): Promise<KernelEvent | null> => {
         if (command.kind === "read-input-value") {
           childLogicalRunId = logicalRunId;
           assert.deepEqual(command.artifact, artifact);
@@ -1147,10 +1171,10 @@ describe("factory Temporal workflow", () => {
   it("fails an undeclared durable input once before recording a transition or effect", { timeout: 45_000 }, async () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     let work = 0;
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(factory),
       recordTransition: async () => { work += 1; },
-      executeCommand: async () => { work += 1; throw new Error("invalid input must not execute"); },
+      executeCommand: async (): Promise<KernelEvent | null> => { work += 1; throw new Error("invalid input must not execute"); },
     };
     const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities });
     await worker.runUntil(async () => {
@@ -1171,10 +1195,10 @@ describe("factory Temporal workflow", () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const childFactory = compiled([], "child");
     const parentFactory = compiled([{ id: "child", kind: "subfactory", factory: { id: "child", version: "1", digest: childFactory.digest }, releaseMode: "none", grants: [] }], "parent");
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(parentFactory, childFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => { throw new Error(`unexpected ${command.kind}`); },
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => { throw new Error(`unexpected ${command.kind}`); },
     };
     const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities });
     await worker.runUntil(async () => {
@@ -1190,12 +1214,12 @@ describe("factory Temporal workflow", () => {
     const startedAtMs = Math.trunc(await environment.currentTimeMs());
     const childFactory = compiled([node], "slow-child");
     const parentFactory = compiled([{ id: "child", kind: "subfactory", factory: { id: "child", version: "1", digest: childFactory.digest }, releaseMode: "none", grants: [] }], "cancel-parent");
-    let childStarted = () => undefined;
+    let childStarted: () => void = () => undefined;
     const started = new Promise<void>((resolve) => { childStarted = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(parentFactory, childFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ logicalRunId, command }) => {
+      executeCommand: async ({ logicalRunId, command }): Promise<KernelEvent | null> => {
         if (logicalRunId !== "cancel-parent" && command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: startedAtMs + 1, nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (logicalRunId !== "cancel-parent" && command.kind === "dispatch-node") {
           await waitForActivityCancellation(childStarted);
@@ -1232,10 +1256,10 @@ describe("factory Temporal workflow", () => {
       runTimerId: "continue:run:start-timer",
       nodes: { approval: { ...started.nextState.nodes.approval, timer: { id: "continue:approval:start-timer", deadlineAtMs: startedAtMs + 60_000, purpose: "deadline" } } },
     };
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(approvalFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "cancel-node") return { kind: "attempt-stopped", id: `${command.id}:stopped`, atMs: startedAtMs + 60_001, nodeId: command.nodeId, commandId: command.attemptCommandId, candidateGeneration: command.candidateGeneration, attempt: command.attempt };
         throw new Error(`unexpected ${command.kind}`);
       },
@@ -1245,7 +1269,6 @@ describe("factory Temporal workflow", () => {
       const handle = await environment.client.workflow.start("factoryWorkflow", {
         workflowId: `tenant/continue-${process.pid}`, taskQueue: queue, retry: { maximumAttempts: 1 },
         args: [{
-          tenantId: "tenant", projectId: "project", logicalRunId: "continue", interpreterId: "interpreter", startedAtMs,
           ...workflowInput(approvalFactory, { logicalRunId: "continue", startedAtMs }),
           continuation: { state: continuationState, inbox: [{ kind: "repair", id: "ignored-repair", atMs: startedAtMs + 1, nodeId: "approval", reason: "ignored while waiting" }], pendingInbox: [], sourceSequence: 1, handledSinceContinuation: 63, acknowledgedInboxSequence: 0 },
         }],
@@ -1264,10 +1287,10 @@ describe("factory Temporal workflow", () => {
       parameters: { data: { kind: "artifact", artifact } },
     });
     let effects = 0;
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(continuationFactory),
       recordTransition: async () => { effects += 1; },
-      executeCommand: async () => { effects += 1; throw new Error("mismatched continuation must not execute"); },
+      executeCommand: async (): Promise<KernelEvent | null> => { effects += 1; throw new Error("mismatched continuation must not execute"); },
     };
     const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities });
     await worker.runUntil(async () => {
@@ -1294,12 +1317,12 @@ describe("factory Temporal workflow", () => {
     const started = advanceKernel(approvalFactory, initial, { kind: "start", id: "continued-approval:start", atMs: startedAtMs });
     const approvalCommand = started.commands.find((command) => command.kind === "request-approval");
     assert.ok(approvalCommand);
-    let taskStarted = () => undefined;
+    let taskStarted: () => void = () => undefined;
     const taskIsRunning = new Promise<void>((resolve) => { taskStarted = resolve; });
-    const activities = {
+    const activities: FactoryActivities = {
       ...definitionActivities(approvalFactory),
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-admission") return { kind: "admission-result", id: `${command.id}:admitted`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.id, candidateGeneration: command.candidateGeneration, granted: true };
         if (command.kind === "dispatch-node") {
           await waitForActivityCancellation(taskStarted);
@@ -1331,7 +1354,7 @@ describe("factory Temporal workflow", () => {
       await taskIsRunning;
       const current = environment.client.workflow.getHandle(workflowId);
       assert.notEqual((await current.describe()).runId, secondRunId);
-      const forged = {
+      const forged: FactoryTransportCommand = {
         commandId: "forged-decision",
         requestId: "forged-decision",
         tenantId: "tenant",
@@ -1377,14 +1400,14 @@ describe("factory Temporal workflow", () => {
     });
     const base = definitionActivities(mapFactory);
     const pageCounts = new Map();
-    const activities = {
+    const activities: FactoryActivities = {
       ...base,
       stageTransitionPage: async (request) => {
         pageCounts.set(request.sourceSequence, (pageCounts.get(request.sourceSequence) ?? 0) + 1);
         return base.stageTransitionPage(request);
       },
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => {
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => {
         if (command.kind === "request-approval") return null;
         if (command.kind === "cancel-node") return { kind: "attempt-stopped", id: `${command.id}:stopped`, atMs: Date.now(), nodeId: command.nodeId, commandId: command.attemptCommandId, candidateGeneration: command.candidateGeneration, attempt: command.attempt };
         throw new Error(`unexpected ${command.kind}`);
@@ -1408,7 +1431,7 @@ describe("factory Temporal workflow", () => {
       assert.ok(initial);
       assert.ok(initial.nodes["map/items/0/approve"], "first map item was not opened");
       assert.deepEqual(Object.keys(initial.nodes).sort(), ["map", "map/items/0/approve"]);
-      assert.equal(initial.scopes.root.expandedNodeCount, 2);
+      assert.equal(initial.scopes.root?.expandedNodeCount, 2);
       assert.ok([...pageCounts.values()].some((count) => count > 1), "large transition did not use bounded pages");
 
       const firstRunId = (await handle.describe()).runId;
@@ -1424,7 +1447,7 @@ describe("factory Temporal workflow", () => {
       await waitForContinuedRun(handle, secondRunId);
       const restored = await waitForState(handle);
       assert.deepEqual(Object.keys(restored.nodes).sort(), ["map", "map/items/0/approve"]);
-      assert.equal(restored.scopes.root.expandedNodeCount, 2);
+      assert.equal(restored.scopes.root?.expandedNodeCount, 2);
       const cancel = { kind: "cancel", id: "bounded-map-cancel", atMs: Date.now(), reason: "test complete" };
       await handle.signal("factoryInbox", { sequence: 128, eventId: cancel.id, eventHash: eventHash(cancel), event: cancel });
       assert.equal((await handle.result()).status, "cancelled");
@@ -1456,14 +1479,14 @@ describe("factory Temporal workflow", () => {
     });
     const base = definitionActivities(completedMapFactory);
     const pageCounts = new Map();
-    const activities = {
+    const activities: FactoryActivities = {
       ...base,
       stageTransitionPage: async (request) => {
         pageCounts.set(request.sourceSequence, (pageCounts.get(request.sourceSequence) ?? 0) + 1);
         return base.stageTransitionPage(request);
       },
       recordTransition: async () => undefined,
-      executeCommand: async ({ command }) => { throw new Error(`unexpected ${command.kind}`); },
+      executeCommand: async ({ command }): Promise<KernelEvent | null> => { throw new Error(`unexpected ${command.kind}`); },
     };
     const worker = await createFactoryWorker({ connection: environment.nativeConnection, namespace, activities });
     await worker.runUntil(async () => {

@@ -15,6 +15,8 @@
  *      be a real incident, so this is asserted rather than assumed.
  *   5. A persisted `![workflow:NAME]` token in chat history renders as
  *      the same teal chip.
+ *   6. A slow answer to an older query never replaces the newer list, so
+ *      Enter cannot pick an entry the user typed past.
  *
  * Server-side expansion (the system note describing the workflow) is
  * covered at the unit/integration level; this suite is the composer +
@@ -162,6 +164,51 @@ test.describe("Workflow mention — composer flow", () => {
 		await expect(
 			listbox.locator('button[data-mention-kind="workflow"]'),
 		).toHaveCount(2);
+	});
+
+	test("a slow answer to an older query never replaces the newer list @evidence", async ({ page, mockApi }, testInfo) => {
+		await mockApi({
+			projects: [project],
+			conversations: [conv],
+			messages: [],
+			agents: [],
+			workflows,
+		});
+		// Hold the first (unfiltered) workflow search until the narrower one
+		// has answered, so it lands last — the order a slow server produces.
+		let releaseSlow: () => void = () => {};
+		const slowGate = new Promise<void>((resolve) => { releaseSlow = resolve; });
+		const isSlow = (u: string) => {
+			const url = new URL(u);
+			return url.pathname === "/api/mentions/search" && url.searchParams.get("type") === "workflow" && url.searchParams.get("q") === "";
+		};
+		await page.route("**/api/mentions/search**", async (route) => {
+			if (isSlow(route.request().url())) await slowGate;
+			await route.fallback();
+		});
+
+		await page.goto(`/project/${PROJECT_ID}/chat/${CONV_ID}`);
+		const textarea = await waitForComposer(page);
+		const slowRequest = page.waitForRequest((req) => isSlow(req.url()));
+		await textarea.pressSequentially("!workflow:", { delay: 40 });
+		await slowRequest;
+		await textarea.pressSequentially("nig", { delay: 40 });
+
+		const listbox = page.locator("#mention-listbox");
+		const rows = listbox.locator('button[data-mention-kind="workflow"]');
+		await expect(rows).toHaveCount(1);
+		await expect(rows.first()).toContainText("!nightly");
+
+		const slowResponse = page.waitForResponse((res) => isSlow(res.url()));
+		releaseSlow();
+		await slowResponse;
+		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+		await expect(rows).toHaveCount(1);
+		await expect(rows.first()).toContainText("!nightly");
+		await captureEvidence(page, testInfo, "workflow-mention-latest-results");
+
+		await textarea.press("Enter");
+		await expect(textarea).toHaveValue(/^!nightly\s+$/);
 	});
 
 	test("typing the kind label (`!wo`) narrows to workflows", async ({ page, mockApi }) => {

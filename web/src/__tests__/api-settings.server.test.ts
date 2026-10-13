@@ -74,6 +74,7 @@ describe("GET /api/settings", () => {
       "provider:oauth:google": { token: "t" },
       "apikey:u1:k1": { hash: "h" },
       "apikeyhash:abc": { userId: "u1", keyId: "k1" },
+      "oauth:pending:st4te": { state: "st4te", codeVerifier: "pkce-verifier" },
     });
     const res = await GET(makeEvent(adminUser));
     expect(res.status).toBe(200);
@@ -84,5 +85,6 @@ describe("GET /api/settings", () => {
     expect(body["provider:oauth:google"]).toBeUndefined();
     expect(body["apikey:u1:k1"]).toBeUndefined();
     expect(body["apikeyhash:abc"]).toBeUndefined();
+    expect(body["oauth:pending:st4te"]).toBeUndefined();
   });
 });

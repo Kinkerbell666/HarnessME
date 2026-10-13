@@ -115,6 +115,11 @@ export function buildPath(template: string, params: Record<string, string> = {})
     if (value === undefined) {
       throw new Error(`buildPath: missing route param ':${name}' for template ${template}`);
     }
+    // The URL parser resolves `.` and `..` even when encoded, so a param that
+    // is a whole dot segment would leave its route; an empty one merges two.
+    if (value === "" || value === "." || value === "..") {
+      throw new Error(`buildPath: invalid route param ':${name}' for template ${template}`);
+    }
     return encodeURIComponent(value);
   });
 }

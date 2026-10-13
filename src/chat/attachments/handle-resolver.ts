@@ -38,10 +38,10 @@ export function buildAttachmentHandleResolver(attachments: ResolvableAttachment[
 
 	async function resolveString(s: string): Promise<string> {
 		if (!s.includes(ATTACHMENT_HANDLE_SCHEME)) return s;
-		// Multi-occurrence: replace every handle in the string. IDs here
-		// match the shape that `messageAttachments.id` uses (UUIDs), but we
-		// keep the pattern permissive — any non-whitespace run after the
-		// scheme counts, since downstream resolution fails closed on miss.
+		// Multi-occurrence: replace every handle in the string. An id is the
+		// run of id characters after the scheme — `messageAttachments.id` is
+		// a UUID — so prose punctuation after a handle (`.`, `;`, a closing
+		// backtick) ends it instead of becoming part of the id.
 		const parts: string[] = [];
 		let i = 0;
 		while (i < s.length) {
@@ -49,7 +49,7 @@ export function buildAttachmentHandleResolver(attachments: ResolvableAttachment[
 			if (hit < 0) { parts.push(s.slice(i)); break; }
 			if (hit > i) parts.push(s.slice(i, hit));
 			let end = hit + ATTACHMENT_HANDLE_SCHEME.length;
-			while (end < s.length && !/[\s"'<>,)\]}]/.test(s[end]!)) end++;
+			while (end < s.length && /[A-Za-z0-9_-]/.test(s[end]!)) end++;
 			const id = s.slice(hit + ATTACHMENT_HANDLE_SCHEME.length, end);
 			const att = byId.get(id);
 			if (!att) {

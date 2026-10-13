@@ -169,10 +169,13 @@ Write backend/unit tests with `bun:test`. Lint and typecheck are separate:
 **A fresh worktree needs TWO installs, and skipping the second looks like a
 code failure.** `web` is NOT a bun workspace (`workspaces` is only
 `packages/@ezcorp/*`), so a root `bun install` leaves `web/node_modules` empty
-and `web/.svelte-kit` ungenerated. Run both:
+and `web/.svelte-kit` ungenerated. The gate-integrity tests also need their
+own locked parser (`scripts/gate-integrity-rule11.test.ts` fails closed with
+`TypeScript AST parser is unavailable` without it). Run all three:
 
 ```sh
-bun install --frozen-lockfile && bun install --cwd web --frozen-lockfile
+bun install --frozen-lockfile && bun install --cwd web --frozen-lockfile \
+  && bun install --cwd .github/gate-integrity-deps --frozen-lockfile --ignore-scripts
 ```
 
 Measured, because the symptoms do not name their cause: without the `web`

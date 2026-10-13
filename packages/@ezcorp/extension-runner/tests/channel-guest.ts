@@ -2,14 +2,18 @@ import { chmod, lstat, mkdir, readdir, readlink, writeFile } from "node:fs/promi
 import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { PodmanRunner } from "../src/podman";
+import type { Writable } from "node:stream";
 import type { FramedTransport } from "../src/protocol";
+
+/** A channel transport as `channelTransport` builds it: its stdin is the channel's Writable, so a test can await a write. */
+export type ChannelTransport = FramedTransport & { readonly stdin: Writable };
 
 /** Reaches the private channel helpers without loosening their visibility in production. */
 export class ChannelHost extends PodmanRunner {
   private reach<Value>(name: string, id: string): Value { return (this as unknown as Record<string, (id: string) => Value>)[name]!.call(this, id); }
   directory(id: string): string { return this.reach("channelDirectory", id); }
   facts(id: string): string { return this.reach("channelFactsPath", id); }
-  transport(id: string): Promise<FramedTransport> { return this.reach("channelTransport", id); }
+  transport(id: string): Promise<ChannelTransport> { return this.reach("channelTransport", id); }
   /** Ends a channel the way removing its container does. */
   closeChannel(id: string): void { (this as unknown as { channels: Map<string, () => void> }).channels.get(id)?.(); }
 }
@@ -21,7 +25,7 @@ export const GUEST_COUNT = 'head -n1 <&3 | wc -c >&4; read -r _ <&3';
 /** As GUEST_COUNT, but it starts reading only after a pause, so a full pipe answers the host's writes with EAGAIN first. */
 export const GUEST_SLOW_COUNT = `sleep 0.3; ${GUEST_COUNT}`;
 
-export interface EchoGuest { readonly guest: ChildProcess; readonly transport: FramedTransport; readonly echoed: Promise<string>; readonly closed: Promise<"closed"> }
+export interface EchoGuest { readonly guest: ChildProcess; readonly transport: ChannelTransport; readonly echoed: Promise<string>; readonly closed: Promise<"closed"> }
 
 /**
  * A shell guest on a real channel, connected through the real `channelTransport`.

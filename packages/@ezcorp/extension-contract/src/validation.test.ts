@@ -46,6 +46,15 @@ describe("data contracts", () => {
     expect(compileValueSchema(firstSchema)).not.toBe(first);
     for (let index = 0; index < 2; index++) expect(() => compileValueSchema({ $ref: "https://attacker.invalid/schema" })).toThrow();
   });
+
+  test("a local reference resolves only a schema the document defines", () => {
+    // Inherited names such as `__proto__` and `toString` are not definitions.
+    // Resolving one used to compile `__proto__` to an accept-anything schema.
+    for (const name of ["__proto__", "toString", "constructor"]) {
+      expect(() => compileValueSchema({ $defs: { name: { type: "string" } }, $ref: `#/$defs/${name}` })).toThrow("Unknown local reference");
+    }
+    expect(() => compileValueSchema({ $defs: { name: { type: "string" } }, $ref: "#/$defs/name" })(1)).toThrow();
+  });
   test("artifact maps admit sealed dependencies while preserving path and count limits", () => {
     const files = { ".runner/dependencies.json": "x".repeat(21 * 1024 * 1024) };
     expect(validateArtifactFiles(files)).toBe(files);

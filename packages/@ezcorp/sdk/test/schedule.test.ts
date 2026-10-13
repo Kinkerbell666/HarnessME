@@ -100,8 +100,8 @@ describe("Schedule.on + receiver dispatch", () => {
   test("last on() for a cron wins (Map overwrite semantics)", async () => {
     const calls: string[] = [];
     const schedule = new Schedule();
-    schedule.on("0 12 * * *", () => calls.push("first"));
-    schedule.on("0 12 * * *", () => calls.push("second"));
+    schedule.on("0 12 * * *", () => { calls.push("first"); });
+    schedule.on("0 12 * * *", () => { calls.push("second"); });
     await receiver!(makeCtx({ cron: "0 12 * * *" }));
     expect(calls).toEqual(["second"]);
   });

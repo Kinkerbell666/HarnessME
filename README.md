@@ -240,11 +240,13 @@ See [docs/extensions/](docs/extensions/) for the full extension development guid
 ## Contributing
 
 Use the Bun version pinned in [`.bun-version`](.bun-version) (currently
-`1.4.2`). A fresh checkout needs separate root and web installs:
+`1.4.2`). A fresh checkout needs separate root, web, and gate-integrity
+installs:
 
 ```bash
 bun install --frozen-lockfile
 bun install --cwd web --frozen-lockfile
+bun install --cwd .github/gate-integrity-deps --frozen-lockfile --ignore-scripts
 ```
 
 The full check needs Playwright Chromium. Install it once per machine, and

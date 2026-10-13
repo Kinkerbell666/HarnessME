@@ -17,7 +17,7 @@
  *     `ImageContent` parts alongside the original text.
  */
 
-import type { AttachmentCapabilities } from "../../providers/model-capabilities";
+import { isMimeAccepted, type AttachmentCapabilities } from "../../providers/model-capabilities";
 import { buildUserContent, type PiContentPart, type StagedAttachment } from "./content-builder";
 import { listAttachmentsForMessages } from "../../db/queries/attachments";
 import { readFile, stat } from "node:fs/promises";
@@ -53,19 +53,21 @@ export async function loadPastAttachments(
 }
 
 /**
- * Produce the rebuilt user-message content. On `UnsupportedAttachmentError`
- * (e.g. the user switched to a text-only model after an image turn) we fall
- * back to the raw text — the model loses visibility of the image but the
- * turn doesn't crash.
+ * Produce the rebuilt user-message content. Attachments the current model
+ * cannot take (e.g. the user switched to a text-only model after an image
+ * turn) are dropped one by one, so the rest of the message — its text
+ * files, its PDFs — still reach the model. On any other build failure we
+ * fall back to the raw text: the turn doesn't crash.
  */
 export async function rehydrateUserMessageContent(
 	text: string,
 	attachments: StagedAttachment[],
 	caps: AttachmentCapabilities,
 ): Promise<string | PiContentPart[]> {
-	if (attachments.length === 0) return text;
+	const accepted = attachments.filter((a) => isMimeAccepted(caps, a.mimeType));
+	if (accepted.length === 0) return text;
 	try {
-		return await buildUserContent(text, attachments, caps);
+		return await buildUserContent(text, accepted, caps);
 	} catch {
 		return text;
 	}

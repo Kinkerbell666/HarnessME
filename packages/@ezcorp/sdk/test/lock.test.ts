@@ -23,8 +23,8 @@ function deferred<T = void>() {
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
-function hostContext(call: ExtensionContext["call"], overrides: Partial<ExtensionContext> = {}): ExtensionContext {
-  return { call, signal: new AbortController().signal, invocation: { invocationId: "invocation", workerId: "worker", releaseId: "release", principalId: "user", scopeId: "scope", token: "token", deadline: Date.now() + 60_000 }, ...overrides };
+function hostContext(call: ExtensionContext["call"], overrides: Partial<ExtensionContext> = {}, deadline = Date.now() + 60_000): ExtensionContext {
+  return { call, signal: new AbortController().signal, invocation: { invocationId: "invocation", workerId: "worker", releaseId: "release", principalId: "user", scopeId: "scope", token: "token", deadline }, ...overrides };
 }
 
 test("v4 locks poll bounded host ownership and release the exact fence on failure", async () => {
@@ -50,8 +50,7 @@ test("v4 mutexes require stable keys while standalone mutexes retain local behav
 test("contended host polling backs off without extending the invocation deadline", async () => {
   let attempts = 0;
   let entered = false;
-  const context = hostContext(async () => { attempts++; return { acquired: false }; });
-  context.invocation.deadline = Date.now() + 1800;
+  const context = hostContext(async () => { attempts++; return { acquired: false }; }, {}, Date.now() + 1800);
   await expect(withExtensionContext(context, () => withLock("busy", async () => { entered = true; }))).rejects.toThrow("bounded deadline");
   expect(attempts).toBeLessThanOrEqual(6);
   expect(attempts).toBeGreaterThan(1);
@@ -75,8 +74,7 @@ test("v4 lock validation rejects malformed responses, unsafe keys and expired wa
     await expect(withExtensionContext(hostContext(async () => response), () => withLock("counter", async () => 1))).rejects.toThrow("Invalid lock");
   }
   await expect(withExtensionContext(hostContext(async () => null), () => withLock("../unsafe", async () => 1))).rejects.toThrow("Lock keys require");
-  const expired = hostContext(async () => null);
-  expired.invocation.deadline = 0;
+  const expired = hostContext(async () => null, {}, 0);
   await expect(withExtensionContext(expired, () => withLock("counter", async () => 1))).rejects.toThrow("bounded deadline");
 });
 
@@ -91,8 +89,7 @@ test("aborted invocation does not enter the critical section or send late releas
 });
 
 test("nested local lock cycles stop at the invocation deadline without running delayed actions", async () => {
-  const context = hostContext(async () => ({ acquired: true, fence: "fence" }));
-  context.invocation.deadline = Date.now() + 30;
+  const context = hostContext(async () => ({ acquired: true, fence: "fence" }), {}, Date.now() + 30);
   let entered = false;
   await expect(withExtensionContext(context, () => withLock("nested-cycle", () => withLock("nested-cycle", async () => { entered = true; })))).rejects.toThrow("bounded deadline");
   expect(entered).toBe(false);

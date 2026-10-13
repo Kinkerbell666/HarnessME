@@ -879,10 +879,10 @@ export interface AgentEvents {
      * display name + capability description.
      */
     extensionId?: string;
-    /** Sensitive capability kind that triggered the prompt — `shell`
-     *  or `fs.write`. Used by the modal to render a human-readable
-     *  description of what's being requested. */
-    capabilityKind?: "shell" | "fs.write";
+    /** Sensitive capability kind that triggered the prompt. Used by the
+     *  modal to render a human-readable description of what's being
+     *  requested. */
+    capabilityKind?: import("./extensions/capability-types").SensitiveCapabilityKind;
     /** Sensitive capability value (for `fs.write` it's the concrete
      *  path). Empty / undefined for `shell`. */
     capabilityValue?: string;

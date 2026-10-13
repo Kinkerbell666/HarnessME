@@ -427,3 +427,82 @@ describe("PDP integration: ToolExecutor → engine.authorize → auditLog row", 
     expect(typeof meta.promptId).toBe("string");
   });
 });
+
+describe("prompt path: every sensitive cap in one call is asked for", () => {
+  test("allowing the first sensitive cap still prompts for the second, and declining it denies the call", async () => {
+    const captured: CapturedCall[] = [];
+    const fakeProc = {
+      callTool: async (name: string, args: Record<string, unknown>): Promise<ToolCallResult> => {
+        captured.push({ name, args });
+        return { content: [{ type: "text", text: "ok" }], isError: false };
+      },
+      setNotificationHandler: () => {},
+      setRequestHandler: () => {},
+    };
+    const writeRoot = "/tmp/permission-integration-two-caps";
+    const registry = {
+      getRegisteredTool: () => ({
+        extensionId: EXT_ID,
+        extensionName: "scratchpad",
+        originalName: "write_and_run",
+        name: "scratchpad__write_and_run",
+        description: "test",
+        inputSchema: { type: "object" },
+      }),
+      getManifest: () =>
+        ({
+          schemaVersion: 3,
+          name: "scratchpad",
+          version: "1.0.0",
+          description: "test",
+          author: { name: "tester" },
+          permissions: { shell: true, filesystem: [writeRoot] },
+          entrypoint: "./index.ts",
+          tools: [
+            {
+              name: "write_and_run",
+              description: "test",
+              inputSchema: { type: "object" },
+              capabilities: { shell: true, filesystem: { paths: [writeRoot], mode: ["write"] } },
+            },
+          ],
+        }) as unknown as ExtensionManifestV2,
+      getGrantedPermissions: () => ({ grantedAt: {}, shell: true, filesystem: [writeRoot] }),
+      getProcess: async () => fakeProc,
+      getMcpClient: async () => {
+        throw new Error("not an mcp ext");
+      },
+    } as unknown as ExtensionRegistry;
+
+    type PromptEvent = { toolCallId: string; capabilityKind?: string };
+    const waiters: Array<(e: PromptEvent) => void> = [];
+    const nextPrompt = () => new Promise<PromptEvent>((resolve) => waiters.push(resolve));
+    const bus = {
+      emit: (type: string, payload: unknown) => {
+        if (type === "tool:permission_request") waiters.shift()?.(payload as PromptEvent);
+      },
+      on: () => () => {},
+    } as unknown as Parameters<typeof createPermissionEngine>[0]["bus"];
+
+    const engine = createPermissionEngine({ registry, bus, db: { _token: "int-two-caps" } });
+    const executor = new ToolExecutor(registry, engine, { bus });
+    executor.setCurrentUserId(USER_ID);
+    const { resolvePermission } = await import("../runtime/tools/permissions");
+
+    const firstPrompt = nextPrompt();
+    const callPromise = executor.executeToolCall("scratchpad__write_and_run", {}, "conv-int-prompt", "msg-int-prompt");
+    const settled = callPromise.then(() => "ran" as const, () => "rejected" as const);
+
+    const first = await firstPrompt;
+    const secondPrompt = nextPrompt();
+    resolvePermission(first.toolCallId, true, "session");
+
+    const next = await Promise.race([settled, secondPrompt]);
+    if (typeof next === "string") throw new Error(`call ${next} without a prompt for the second sensitive cap`);
+    expect(new Set([first.capabilityKind, next.capabilityKind])).toEqual(new Set(["fs.write", "shell"]));
+
+    resolvePermission(next.toolCallId, false);
+    await expect(callPromise).rejects.toThrow(/declined/);
+    expect(captured).toHaveLength(0);
+  });
+});

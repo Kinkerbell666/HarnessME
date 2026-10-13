@@ -11,7 +11,7 @@ EZCorp extensions frequently need to run work in the background: distill a lesso
 ### Cron parsing (`src/extensions/cron.ts`)
 
 - `parseCron(expr, tz="UTC")` returns a `CronInstance` whose `.next(from)` walks wall-clock minutes in the named TZ and converts each candidate back to a UTC `Date`. This naturally rolls forward over a DST spring-forward gap, and picks the **earlier** UTC instant in the fall-back ambiguous window (conservative for at-most-once).
-- `validateCron(expr)` enforces the rules: **5-field only** (`min hour dom month dow`) — `@`-shorthands and seconds are rejected; lists/ranges/steps allowed; **minimum 5-minute interval** (`* * * * *` and `*/1..*/4 * * * *` are refused via `SUB_5_MIN_PATTERNS`). Day-of-month vs day-of-week follow the Vixie cron OR-rule when both are restricted.
+- `validateCron(expr)` enforces the rules: **5-field only** (`min hour dom month dow`) — `@`-shorthands and seconds are rejected; lists/ranges/steps allowed; **minimum 5-minute interval** (checked by walking 48 consecutive fire times in UTC, so every dense form is refused: `* * * * *`, `*/1..*/4`, `0-59 * * * *`, `1,2,3 * * * *`, `* * * * 1`). Day-of-month vs day-of-week follow the Vixie cron OR-rule when both are restricted.
 - `findNextWallClock` caps its search at ~4 years to avoid spinning on an impossible expression (e.g. Feb 30).
 
 ### Manifest → DB mirror (`src/extensions/schedule-reconcile.ts`)
@@ -22,12 +22,15 @@ Cron expressions are **manifest-only** — they live in the manifest's `permissi
 - **Removed cron** → **soft-disable** (`enabled: false`) — the row is preserved so its `extension_schedule_fires` history survives.
 - **Existing cron** → no-op (preserves `next_fire_at`/`last_fire_at`); a previously-disabled match is re-enabled.
 - Only the first **8** valid crons are taken; invalid ones are dropped.
+- **Capability removed**: publishing a release whose manifest drops `permissions.triggers` soft-disables every user-created cron and webhook (`revokeDynamicTriggers`, one audit row each).
+- **Extension disable** sets `enabled: false` on manifest cron and webhook rows only. User-created (`ctx.triggers`) rows keep their own state, the schedule daemon skips them, the inbound hook route answers 404, and the webhook delivery daemon leaves already-queued deliveries `pending` (drained after re-enable) while the extension is disabled, so re-enabling the extension restores them. A row auto-disabled for errors stays disabled.
+- The `ctx.triggers` `maxCron` / `maxWebhooks` caps count **enabled** rows only. Re-registering an enabled key is an update and always passes; re-registering a disabled key re-enables it and needs a free slot.
 
 ### The daemon (`src/extensions/schedule-daemon.ts`)
 
 `ScheduleDaemon` is a singleton owned by `src/startup/background-timers.ts`, started at boot (gated by `EZCORP_DISABLE_SCHEDULE_DAEMON=1`). Its locked invariants:
 
-- **At-most-once delivery (default).** `next_fire_at` IS the queue. On each `tick()` it selects due, enabled rows (`next_fire_at <= now`, `limit 100`), and for each: inserts an `extension_schedule_fires` row (`status: running`) and advances `next_fire_at` to the next cron slot — only *then* dispatches the notification. A crash between commit and dispatch is acceptable because the row already advanced. Correctness rests on a **single writer**, not on row-level locking: the current `tick()` does a plain `SELECT … LIMIT 100` (no `FOR UPDATE SKIP LOCKED`) on both Postgres and PGlite, and the PID lockfile is what guarantees only one daemon claims rows. (The source still documents `FOR UPDATE SKIP LOCKED` as the intended multi-writer path, but it is not implemented today.)
+- **At-most-once delivery (default).** `next_fire_at` IS the queue. On each `tick()` it selects due, enabled rows of enabled extensions (`next_fire_at <= now`, `limit 100`), and for each: inserts an `extension_schedule_fires` row (`status: running`) and advances `next_fire_at` to the next cron slot — only *then* dispatches the notification. A crash between commit and dispatch is acceptable because the row already advanced. Correctness rests on a **single writer**, not on row-level locking: the current `tick()` does a plain `SELECT … LIMIT 100` (no `FOR UPDATE SKIP LOCKED`) on both Postgres and PGlite, and the PID lockfile is what guarantees only one daemon claims rows. (The source still documents `FOR UPDATE SKIP LOCKED` as the intended multi-writer path, but it is not implemented today.)
 - **At-least-once is opt-in** via `maxRetries > 0`. A failed fire under `attempt < maxRetries` is marked `error` and a fresh attempt row is synthesized. A `running` row older than `maxRunDurationMs * 2` is reaped on startup (`reapCrashedFires`) — but only retried when `maxRetries > 0`; otherwise it is left `running` indefinitely (preserving at-most-once) and audited.
 - **Single-process invariant.** PID lockfile at `.ezcorp/schedule-daemon.pid` (via `src/startup/process-lockfile.ts`, PID-reuse-safe). A sibling daemon refuses to start. Distributed cron is out of scope.
 - **Concurrency caps.** 5 concurrent fires per extension, 30 host-wide. Counters seed from `running` rows on startup, are enforced both across overlapping ticks (`inFlight*`) and within a tick (`tickClaims*`), and decrement on every completion path (ok / error / timeout).
@@ -161,7 +164,7 @@ getChannel().start();
 ## Notes & gotchas
 
 - **Manifest is the source of truth for crons.** The SDK `Schedule.on()` for a cron not in the manifest is silently dropped, and the reverse-RPC `fire-now` hard-rejects an undeclared cron. You cannot register a cron from extension code at runtime; edit the manifest and re-activate to reconcile.
-- **Cron rules are strict.** 5-field only (no `@hourly`, no seconds), and the **5-minute minimum** rejects `* * * * *` and `*/1..*/4 * * * *`. The validator returns a `reason` you can surface.
+- **Cron rules are strict.** 5-field only (no `@hourly`, no seconds), and the **5-minute minimum** rejects any expression with two fires less than 5 minutes apart (`* * * * *`, `*/1..*/4`, `0-59 * * * *`, `* 9 * * *`, ...). The validator returns a `reason` you can surface.
 - **At-most-once is the default; retries are opt-in.** With `maxRetries: 0`, a crash-mid-fire `running` row is left `running` forever (audited, not retried) to preserve at-most-once. Set `maxRetries > 0` only if your handler is idempotent.
 - **Cron fires are ownerless.** No conversation/user/run context — capability reverse-RPCs from a fire handler clean-soft-fail (`-32106`). Don't write a fire handler that assumes an active user or conversation.
 - **The claim relies on a single writer, not row locks.** `tick()` does a plain `SELECT … LIMIT 100` on both Postgres and PGlite — `FOR UPDATE SKIP LOCKED` is documented in the source as the intended multi-writer path but is **not** implemented. The PID lockfile is what guarantees the single writer the at-most-once invariant depends on.

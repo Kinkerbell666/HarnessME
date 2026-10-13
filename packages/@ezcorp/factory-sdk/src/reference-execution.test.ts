@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { factoryChildAcceptanceResult } from "./child-acceptance";
 import { compileFactory } from "./compiler";
 import { referenceCatalogV1, referenceCodeV1, referenceDataV1, referenceFactories, referenceImageV1 } from "./references";
-import type { CompiledFactory, FactoryDefinition, JsonValue } from "./types";
-import { simulateFactory, type FactorySimulatorOptions } from "./simulator";
+import type { CompiledFactory, FactoryDefinition, FactoryNode, JsonValue } from "./types";
+import { simulateFactory, type FactorySimulatorOptions, type SimulatedOutcome } from "./simulator";
 
 const artifact = (label: string): JsonValue => ({ digest: `sha256:${label.charCodeAt(0).toString(16).padStart(2, "0").repeat(32)}`, mediaType: "application/octet-stream", storage: `fixture://${label}` });
 const evidence = (label: string): JsonValue => [artifact(label)];
@@ -42,6 +42,13 @@ function record(value: JsonValue): Record<string, JsonValue> {
   return value;
 }
 
+/** A field the task's input must carry; a missing one is a fixture bug. */
+function field(input: Record<string, JsonValue>, name: string): JsonValue {
+  const value = input[name];
+  if (value === undefined) throw new Error(`fixture input has no ${name}`);
+  return value;
+}
+
 function compiled(definition: FactoryDefinition): CompiledFactory {
   const result = compileFactory(definition);
   if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
@@ -61,15 +68,16 @@ function fixtureOptions(overrides: { failImages?: boolean; missingEvidence?: boo
   return {
     inputs,
     childInputs,
-    execute(node, command) {
+    execute(node, command): SimulatedOutcome {
+      if (node.kind !== "task") throw new Error(`fixture dispatched a ${node.kind} node`);
       inputs.set(command.nodeId, command.input);
       const input = record(command.input);
       switch (node.runner.export) {
         case "snapshotRepository": return { kind: "success", output: { snapshot: artifacts.repository } };
         case "generateCandidate": return { kind: "success", output: { candidate: artifacts.code } };
-        case "freezeGitTree": return { kind: "success", output: { candidate: input.candidate } };
+        case "freezeGitTree": return { kind: "success", output: { candidate: field(input, "candidate") } };
         case "protectedChecks": return { kind: "success", output: overrides.missingEvidence ? {} : { evidence: evidence("checks") } };
-        case "snapshotBrief": return { kind: "success", output: { brief: input.brief } };
+        case "snapshotBrief": return { kind: "success", output: { brief: field(input, "brief") } };
         case "generateSdxl": return overrides.failImages ? { kind: "failure", error: "variant rejected" } : { kind: "success", output: { image: artifacts.image } };
         case "normalizePng": {
           const variants = input.variants as JsonValue[];
@@ -77,10 +85,10 @@ function fixtureOptions(overrides: { failImages?: boolean; missingEvidence?: boo
           return { kind: "success", output: { variants: variants.flatMap((entry) => record(entry).outcome === "succeeded" ? [record(entry).value!] : []) } };
         }
         case "validateImage": return { kind: "success", output: { evidence: evidence("vision") } };
-        case "selectFirstAccepted": return { kind: "success", output: { result: { accepted: true, candidate: (input.variants as JsonValue[])[0]!, evidence: input.evidence, revisedPrompt: "revised tree prompt" } } };
-        case "snapshotCsv": return { kind: "success", output: { snapshot: input.csv } };
+        case "selectFirstAccepted": return { kind: "success", output: { result: { accepted: true, candidate: (input.variants as JsonValue[])[0]!, evidence: field(input, "evidence"), revisedPrompt: "revised tree prompt" } } };
+        case "snapshotCsv": return { kind: "success", output: { snapshot: field(input, "csv") } };
         case "parseCsv": return { kind: "success", output: { partitions: [artifact("partition-a"), artifact("partition-b")] } };
-        case "transformPartition": return { kind: "success", output: { partition: input.partition } };
+        case "transformPartition": return { kind: "success", output: { partition: field(input, "partition") } };
         case "orderedReduce": return { kind: "success", output: { dataset: artifacts.data, manifest: artifacts.manifest } };
         case "reconcile": return { kind: "success", output: { evidence: evidence("reconcile") } };
         case "prepareCatalogRequest": return { kind: "success", output: { request: "embed accepted data and image" } };
@@ -103,7 +111,7 @@ function fixtureOptions(overrides: { failImages?: boolean; missingEvidence?: boo
 }
 
 function commandTrace(result: ReturnType<typeof simulateFactory>): string[] {
-  return result.commands.filter((command) => command.kind !== "start-timer" && command.kind !== "request-admission").map((command) => `${command.kind}:${command.nodeId ?? "run"}`);
+  return result.commands.filter((command) => command.kind !== "start-timer" && command.kind !== "request-admission").map((command) => `${command.kind}:${("nodeId" in command ? command.nodeId : undefined) ?? "run"}`);
 }
 
 describe("C10 reference execution", () => {
@@ -137,7 +145,7 @@ describe("C10 reference execution", () => {
     ]);
     expect(codeOptions.inputs.get("generate-private-candidate")).toEqual({ snapshot: artifacts.repository, request: "slugify the input", baseBranch: "main", remediation: "" });
     expect(codeOptions.inputs.get("freeze-complete-git-tree")).toEqual({ candidate: artifacts.code, baseCommitSha: "abc123" });
-    expect(referenceCodeV1.graph.nodes.find((node) => node.id === "generate-private-candidate" && node.kind === "task")?.runner).toEqual(expect.objectContaining({ model: "gpt-6-luna", configurationDigest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) }));
+    expect(referenceCodeV1.graph.nodes.find((node): node is Extract<FactoryNode, { kind: "task" }> => node.id === "generate-private-candidate" && node.kind === "task")?.runner).toEqual(expect.objectContaining({ model: "gpt-6-luna", configurationDigest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) }));
     expect(code.commands.map((command) => command.id)).toEqual([
       "trace-code:run:start-timer:1",
       "trace-code:snapshot-repository:request-admission:2",

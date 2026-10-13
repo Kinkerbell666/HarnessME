@@ -59,6 +59,14 @@ describe("chunkText", () => {
     // Total unique coverage: sum of non-overlapping parts
     expect(chunks.length).toBeGreaterThan(1);
   });
+
+  test("stops once a chunk reaches the end — no overlap-only tail chunks", () => {
+    // 600 chars at 512/50: one full chunk, then one chunk that runs to the
+    // end. Each extra chunk would be a sliver of the previous one that the
+    // KB still embeds and stores.
+    const chunks = chunkText("a".repeat(600), { chunkSize: 512, overlap: 50 });
+    expect(chunks.map((c) => c.content.length)).toEqual([512, 138]);
+  });
 });
 
 describe("isAllowedFile", () => {

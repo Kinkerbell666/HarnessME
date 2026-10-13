@@ -128,6 +128,23 @@ function isJsonRpcResponse(r: FsRpcResponse): r is JsonRpcResponse {
   return (r as { streamed?: boolean }).streamed !== true;
 }
 
+/** Reassemble chunked frames like the SDK channel does (atob per chunk, then JSON.parse). */
+function reassembleFrames(frames: readonly string[]): JsonRpcResponse {
+  const announce = frames[0]!.slice(1).split(":");
+  expect(Number(announce[1])).toBe(frames.length - 1);
+  let assembled = "";
+  for (let i = 1; i < frames.length; i++) {
+    const f = frames[i]!;
+    expect(f.startsWith("\x01")).toBe(true);
+    const body = f.slice(1, f.length - 1); // strip sentinel + trailing \n
+    const colon1 = body.indexOf(":");
+    const colon2 = body.indexOf(":", colon1 + 1);
+    expect(Number(body.slice(colon1 + 1, colon2))).toBe(i - 1);
+    assembled += atob(body.slice(colon2 + 1));
+  }
+  return JSON.parse(assembled) as JsonRpcResponse;
+}
+
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), "ezcorp-fs-handler-"));
   installDir = join(workDir, "install");
@@ -257,27 +274,25 @@ describe("fs-handler — read", () => {
     expect(frames[0]!.startsWith("\x02")).toBe(true);
     expect(frames[0]!).toContain("7:"); // id=7
 
-    // Reassemble like the SDK channel will.
-    const announce = frames[0]!.slice(1).split(":");
-    expect(Number(announce[1])).toBe(frames.length - 1);
-    let assembled = "";
-    for (let i = 1; i < frames.length; i++) {
-      const f = frames[i]!;
-      expect(f.startsWith("\x01")).toBe(true);
-      const body = f.slice(1, f.length - 1); // strip sentinel + trailing \n
-      const colon1 = body.indexOf(":");
-      const colon2 = body.indexOf(":", colon1 + 1);
-      const seq = Number(body.slice(colon1 + 1, colon2));
-      expect(seq).toBe(i - 1);
-      assembled += atob(body.slice(colon2 + 1));
-    }
-    const parsed = JSON.parse(assembled) as JsonRpcResponse;
+    const parsed = reassembleFrames(frames);
     expect(parsed.id).toBe(7);
     const result = parsed.result as { body: string; bytes: number };
     expect(result.bytes).toBe(size);
     const decoded = Buffer.from(result.body, "base64");
     expect(decoded.length).toBe(size);
     expect(decoded[0]).toBe(0x41);
+  });
+
+  test("(e2) streamed response keeps a non-Latin-1 resolvedPath intact", async () => {
+    const ctx = makeCtx({ granted: { filesystem: [grantedDir], grantedAt: {} } });
+    const target = join(grantedDir, "日本-文件-😀.bin");
+    writeFileSync(target, Buffer.alloc(STREAM_THRESHOLD + 1, 0x41));
+
+    const r = await handleFsReadRpc(makeRequest("ezcorp/fs.read", { path: target }, 8), ctx);
+
+    expect((r as { streamed?: boolean }).streamed).toBe(true);
+    const parsed = reassembleFrames((r as unknown as { frames: readonly string[] }).frames);
+    expect((parsed.result as { resolvedPath: string }).resolvedPath).toBe(target);
   });
 
   test("(f) explicit binary encoding round-trips arbitrary bytes", async () => {

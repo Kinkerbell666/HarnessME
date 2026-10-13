@@ -62,7 +62,7 @@ Loaded via `bun run --preload <preload>` before the extension entrypoint (resolv
 When network IS granted, `installFetchWrapper()` wraps `globalThis.fetch`; `classifyFetch(url, …)` decides the lane (pure, tested):
 
 - **invalid** → throw.
-- **internal** (localhost / 127.0.0.1 / ::1 / RFC-1918 / link-local, per `internal-host.ts`) → forwarded to the host via `ezcorp/network.internal` reverse-RPC. The host PDP enforces and performs the fetch host-side — the **SSRF carve-out**: the wrapper can't trust its own env for internal hosts, so the manifest gate lives host-side.
+- **internal** (localhost / 127.0.0.1 / ::1 / RFC-1918 / link-local, per `internal-host.ts`) → forwarded to the host via `ezcorp/network.internal` reverse-RPC. The host PDP enforces and performs the fetch host-side, and follows redirects itself so the PDP checks every hop — the **SSRF carve-out**: the wrapper can't trust its own env for internal hosts, so the manifest gate lives host-side.
 - **deny** → host not in the spawn-time `EZCORP_PERMITTED_HOSTS` ceiling, or not in the active tool's `EZCORP_TOOL_NETWORK_CAPS` per-tool override (ALS-bound). Per-tool overrides can only narrow, never widen.
 - **external** → forward to the real `fetch` (the host already vetted the allowlist; the PDP is deliberately not consulted per-call for perf).
 

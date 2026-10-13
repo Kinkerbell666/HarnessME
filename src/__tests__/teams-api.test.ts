@@ -268,6 +268,53 @@ describe("POST /api/teams/[id]/members", () => {
     expect(body.member.role).toBe("editor");
   });
 
+  test("unknown user is 404, not a 500 from the foreign key", async () => {
+    const team = await createTeam("Ghost");
+    await addTeamMember(team.id, memberDbId, "owner");
+
+    const event = createMockEvent({
+      method: "POST",
+      user: memberUser,
+      params: { id: team.id },
+      body: { userId: "no-such-user", role: "viewer" },
+    });
+    const res = await membersPost(event);
+    expect(res.status).toBe(404);
+  });
+
+  test("re-adding a member updates the role instead of a 500 on the unique index", async () => {
+    const team = await createTeam("Again");
+    await addTeamMember(team.id, memberDbId, "owner");
+    await addTeamMember(team.id, adminDbId, "viewer");
+
+    const event = createMockEvent({
+      method: "POST",
+      user: memberUser,
+      params: { id: team.id },
+      body: { userId: adminDbId, role: "editor" },
+    });
+    const res = await membersPost(event);
+    expect(res.status).toBe(201);
+    expect((await jsonFromResponse(res)).member.role).toBe("editor");
+    const rows = await getTestDb().select().from(teamMembers);
+    expect(rows.filter((r: { userId: string }) => r.userId === adminDbId)).toHaveLength(1);
+  });
+
+  test("the last owner cannot demote themselves (400)", async () => {
+    const team = await createTeam("Keep Owner");
+    await addTeamMember(team.id, memberDbId, "owner");
+
+    const event = createMockEvent({
+      method: "POST",
+      user: memberUser,
+      params: { id: team.id },
+      body: { userId: memberDbId, role: "viewer" },
+    });
+    const res = await membersPost(event);
+    expect(res.status).toBe(400);
+    expect((await jsonFromResponse(res)).error).toContain("last owner");
+  });
+
   test("viewer gets 403", async () => {
     const team = await createTeam("Locked");
     await addTeamMember(team.id, memberDbId, "viewer");

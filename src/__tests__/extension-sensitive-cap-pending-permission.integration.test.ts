@@ -49,18 +49,22 @@ const SENTINEL = "DISPATCH_REACHED_SENTINEL";
 
 let promptSeq = 0;
 
-/** Engine that always returns a fresh `prompt` decision for a sensitive
- *  fs.write cap — the exact PDP shape `create_extension` produces. */
-function makePromptEngine(): { engine: PermissionEngine; lastPromptId: () => string } {
+/** Engine that returns a fresh `prompt` decision for a sensitive fs.write
+ *  cap — the exact PDP shape `create_extension` produces — until the
+ *  executor re-authorizes with that cap approved, like the real PDP. */
+function makePromptEngine(
+  sensitive: { kind: string; value?: string } = { kind: "fs.write", value: "/p" },
+): { engine: PermissionEngine; lastPromptId: () => string } {
   let last = "";
   const engine = {
-    async authorize() {
+    async authorize(ctx: { promptApproved?: readonly unknown[] }) {
+      if (ctx.promptApproved?.length) return { decision: "allow" as const, auditId: "audit-x" };
       last = `prompt-${++promptSeq}`;
       return {
         decision: "prompt" as const,
         promptId: last,
         auditId: "audit-x",
-        sensitive: { kind: "fs.write", value: "/p" },
+        sensitive,
       };
     },
     async resolvePrompt() { /* no-op */ },
@@ -181,4 +185,26 @@ describe("extension sensitive-cap prompt ↔ pendingPermissions wiring", () => {
     expect(res.isError).toBe(true);
     expect(JSON.stringify(res.content)).toContain(SENTINEL);
   });
+
+  test.each(["ezcorp:extension:install", "ezcorp:extension:modify", "shell", "fs.write"])(
+    "the prompt event names the real capability (%s), so the user sees what they approve",
+    async (kind) => {
+      const { engine, lastPromptId } = makePromptEngine({ kind });
+      const events: Array<{ type: string; payload: Record<string, unknown> }> = [];
+      const bus = {
+        emit: (type: string, payload: Record<string, unknown>) => { events.push({ type, payload }); },
+        on: () => () => {},
+        off: () => {},
+      } as unknown as EventBus<AgentEvents>;
+      const exec = new ToolExecutor(makeRegistry(), engine, { bus });
+
+      const p = exec.executeToolCall("ext-1__create_extension", {}, `conv-label-${kind}`, null);
+      await tick();
+      const prompt = events.find((e) => e.type === "tool:permission_request");
+      expect(prompt?.payload.capabilityKind).toBe(kind);
+
+      resolvePermission(lastPromptId(), false);
+      await expect(p).rejects.toThrow(/declined/i);
+    },
+  );
 });

@@ -47,12 +47,19 @@ beforeEach(() => {
 	state.refreshProjects.mockReset();
 	state.setActiveProjectId.mockReset();
 	state.goto.mockReset();
+	stubFetch({ id: "admin-1", role: "admin" }, []);
+});
+
+/** Local workspace, with the given caller and project membership rows. */
+function stubFetch(user: { id: string; role: "admin" | "member" }, members: { userId: string; role: string }[]) {
 	vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
 		const url = String(input);
 		if (url.endsWith(`/api/projects/${ordinary.id}/sandbox`)) return response({ code: "SANDBOX_NOT_CONFIGURED" }, 409);
+		if (url === "/api/auth/me") return response({ user: { ...user, email: "u@test.local", name: "U" } });
+		if (url.endsWith(`/api/projects/${ordinary.id}/members`)) return response(members);
 		return response({ links: [] });
 	}));
-});
+}
 
 describe("project settings workspace binding", () => {
 	test("keeps an ordinary path-empty project local when no persisted binding exists", async () => {
@@ -60,7 +67,21 @@ describe("project settings workspace binding", () => {
 		await waitFor(() => expect(view.getByTestId("sandbox-panel-stub")).toHaveAttribute("data-sandbox", "false"));
 		expect(view.getByTestId("project-form-stub")).toBeInTheDocument();
 		expect(view.getByTestId("feature-index-stub")).toBeInTheDocument();
-		expect(view.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+		expect(await view.findByRole("button", { name: "Delete" })).toBeInTheDocument();
+	});
+
+	test("shows Delete to the project owner", async () => {
+		stubFetch({ id: "u-owner", role: "member" }, [{ userId: "u-owner", role: "owner" }]);
+		const view = render(SettingsPage);
+		expect(await view.findByRole("button", { name: "Delete" })).toBeInTheDocument();
+	});
+
+	test("hides Delete from a plain project member, whom the API would refuse", async () => {
+		stubFetch({ id: "u-member", role: "member" }, [{ userId: "u-member", role: "member" }, { userId: "u-owner", role: "owner" }]);
+		const view = render(SettingsPage);
+		await waitFor(() => expect(view.getByTestId("project-form-stub")).toBeInTheDocument());
+		await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith(`/api/projects/${ordinary.id}/members`));
+		expect(view.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
 	});
 
 	test("uses the persisted sandbox binding rather than an empty path", async () => {

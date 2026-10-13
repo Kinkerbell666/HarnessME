@@ -21,6 +21,17 @@ describe("evaluateCondition — leaf operators", () => {
     expect(evalLeaf({ ref: "$input.a", op: "eq", value: { x: 1 } }, { a: 5 }).passed).toBe(false);
   });
 
+  test("eq on objects ignores key order (a step's JSON output rarely matches the author's order)", () => {
+    const input = { a: { status: "done", meta: { b: 2, a: 1 } } };
+    const value = { meta: { a: 1, b: 2 }, status: "done" };
+    expect(evalLeaf({ ref: "$input.a", op: "eq", value }, input).passed).toBe(true);
+    expect(evalLeaf({ ref: "$input.a", op: "neq", value }, input).passed).toBe(false);
+    // Arrays stay order-sensitive, and an array never equals an object.
+    expect(evalLeaf({ ref: "$input.a", op: "eq", value: [2, 1] }, { a: [1, 2] }).passed).toBe(false);
+    expect(evalLeaf({ ref: "$input.a", op: "eq", value: { 0: 1 } }, { a: [1] }).passed).toBe(false);
+    expect(evalLeaf({ ref: "$input.a", op: "eq", value: { x: 1 } }, { a: { x: 1, y: 2 } }).passed).toBe(false);
+  });
+
   test("numeric comparisons gt/gte/lt/lte", () => {
     expect(evalLeaf({ ref: "$input.n", op: "gt", value: 2 }, { n: 3 }).passed).toBe(true);
     expect(evalLeaf({ ref: "$input.n", op: "gte", value: 3 }, { n: 3 }).passed).toBe(true);
@@ -38,6 +49,9 @@ describe("evaluateCondition — leaf operators", () => {
     expect(evalLeaf({ ref: "$input.s", op: "contains", value: "ell" }, { s: "hello" }).passed).toBe(true);
     expect(evalLeaf({ ref: "$input.arr", op: "contains", value: 2 }, { arr: [1, 2, 3] }).passed).toBe(true);
     expect(evalLeaf({ ref: "$input.arr", op: "contains", value: 9 }, { arr: [1, 2, 3] }).passed).toBe(false);
+    // An object element matches by structure, as `eq` does.
+    expect(evalLeaf({ ref: "$input.arr", op: "contains", value: { id: 2 } }, { arr: [{ id: 1 }, { id: 2 }] }).passed).toBe(true);
+    expect(evalLeaf({ ref: "$input.arr", op: "contains", value: { id: 9 } }, { arr: [{ id: 1 }] }).passed).toBe(false);
     // non-string, non-array → false
     expect(evalLeaf({ ref: "$input.n", op: "contains", value: 1 }, { n: 5 }).passed).toBe(false);
   });

@@ -10,7 +10,7 @@
 	import { addToast } from "$lib/toast.svelte.js";
 	import CommandForm, { type CommandFormInitial, type CommandFormPayload } from "$lib/components/CommandForm.svelte";
 	import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
-	import { onMount } from "svelte";
+	import { reloadOn } from "$lib/reload-on.svelte.js";
 
 	let commandName = $derived(page.params.name ?? "");
 
@@ -21,9 +21,13 @@
 	let errorMsg = $state("");
 	let deleting = $state(false);
 
-	onMount(async () => {
+	reloadOn(() => commandName, async (name, isStale) => {
+		initial = null;
+		loading = true;
+		loadError = "";
 		try {
-			const c: UserCommand = await fetchUserCommand(commandName);
+			const c: UserCommand = await fetchUserCommand(name);
+			if (isStale()) return;
 			initial = {
 				name: c.name,
 				description: c.description,
@@ -35,9 +39,9 @@
 				},
 			};
 		} catch (e) {
-			loadError = e instanceof Error ? e.message : "Failed to load command";
+			if (!isStale()) loadError = e instanceof Error ? e.message : "Failed to load command";
 		} finally {
-			loading = false;
+			if (!isStale()) loading = false;
 		}
 	});
 

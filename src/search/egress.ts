@@ -11,7 +11,8 @@
  *   - `mode: "read"` (the `read-url` reader): the URL is fully
  *     attacker-controlled. Resolve the hostname to IP(s); REJECT if ANY
  *     resolved IP is loopback / private (RFC-1918) / link-local /
- *     unique-local / the cloud metadata address / 0.0.0.0 / unspecified.
+ *     unique-local / the cloud metadata address / 0.0.0.0 / unspecified /
+ *     multicast / reserved / benchmark.
  *     Then connect to the VALIDATED IP (pin it) and re-validate after
  *     every redirect — this defeats both DNS-rebinding (hostname resolves
  *     public on the first lookup, private on the connect) and
@@ -135,9 +136,10 @@ export function parseIpv4(ip: string): [number, number, number, number] | null {
  * Is this IP literal one we must NEVER connect to from the host? Covers
  * loopback, RFC-1918 private ranges, link-local (incl. the cloud
  * metadata address 169.254.169.254), unspecified (0.0.0.0 / ::),
- * carrier-grade NAT, and IPv6 loopback / unique-local (fc00::/7, which
- * includes the `fd00:ec2::254` metadata address) / link-local /
- * IPv4-mapped private.
+ * carrier-grade NAT, benchmark (198.18.0.0/15), multicast (224.0.0.0/4,
+ * ff00::/8), reserved (240.0.0.0/4 incl. broadcast), and IPv6 loopback /
+ * unique-local (fc00::/7, which includes the `fd00:ec2::254` metadata
+ * address) / link-local / IPv4-mapped forms of every blocked v4 range.
  */
 export function isBlockedIp(ip: string): boolean {
   const v = isIP(ip);
@@ -165,6 +167,11 @@ function isBlockedIpv4(ip: string): boolean {
   if (a === 192 && b === 168) return true;
   // 100.64.0.0/10 — carrier-grade NAT (RFC 6598).
   if (a === 100 && b >= 64 && b <= 127) return true;
+  // 198.18.0.0/15 — benchmark networks (RFC 2544).
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  // 224.0.0.0/4 multicast and 240.0.0.0/4 reserved (incl. the
+  // 255.255.255.255 broadcast) — never a unicast web host.
+  if (a >= 224) return true;
   return false;
 }
 
@@ -257,6 +264,8 @@ function isBlockedIpv6(ip: string): boolean {
   if (b[0] === 0xfe && (b[1]! & 0xc0) === 0x80) return true;
   // fec0::/10 — deprecated site-local (RFC 3879).
   if (b[0] === 0xfe && (b[1]! & 0xc0) === 0xc0) return true;
+  // ff00::/8 — multicast.
+  if (b[0] === 0xff) return true;
   return false;
 }
 

@@ -33,7 +33,7 @@ describe("SseDataBuffer", () => {
 test("factory authoring client sends encoded paths, queries, and mutation preconditions", async () => {
   const requests: Request[] = [];
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
-    const request = new Request(input, init);
+    const request = input instanceof Request ? new Request(input, init) : new Request(input.toString(), init);
     requests.push(request);
     return Response.json({ schemaVersion: "factory.api.response.v1", kind: "draft.validation", valid: true, diagnostics: [] });
   }) as unknown as typeof fetch;
@@ -78,8 +78,9 @@ test("factory authoring client sends encoded paths, queries, and mutation precon
 
 test("extension control exposes the shared lifecycle without a key-based approval method", async () => {
   const input = { action: "create", name: "test" };
-  expect(await client().extensionControl("extensions_workspace", input)).toEqual({ tool: "extensions_workspace", input });
-  expect(await client().extensionControl("extensions_describe")).toEqual({ tool: "extensions_describe", input: {} });
+  type Echo = { tool: string; input: Record<string, unknown> };
+  expect(await client().extensionControl<Echo>("extensions_workspace", input)).toEqual({ tool: "extensions_workspace", input });
+  expect(await client().extensionControl<Echo>("extensions_describe")).toEqual({ tool: "extensions_describe", input: {} });
 });
 
 describe("event-name parity with the app", () => {
@@ -516,6 +517,31 @@ describe("HarnessClient", () => {
     }
     expect(events).toEqual(["run:start", "run:complete"]);
   });
+
+  test("streamEvents cancels the open stream when the consumer stops early", async () => {
+    // The server never closes an SSE stream, so a consumer that breaks out
+    // must close the connection itself; releasing the reader lock alone
+    // leaves the socket open for the life of the process.
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"type":"run:start","data":{"runId":"r1"}}\n\n'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const c = new HarnessClient({
+      baseUrl: "http://harness.test",
+      apiKey: "ezk_test",
+      fetch: (async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } })) as unknown as typeof fetch,
+    });
+    for await (const evt of c.streamEvents()) {
+      expect(evt.type).toBe("run:start");
+      break;
+    }
+    expect(cancelled).toBe(true);
+  });
 });
 
 describe("HarnessClient — extension control", () => {
@@ -648,6 +674,14 @@ describe("route table (HARNESS_ROUTES + buildPath)", () => {
 
   test("buildPath leaves a template with no params untouched", () => {
     expect(buildPath("/api/extensions")).toBe("/api/extensions");
+  });
+
+  test("buildPath refuses a param that is a whole dot segment", () => {
+    // encodeURIComponent leaves `.` alone and the URL parser resolves `..`
+    // even when encoded, so `/api/extensions/../activate` reached another route.
+    for (const id of ["", ".", ".."]) {
+      expect(() => buildPath("/api/extensions/:id/activate", { id })).toThrow(/invalid route param ':id'/);
+    }
   });
 
   test("buildPath throws loudly on a missing route param", () => {

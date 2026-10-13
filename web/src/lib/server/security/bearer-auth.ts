@@ -206,8 +206,9 @@ export async function attachBearerAuth(
 
     // Owner re-validation. A key's role/ownership is snapshotted at MINT time,
     // so a since-demoted or since-banned owner would otherwise keep a live
-    // admin key. Re-load the owner once per request (same pattern the session
-    // path uses) and:
+    // admin key. Re-load the owner once per request (the session path gets
+    // the same status check from lookupSessionByTokenHash, which matches only
+    // an active user's session) and:
     //   1. reject the key outright if the owner is gone or not `active` — an
     //      admin who disables/deletes a user MUST kill that user's keys too;
     //   2. CLAMP the effective role DOWN to the owner's CURRENT role — the key

@@ -7,10 +7,6 @@ import { getConversationPath, getLatestLeaf, resolveSystemPrompt } from "../../d
 import { computeSessionBranch, isSessionHistoryProducerEnabled } from "../../db/session-sync";
 import type { HistoryUserRow } from "../../chat/attachments/history-rehydrate";
 import { logger } from "../../logger";
-// preprocess-shared, NOT preprocess.ts — a constant-only import of the
-// runner module breaks its per-file coverage attribution under bun's
-// sharded coverage (see preprocess-shared.ts header).
-import { PREPROCESS_RESULT_ROLE } from "./preprocess-shared";
 import type { StreamChatContext } from "./context";
 
 const log = logger.child("executor.loadHistory.rehydrate");
@@ -321,30 +317,20 @@ export async function loadHistory(
   }
 
   // Map each branch row to a pi-ai message OR null. `null` means the row
-  // is intentionally absent from the LLM-visible history — currently used
-  // for `ez-action-result` synthetic rows (the inline card payload is for
-  // the UI, not the model). The post-map filter strips nulls.
+  // is intentionally absent from the LLM-visible history. The post-map
+  // filter strips nulls.
   //
-  // The downstream `convertToLlm` filter in build-pi-agent.ts only sees the
-  // POST-mapping role — by then `ez-action-result` would have been mapped to
-  // `"user"` (the fall-through branch below) and the JSON-encoded card
-  // would leak into the prompt as a fake user turn. Filter at the source.
+  // Only `user` and `assistant` rows are turns. Every other role is a
+  // UI-only synthetic row: `ez-action-result` / `preprocess-result` /
+  // `capability-event` JSON cards and `extension` tool-card headers (see
+  // the role list on `messages.role` in src/db/schema.ts). The downstream
+  // `convertToLlm` filter in build-pi-agent.ts only sees the POST-mapping
+  // role, so a synthetic row mapped to `"user"` would leak into the prompt
+  // as a fake user turn. Filter at the source — by allowlist, so a new
+  // synthetic role is excluded by default. (The CURRENT turn's preprocess
+  // result is grounded via a system note added in setup-tools.)
   const mapped = await Promise.all(branchMessages.map(async (m, idx): Promise<Message | null> => {
-    // EZ action result rows are UI-only — never send the JSON-encoded
-    // EzActionResult payload to the LLM. Spec invariant.
-    if (m.role === "ez-action-result") return null;
-    // Deterministic-preprocess result rows are UI-only tool cards. The
-    // CURRENT turn is grounded via a system note added in setup-tools;
-    // history replay would inject the JSON payload as a fake user turn.
-    // Same filter-at-the-source shape as ez-action-result above.
-    if (m.role === PREPROCESS_RESULT_ROLE) return null;
-    // Phase 50 capability-event rows are the chat-pill renderings of an
-    // sdk_capability_calls row (recordCapabilityCall write 3). The
-    // content is a JSON sentinel for the UI's pill component, NOT a
-    // turn the model should see — falling through to the user-message
-    // mapper below would inject the JSON sentinel as a fake user turn.
-    // Spec invariant: filter at the source, same shape as ez-action-result.
-    if (m.role === "capability-event") return null;
+    if (m.role !== "user" && m.role !== "assistant") return null;
     if (m.role === "assistant") {
       return {
         role: "assistant" as const,

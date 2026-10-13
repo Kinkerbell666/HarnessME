@@ -5,5 +5,7 @@ import schema from "./wire-schema.json";
 
 test("wire schema matches the authoritative data types", () => {
   const generated = createGenerator({ path: resolve(import.meta.dir, "types.d.ts"), tsconfig: resolve(import.meta.dir, "../tsconfig.build.json"), type: "WireData", skipTypeCheck: true }).createSchema("WireData");
-  expect(schema).toEqual(generated);
+  // The JSON import is typed by its literal shape; compare it as plain data.
+  const actual: unknown = schema;
+  expect(actual).toEqual(generated);
 });

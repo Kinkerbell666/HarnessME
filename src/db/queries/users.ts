@@ -1,5 +1,6 @@
 import { eq, inArray, not, like, sql, and, isNull } from "drizzle-orm";
-import { getDb } from "../connection";
+import { getDb, type DbTransaction } from "../connection";
+import { revokeAllUserSessions } from "./sessions";
 import { users } from "../schema";
 import type { User, NewUser } from "../schema";
 
@@ -133,9 +134,23 @@ export async function getUserCount(): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
-export async function updateUserPassword(id: string, passwordHash: string): Promise<boolean> {
-  const rows = await getDb().update(users).set({ passwordHash }).where(eq(users.id, id)).returning();
-  return rows.length > 0;
+/**
+ * Set a new password and revoke the user's sessions in one transaction, so a
+ * stolen session cannot outlive the password it was opened with. A
+ * self-service change passes `keepSessionId` to stay signed in on the tab
+ * that made the change; a reset revokes every session.
+ */
+export async function updateUserPassword(
+  id: string,
+  passwordHash: string,
+  opts: { keepSessionId?: string } = {},
+): Promise<boolean> {
+  return getDb().transaction(async (tx: DbTransaction) => {
+    const rows = await tx.update(users).set({ passwordHash }).where(eq(users.id, id)).returning();
+    if (rows.length === 0) return false;
+    await revokeAllUserSessions(id, { keepSessionId: opts.keepSessionId, tx });
+    return true;
+  });
 }
 
 export async function updateUserEmail(id: string, email: string): Promise<boolean> {

@@ -3,6 +3,7 @@ import { compileFactory } from "./compiler";
 import { advanceKernel, assertKernelContinuationState, createKernelState, currentEffectCommandMatches } from "./kernel";
 import { referenceCatalogV1, referenceCodeV1 } from "./references";
 import type { CompiledFactory, FactoryDefinition, FactoryReference, KernelCommand, KernelState } from "./index";
+import { mutableClone } from "../tests/mutable";
 
 const stringPort = { type: "string" as const };
 
@@ -13,7 +14,7 @@ function compiled(definition: FactoryDefinition): CompiledFactory {
 }
 
 function taskFactory(): CompiledFactory {
-  const definition = structuredClone(referenceCodeV1);
+  const definition = mutableClone(referenceCodeV1);
   definition.inputPorts = { source: stringPort };
   definition.outputPorts = { result: stringPort };
   definition.graph = {
@@ -39,7 +40,7 @@ function taskFactory(): CompiledFactory {
 }
 
 function childFactory(): CompiledFactory {
-  const definition = structuredClone(referenceCatalogV1);
+  const definition = mutableClone(referenceCatalogV1);
   const original = definition.graph.nodes.find(node => node.id === "static-catalog-code")!;
   if (original.kind !== "subfactory") throw new Error("fixture");
   definition.inputPorts = { source: stringPort };
@@ -66,11 +67,11 @@ function start(factory: CompiledFactory, runId: string): { state: KernelState; c
 
 test("repair changes only opted-in literal input and preserves prior candidate evidence", () => {
   const factory = taskFactory();
-  let current = start(factory, "repair-input");
-  const admission = current.commands.find(command => command.kind === "request-admission" && command.nodeId === "candidate")!;
-  current = advanceKernel(factory, current.state, { kind: "admission-result", id: "admitted", atMs: 1, nodeId: "candidate", commandId: admission.id, candidateGeneration: 0, granted: true });
-  const dispatch = current.commands.find(command => command.kind === "dispatch-node")!;
-  current = advanceKernel(factory, current.nextState, { kind: "node-result", id: "done", atMs: 2, nodeId: "candidate", commandId: dispatch.id, candidateGeneration: 0, attempt: 1, output: { result: "old" } });
+  const started = start(factory, "repair-input");
+  const admission = started.commands.find(command => command.kind === "request-admission" && command.nodeId === "candidate")!;
+  const admittedFirst = advanceKernel(factory, started.state, { kind: "admission-result", id: "admitted", atMs: 1, nodeId: "candidate", commandId: admission.id, candidateGeneration: 0, granted: true });
+  const dispatch = admittedFirst.commands.find(command => command.kind === "dispatch-node")!;
+  const current = advanceKernel(factory, admittedFirst.nextState, { kind: "node-result", id: "done", atMs: 2, nodeId: "candidate", commandId: dispatch.id, candidateGeneration: 0, attempt: 1, output: { result: "old" } });
 
   expect(() => advanceKernel(factory, current.nextState, { kind: "repair", id: "protected-change", atMs: 4, nodeId: "candidate", reason: "repair", inputOverride: { source: "changed", instruction: "second" } })).toThrow("protected binding");
   const repaired = advanceKernel(factory, current.nextState, { kind: "repair", id: "repair", atMs: 4, nodeId: "candidate", reason: "repair", inputOverride: { source: "protected", instruction: "second" } });
@@ -113,7 +114,7 @@ test("replan rejects another factory and ordinary repair keeps the current child
 });
 
 test("protected effect comparison rejects state that can no longer resolve its sealed input", () => {
-  const definition = structuredClone(referenceCodeV1);
+  const definition = mutableClone(referenceCodeV1);
   definition.inputPorts = { candidate: stringPort, evidence: stringPort };
   definition.outputPorts = {};
   definition.graph = {
@@ -139,7 +140,7 @@ test("protected effect comparison rejects state that can no longer resolve its s
 test("a node that fails for good while a sibling runs stops the run once: one epoch step, and the sibling's cancel carries it", () => {
   // Defect 2 (W01h): the product's run fence follows exactly this epoch, so the
   // sibling's cancel-node must carry the value the stopping transition raised.
-  const definition = structuredClone(taskFactory().definition);
+  const definition = mutableClone(taskFactory().definition);
   definition.graph.nodes = definition.graph.nodes.map(node => node.id === "candidate" ? { ...node, retry: { maxAttempts: 1, initialDelayMs: 1_000, maximumDelayMs: 2_000 } } : node);
   const factory = compiled(definition);
   let current = start(factory, "sibling-failure");
@@ -166,7 +167,7 @@ test("a node that fails for good while a sibling runs stops the run once: one ep
 
 /** A waiting approval gate, with the task either gated behind it or running beside it. */
 function approvalFactory(taskDependsOnGate: boolean): CompiledFactory {
-  const definition = structuredClone(taskFactory().definition);
+  const definition = mutableClone(taskFactory().definition);
   const task = { ...definition.graph.nodes.find(node => node.id === "hold")!, ...(taskDependsOnGate ? { dependsOn: ["gate"] } : {}) };
   definition.graph = {
     nodes: [{ id: "gate", kind: "approval", choices: ["approve", "deny"], context: { kind: "literal", value: null }, actorScope: "operator", expiresInMs: 60_000, onDenied: "fail", onExpired: "fail" }, task],
@@ -223,7 +224,7 @@ test("a denied gate beside a running task stops only the task physically, then f
 
 /** One task node alone, so a run's whole fate follows that node's admission. */
 function singleTaskFactory(): CompiledFactory {
-  const definition = structuredClone(referenceCodeV1);
+  const definition = mutableClone(referenceCodeV1);
   definition.inputPorts = { source: stringPort };
   definition.outputPorts = { result: stringPort };
   definition.graph = {
@@ -254,13 +255,13 @@ test("a denied admission ends its attempt: the run fails by name and cancels not
 
 /** An accepted candidate whose release is in flight: the run's only physical-free external effect (W09e). */
 function releasingRun(runId: string) {
-  const definition = structuredClone(taskFactory().definition);
+  const definition = mutableClone(taskFactory().definition);
   const releaseTemplate = referenceCodeV1.graph.nodes.find(node => node.kind === "release")!;
   const artifact = { digest: `sha256:${"a".repeat(64)}`, mediaType: "application/json", storage: "immutable" };
   definition.graph = {
     nodes: [
       { id: "accept", kind: "acceptance", contract: referenceCodeV1.acceptance.id, candidate: { kind: "literal", value: artifact }, evidence: { kind: "literal", value: null }, outputPorts: { acceptedCandidate: { type: "object", additionalProperties: true } } },
-      { ...releaseTemplate, id: "release", dependsOn: ["accept"], acceptedCandidate: { kind: "ref", root: "node", name: "accept", path: ["acceptedCandidate"] }, destination: { kind: "literal", value: "destination" } },
+      { ...mutableClone(releaseTemplate), id: "release", dependsOn: ["accept"], acceptedCandidate: { kind: "ref", root: "node", name: "accept", path: ["acceptedCandidate"] }, destination: { kind: "literal", value: "destination" } },
     ],
     outputs: {},
   };

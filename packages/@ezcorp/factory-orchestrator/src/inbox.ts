@@ -9,7 +9,7 @@ export interface FactoryInboxAcceptance {
 }
 
 export function acceptFactoryInbox(
-  delivery: FactoryInboxEnvelope,
+  delivery: unknown,
   acknowledgedSequence: number,
   pending: Map<number, FactoryInboxEnvelope>,
 ): FactoryInboxAcceptance {

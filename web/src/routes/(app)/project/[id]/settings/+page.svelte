@@ -12,6 +12,7 @@
 	import ProjectSandboxPanel from "$lib/components/ProjectSandboxPanel.svelte";
 	import { createSaveFlash } from "$lib/save-flash.svelte.js";
 	import { resolveWorkspaceBinding, type WorkspaceKind } from "$lib/workspace-binding";
+	import { canDeleteProject } from "$lib/admin-guard.js";
 
 	let globalPrompt = $state("");
 	let projectPrompt = $state("");
@@ -108,6 +109,17 @@
 		if (projectId && project) void loadWorkspaceKind(projectId, project.path);
 	});
 
+	// Delete needs the project owner role or an instance admin; hide it otherwise.
+	let canDelete = $state(false);
+	$effect(() => {
+		const id = projectId;
+		canDelete = false;
+		if (!id) return;
+		void canDeleteProject(id).then((allowed) => {
+			if (id === projectId) canDelete = allowed;
+		});
+	});
+
 	async function handleUpdate(data: { name: string; path: string; icon?: string | null; variables: Record<string, unknown> }) {
 		if (!projectId) return;
 		const updated = await projectUpdateFlash.run(() => updateProject(projectId, data));
@@ -133,7 +145,7 @@
 					{/if}
 					<h2 class="text-2xl font-bold text-[var(--color-text-primary)]">{project.name}</h2>
 				</div>
-				{#if workspaceResolved && !sandbox}
+				{#if workspaceResolved && !sandbox && canDelete}
 					<button
 						onclick={handleDelete}
 						class="rounded-md px-3 py-1.5 text-sm text-red-400 hover:bg-[var(--color-surface-tertiary)] hover:text-red-300"

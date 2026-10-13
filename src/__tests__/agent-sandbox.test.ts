@@ -47,15 +47,20 @@ import {
   deleteTestConversations,
 } from "../db/queries/conversations";
 import { createProject } from "../db/queries/projects";
+import { createUser } from "../db/queries/users";
 import { getDb } from "../db/connection";
 
 let projectId: string;
 let agentConfigId: string;
+let userA: string;
+let userB: string;
 
 beforeAll(async () => {
   await setupTestDb();
   const project = await createProject({ name: "Sandbox Test", path: "/tmp/sandbox" });
   projectId = project.id;
+  userA = (await createUser({ email: "sandbox-a@test.com", passwordHash: "hash", name: "Sandbox A" })).id;
+  userB = (await createUser({ email: "sandbox-b@test.com", passwordHash: "hash", name: "Sandbox B" })).id;
 
   // Create a test agent config
   const db = getDb();
@@ -110,13 +115,13 @@ describe("agent sandbox - test flag", () => {
 
   test("getTestConversations returns only test conversations for an agent", async () => {
     // Create test conversations for our agent
-    await createConversation(projectId, { title: "Agent Test 1", agentConfigId, test: true });
-    await createConversation(projectId, { title: "Agent Test 2", agentConfigId, test: true });
+    await createConversation(projectId, { title: "Agent Test 1", agentConfigId, test: true, userId: userA });
+    await createConversation(projectId, { title: "Agent Test 2", agentConfigId, test: true, userId: userA });
 
     // Create a normal conversation for the same agent
-    await createConversation(projectId, { title: "Agent Normal", agentConfigId });
+    await createConversation(projectId, { title: "Agent Normal", agentConfigId, userId: userA });
 
-    const testConvs = await getTestConversations(agentConfigId);
+    const testConvs = await getTestConversations(agentConfigId, userA);
     expect(testConvs.length).toBeGreaterThanOrEqual(2);
     expect(testConvs.every((c) => c.test === true)).toBe(true);
     expect(testConvs.every((c) => c.agentConfigId === agentConfigId)).toBe(true);
@@ -131,25 +136,46 @@ describe("agent sandbox - test flag", () => {
 
   test("deleteTestConversations removes all test conversations for an agent", async () => {
     // Create test conversations
-    await createConversation(projectId, { title: "To Delete 1", agentConfigId, test: true });
-    await createConversation(projectId, { title: "To Delete 2", agentConfigId, test: true });
+    await createConversation(projectId, { title: "To Delete 1", agentConfigId, test: true, userId: userA });
+    await createConversation(projectId, { title: "To Delete 2", agentConfigId, test: true, userId: userA });
 
     // Verify they exist
-    let testConvs = await getTestConversations(agentConfigId);
+    let testConvs = await getTestConversations(agentConfigId, userA);
     const countBefore = testConvs.length;
     expect(countBefore).toBeGreaterThanOrEqual(2);
 
     // Delete all test conversations
-    const deleted = await deleteTestConversations(agentConfigId);
+    const deleted = await deleteTestConversations(agentConfigId, userA);
     expect(deleted).toBeGreaterThanOrEqual(2);
 
     // Verify they are gone
-    testConvs = await getTestConversations(agentConfigId);
+    testConvs = await getTestConversations(agentConfigId, userA);
     expect(testConvs).toHaveLength(0);
 
     // Normal conversations should still exist
     const allConvs = await listConversations(projectId);
     const normalAgentConvs = allConvs.filter((c) => c.agentConfigId === agentConfigId);
     expect(normalAgentConvs.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("agent sandbox - test conversations are per user", () => {
+  test("one user's calls never see or delete another user's test conversations", async () => {
+    const mine = await createConversation(projectId, { title: "A's test", agentConfigId, test: true, userId: userA });
+    const theirs = await createConversation(projectId, { title: "B's test", agentConfigId, test: true, userId: userB });
+    const unowned = await createConversation(projectId, { title: "Unowned test", agentConfigId, test: true });
+
+    const seenByA = (await getTestConversations(agentConfigId, userA)).map((c) => c.id);
+    expect(seenByA).toContain(mine.id);
+    expect(seenByA).not.toContain(theirs.id);
+    expect(seenByA).not.toContain(unowned.id);
+
+    expect(await deleteTestConversations(agentConfigId, userA)).toBe(1);
+    expect((await getTestConversations(agentConfigId, userA)).map((c) => c.id)).toEqual([]);
+    expect((await getTestConversations(agentConfigId, userB)).map((c) => c.id)).toEqual([theirs.id]);
+    const { conversations } = require("../db/schema");
+    const { eq } = require("drizzle-orm");
+    const left = await getDb().select().from(conversations).where(eq(conversations.id, unowned.id));
+    expect(left).toHaveLength(1);
   });
 });

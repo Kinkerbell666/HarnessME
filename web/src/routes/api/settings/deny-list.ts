@@ -9,12 +9,16 @@
 // admin-ROLE row — bypassing the mint route's canMintRole anti-escalation, or
 // desync the canonical row from its hash-index pointer. They are owned solely
 // by the mint/verify code path, so they are denied here even to admins.
+//
+// `oauth:pending:<state>` rows hold a provider-login PKCE code verifier
+// (web/src/routes/api/auth/oauth). The verifier must never leave the server.
 const DENY_PATTERNS: readonly RegExp[] = [
   /^instance:jwtSecret$/,
   /^provider:apiKey:/,
   /^provider:oauth:/,
   /^apikey:/,
   /^apikeyhash:/,
+  /^oauth:pending:/,
 ];
 
 export function isSensitiveSettingKey(key: string): boolean {

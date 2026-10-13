@@ -1,4 +1,4 @@
-import { workspaceText } from "@ezcorp/extension-contract";
+import { workspaceText, type WorkspaceFiles } from "@ezcorp/extension-contract";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmod, lstat, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -276,7 +276,7 @@ test("the runner's material handover leaves the directory closed to everyone but
     // Ownership moved to the guest's mapped uid, away from the runner, while the
     // group stayed the runner's so it can still read the results back.
     expect(handed.uid).not.toBe(process.getuid?.());
-    expect(handed.gid).toBe(process.getgid?.());
+    expect(handed.gid).toBe(process.getgid!());
     // And the runner really can still read what the guest wrote.
     expect(await listRunnerMaterials(materials)).toEqual([{ path: "ok.bin", bytes: 1 }]);
   } finally {
@@ -384,7 +384,8 @@ test("failed cleanup is reported and retained containers are retried at shutdown
 }, 120_000);
 
 test("type errors, absent, skipped and failing tests cannot produce a release", async () => {
-  for (const files of [ { ...source(), "broken.ts": "const count:number='bad';" }, { "extension.ts": source()["extension.ts"]! }, { ...source(), "feature.test.ts": "import {test,expect} from 'bun:test';test('fail',()=>expect(1).toBe(2));" }, { ...source(), "feature.test.ts": "import {test} from 'bun:test';test.skip('skip',()=>{});" }, { ...source(), "feature.test.ts": "console.log('PASS');process.exit(0);" } ]) {
+  const cases: WorkspaceFiles[] = [ { ...source(), "broken.ts": "const count:number='bad';" }, { "extension.ts": source()["extension.ts"]! }, { ...source(), "feature.test.ts": "import {test,expect} from 'bun:test';test('fail',()=>expect(1).toBe(2));" }, { ...source(), "feature.test.ts": "import {test} from 'bun:test';test.skip('skip',()=>{});" }, { ...source(), "feature.test.ts": "console.log('PASS');process.exit(0);" } ];
+  for (const files of cases) {
     const result = await runner.build({ operationId: randomUUID(), files, sourceDigest: filesDigest(files), entrypoint: "extension.ts", limits: buildLimits });
     expect(result.state).toBe("failed");
     expect(result.artifactDigest).toBeUndefined();

@@ -40,10 +40,13 @@ export async function streamLLM(
 export async function completeLLM(
   model: Model<Api>,
   context: Context,
-  opts?: { conversationId?: string },
+  opts?: { conversationId?: string; signal?: AbortSignal; maxTokens?: number; temperature?: number },
 ): Promise<AssistantMessage> {
   const cred = await getCredential(model.provider, opts?.conversationId);
   return complete(resolveModelForCredential(model, model.provider, cred.type), context, {
     ...authCallOptions(cred.token),
+    signal: opts?.signal,
+    maxTokens: opts?.maxTokens,
+    temperature: opts?.temperature,
   });
 }

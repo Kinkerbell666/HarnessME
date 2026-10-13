@@ -553,8 +553,8 @@ export const apiRegistry: ApiRouteEntry[] = [
   { method: "DELETE", path: "/api/runs/:id", description: "Cancel an in-flight run (ownership-gated)", category: "runs", scope: "chat", harness: { controllable: true } },
 
   // Observability
-  { method: "GET", path: "/api/observability", description: "List observability events", category: "observability" },
-  { method: "GET", path: "/api/observability/:conversationId", description: "Get events for conversation", category: "observability" },
+  { method: "GET", path: "/api/observability", description: "Usage totals: all users for an admin, the caller's own conversations for anyone else", category: "observability" },
+  { method: "GET", path: "/api/observability/:conversationId", description: "Get events for a conversation (owner or admin only)", category: "observability" },
   { method: "GET", path: "/api/runtime-events", description: "SSE stream of runtime events (run/tool/workflow/agent lifecycle) — consumed by HarnessClient.streamEvents", category: "observability", scope: "read", harness: { controllable: true } },
 
   // Mentions

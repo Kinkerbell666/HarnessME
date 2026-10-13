@@ -275,6 +275,37 @@ test.describe("Message Toolbar", () => {
 		await expect(messageRow.getByRole("button", { name: "Branch from here" })).toBeVisible();
 	});
 
+	test("an extension toolbar action posts its event and writes nothing to the console @evidence", async ({ page, mockApi }, testInfo) => {
+		await mockApi({
+			projects: [proj],
+			conversations: [conv],
+			messages: [userMsg, assistantMsg],
+			extensionToolbarItems: {
+				[conv.id]: [{ extName: "tts", id: "speak", icon: "Volume2", tooltip: "Read aloud", appliesTo: "assistant", appliesToSelection: "single", event: "speak" }],
+			},
+		});
+		const logged: string[] = [];
+		page.on("console", (msg) => {
+			if (msg.type() === "info" || msg.type() === "warning") logged.push(msg.text());
+		});
+		await page.goto(`/project/${proj.id}/chat/${conv.id}`);
+		await expect(page.getByText("Hello from the assistant")).toBeVisible({ timeout: 5000 });
+
+		const messageRow = page.locator(".group").filter({ hasText: "Hello from the assistant" });
+		await messageRow.hover();
+		const action = messageRow.getByTestId("ext-action-tts-speak");
+		await expect(action).toBeVisible();
+		const posted = page.waitForRequest((req) => req.method() === "POST" && req.url().endsWith("/api/extensions/tts/events/speak"));
+		await action.click();
+		const body = (await posted).postDataJSON() as { messageId?: string; conversationId?: string };
+		expect(body.messageId).toBe(assistantMsg.id);
+		expect(body.conversationId).toBe(conv.id);
+		await expect(page.getByText("Read aloud…")).toBeVisible();
+		// No debug trace of ids or the extension's response body.
+		expect(logged.filter((text) => text.includes("kokoro-tts-flow") || text.includes(assistantMsg.id))).toEqual([]);
+		await captureEvidence(page, testInfo, "extension-toolbar-action");
+	});
+
 	test("copy button shows visual feedback when clicked", async ({ page, mockApi }) => {
 		await mockApi({
 			projects: [proj],

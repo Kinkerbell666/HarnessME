@@ -625,6 +625,9 @@ export interface AlwaysAllowRecord {
  */
 export function parseAlwaysAllowValue(
   value: unknown,
+  /** When given, a row whose materialized `expiresAt` is at or before
+   *  `now` reads as expired before the sweep has revoked it. */
+  now?: number,
 ): "allowed" | "needs_confirmation" {
   // Legacy boolean shape — pre-Phase-1 rows that haven't been rewritten.
   if (value === true) return "allowed";
@@ -640,7 +643,8 @@ export function parseAlwaysAllowValue(
   ) {
     const v = value as Record<string, unknown>;
     if (typeof v.allowed === "boolean" && typeof v.grantedAt === "number") {
-      return v.allowed ? "allowed" : "needs_confirmation";
+      const expired = now !== undefined && typeof v.expiresAt === "number" && v.expiresAt <= now;
+      return v.allowed && !expired ? "allowed" : "needs_confirmation";
     }
   }
 

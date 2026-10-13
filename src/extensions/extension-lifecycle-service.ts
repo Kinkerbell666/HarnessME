@@ -4,7 +4,7 @@ import { canonicalJson, compileValueSchema, validateManifest, type CandidateVeri
 import { buildLimits, DEFAULT_IMAGE, executionLimits, resolveDependencies, trustedLocalImage } from "@ezcorp/extension-runner";
 import { createLazyExtensionRunner } from "./runner-connection";
 import { getExtensionRunnerMode, ISOLATED_PROFILE, TRUSTED_LOCAL_PROFILE, trustedLocalBunDigest } from "./runner-mode";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { DatabaseLifecycleRepository, releaseRows } from "../db/queries/extension-releases";
 import { extensionLogger } from "../logger";
 import { ExtensionControl } from "./extension-control";
@@ -234,6 +234,7 @@ export async function getExtensionReleaseArtifacts(installationId: string, relea
 export async function publishExtensionGeneration(installation: InstallationRecord, release: LifecycleRelease | null, sourceFiles?: WorkspaceFiles): Promise<void> {
   const { prepareEzFactoryAgents, publishEzFactoryAgents } = await import("./ez-factory-release-agents");
   let factoryAgents: import("../types").AgentDefinition[] | undefined;
+  let triggersRevokedFor: string | undefined;
   const { getDb } = await import("../db/connection");
   const { extensions, extensionWebhooks, extensionSchedules } = await import("../db/schema");
   const { serializeJsonbFields } = await import("../db/queries/extensions");
@@ -245,9 +246,13 @@ export async function publishExtensionGeneration(installation: InstallationRecor
   const { ensureWebhookSecret } = await import("./webhook-secret");
   await getDb().transaction(async (transaction: import("../db/connection").DbTransaction) => {
     if (release?.manifest.entities?.length) await transaction.execute(sql`LOCK TABLE extension_storage IN SHARE ROW EXCLUSIVE MODE`);
-    const result = await transaction.execute(sql`SELECT payload FROM extension_release_installations WHERE id = ${installation.id} FOR UPDATE`);
-    const rows = releaseRows<{ payload: string }>(result);
+    // The joined installed_permissions is the last published grant (a disable
+    // keeps it), so the publish below can tell when triggers were dropped.
+    const result = await transaction.execute(sql`SELECT i.payload, e.installed_permissions FROM extension_release_installations i LEFT JOIN extensions e ON e.id = i.id WHERE i.id = ${installation.id} FOR UPDATE OF i`);
+    const rows = releaseRows<{ payload: string; installed_permissions?: unknown }>(result);
     const current: InstallationRecord | undefined = rows[0] ? JSON.parse(rows[0].payload) : undefined;
+    const previousRaw = rows[0]?.installed_permissions;
+    const previousGrant = (typeof previousRaw === "string" ? JSON.parse(previousRaw) : previousRaw) as { triggers?: unknown } | null | undefined;
     if (!current || current.generation !== installation.generation || current.activeReleaseId !== installation.activeReleaseId || current.enabled !== installation.enabled) throw new LifecycleError("generation_superseded", "A newer activation replaced this catalog update.");
     if (release && installation.enabled && (release.id !== current.activeReleaseId || release.installationId !== current.id || !hasExactReleaseGrants(release.manifest, current.grants))) throw new LifecycleError("grant_mismatch", "Publication requires the exact approved release permission set.");
     if (!release || !installation.enabled) {
@@ -255,8 +260,12 @@ export async function publishExtensionGeneration(installation: InstallationRecor
       const [projection] = await transaction.select({ name: extensions.name }).from(extensions).where(eq(extensions.id, installation.id));
       if (projection) {
         if (projection.name === "ez-factory") factoryAgents = [];
-        await transaction.update(extensionWebhooks).set({ enabled: false, updatedAt: new Date() }).where(eq(extensionWebhooks.extensionId, projection.name));
-        await transaction.update(extensionSchedules).set({ enabled: false, updatedAt: new Date() }).where(eq(extensionSchedules.extensionId, installation.id));
+        // Manifest rows only: the reconcilers re-enable those, but never
+        // touch user-created (dynamic) rows, so disabling them here would be
+        // permanent. The schedule daemon and getEnabledWebhook skip a
+        // disabled extension's rows instead.
+        await transaction.update(extensionWebhooks).set({ enabled: false, updatedAt: new Date() }).where(and(eq(extensionWebhooks.extensionId, projection.name), eq(extensionWebhooks.dynamic, false)));
+        await transaction.update(extensionSchedules).set({ enabled: false, updatedAt: new Date() }).where(and(eq(extensionSchedules.extensionId, installation.id), eq(extensionSchedules.dynamic, false)));
       }
       return;
     }
@@ -267,6 +276,7 @@ export async function publishExtensionGeneration(installation: InstallationRecor
     await transaction.insert(extensions).values(values).onConflictDoUpdate({ target: extensions.id, set: values });
     await reconcileWebhooks(manifest.name, granted.webhooks ?? [], () => new Date(), (name, slug) => ensureWebhookSecret(name, slug, installation.ownerId, transaction), transaction);
     await reconcileSchedules(installation.id, granted.schedule && typeof granted.schedule === "object" ? granted.schedule.crons ?? [] : [], () => new Date(), transaction);
+    if (!granted.triggers && previousGrant?.triggers) triggersRevokedFor = manifest.name;
     if (manifest.entities?.length) {
       if (!sourceFiles) throw new LifecycleError("seed_source_missing", "Entity seeds require the verified immutable release files.");
       await runEntitySeed({ extensionId: installation.id, entities: manifest.entities, sourceDir: "", sourceFiles, userId: installation.ownerId, database: transaction });
@@ -274,6 +284,12 @@ export async function publishExtensionGeneration(installation: InstallationRecor
   });
   const { getPageCache } = await import("./page-cache");
   getPageCache().invalidateExtension(installation.id);
+  // This generation dropped the triggers capability, so the user-created
+  // rows it authorized are soft-disabled.
+  if (triggersRevokedFor !== undefined) {
+    const { revokeDynamicTriggers } = await import("./triggers-sweep");
+    await revokeDynamicTriggers(installation.id, triggersRevokedFor);
+  }
   await ExtensionRegistry.getInstance().reload();
   // A bundled extension that subscribes to conversation events is dead on
   // every conversation created while it was disabled — the dispatcher gates

@@ -22,7 +22,7 @@ import { emitPersistedDomainEvent, type DomainExtensionEvent } from "../domain-e
 import { persistToolCall } from "../../db/queries/tool-calls";
 import { resolveExtensionSettings } from "../../db/queries/extension-settings";
 import type { Decision, PermissionEngine } from "../permission-engine";
-import { capabilityDeclarationToSet, type Capability, type CapabilitySet } from "../capability-types";
+import { capabilityDeclarationToSet, type Capability, type CapabilitySet, type SensitiveCapabilityKind } from "../capability-types";
 import { getRuntimeToolContext, withRuntimeToolContext } from "../runtime-tool-context";
 import { isSealedServiceInvocation, type ServiceInvocation } from "../service-invocation";
 import {
@@ -95,6 +95,47 @@ import {
 } from "./rpc-handlers";
 
 const log = logger.child("ext.tool-executor");
+
+/** Per-call options of {@link ToolExecutor.executeToolCall}. */
+interface ExecuteToolCallOpts {
+  callerExtensionId?: string;
+  expectedReleaseBinding?: string;
+  signal?: AbortSignal;
+  invocationGuard?: InvocationGuard;
+  serviceInvocation?: ServiceInvocation;
+  _callDepth?: number;
+  metadata?: { invocationId?: string; source?: "inline" | "agent-run" };
+  /** Phase 4: caller∩callee intersected cap set for cross-ext invokes. */
+  capContext?: CapabilitySet;
+  /** Phase 1: parent audit row for the chain — set by `handlePiInvoke` etc. */
+  parentAuditId?: string;
+}
+
+/** What the PDP gate and the sensitive prompt need to know about one call. */
+interface SensitivePromptCall {
+  toolName: string;
+  originalName: string;
+  extensionId: string;
+  conversationId: string;
+  messageId: string | null;
+  input: Record<string, unknown>;
+  registered: NonNullable<ReturnType<ExtensionRegistry["getRegisteredTool"]>>;
+  meta: ExecuteToolCallOpts["metadata"];
+  signal: AbortSignal | undefined;
+  /** Idempotent `tool:start` emitter shared with the dispatch path. */
+  emitToolStart: (timestamp: number) => void;
+}
+
+/** Count one tool call against the conversation's per-turn budget. */
+function chargeTurnToolCall(conversationId: string): void {
+  if (conversationId && conversationId !== "cross-ext") {
+    const next = (toolCallsThisTurn.get(conversationId) ?? 0) + 1;
+    if (next > MAX_TOOL_CALLS_PER_TURN) {
+      throw new MaxToolCallsExceededError(conversationId, next);
+    }
+    toolCallsThisTurn.set(conversationId, next);
+  }
+}
 
 export class ToolExecutor {
   private bus?: EventBus<AgentEvents>;
@@ -231,6 +272,369 @@ export class ToolExecutor {
     this.deregisterPendingPermission = deregister;
   }
 
+  /** Service-invocation identity, abort and invocation-guard checks that
+   *  run before the tool is even looked up. */
+  private async assertCallPreconditions(
+    serviceInvocation: ServiceInvocation | undefined,
+    opts: ExecuteToolCallOpts | undefined,
+  ): Promise<void> {
+    if (serviceInvocation) {
+      if (!isSealedServiceInvocation(serviceInvocation) || this.currentUserId) throw new Error("Service invocation cannot use a human identity or an unsealed host origin");
+      await serviceInvocation.assertActive();
+    }
+    opts?.signal?.throwIfAborted();
+    if (opts?.invocationGuard) await opts.invocationGuard();
+    opts?.signal?.throwIfAborted();
+  }
+
+  /** Service-capability or extension-RBAC gate (see the call site). Returns
+   *  the invocation guard the dispatch re-checks under its transaction and
+   *  the service target release binding. */
+  private async authorizeInvocationScope(a: {
+    serviceInvocation: ServiceInvocation | undefined;
+    extensionId: string;
+    toolName: string;
+    conversationId: string;
+    needed: Capability[];
+    requiredScope: string | undefined;
+    manifestName: string | undefined;
+    opts: ExecuteToolCallOpts | undefined;
+  }): Promise<{ invocationGuard: InvocationGuard | undefined; serviceTargetBinding: string | undefined }> {
+    const { serviceInvocation, extensionId, toolName, conversationId, needed, requiredScope, opts } = a;
+    let serviceTargetBinding: string | undefined;
+    if (serviceInvocation) {
+      const { assertServiceCapabilities } = await import("../service-capabilities");
+      serviceTargetBinding = await assertServiceCapabilities(serviceInvocation, extensionId, needed, { toolName, rbacScope: requiredScope });
+      if (opts?.expectedReleaseBinding !== undefined && opts.expectedReleaseBinding !== serviceTargetBinding) throw new Error("Service target does not match the expected release");
+    } else if (requiredScope) {
+      const scopeGranted = await this.resolveExtensionScopeGrant(
+        a.manifestName ?? extensionId,
+        requiredScope,
+        this.currentUserId ?? null,
+        conversationId ?? null,
+      );
+      if (!scopeGranted) {
+        throw new PermissionDeniedError(
+          extensionId,
+          toolName,
+          `requires extension RBAC scope '${requiredScope}'`,
+        );
+      }
+    }
+    const invocationGuard: InvocationGuard | undefined = serviceInvocation ? async database => {
+      await opts?.invocationGuard?.(database);
+      const { assertServiceCapabilities } = await import("../service-capabilities");
+      const current = await assertServiceCapabilities(serviceInvocation, extensionId, needed, { toolName, rbacScope: requiredScope, database });
+      if (current !== serviceTargetBinding) throw new Error("Service target release changed during invocation");
+    } : opts?.invocationGuard;
+    return { invocationGuard, serviceTargetBinding };
+  }
+
+  /** Inject the mandatory one-shot approval caps for the bundled
+   *  extension-author's install / modify tools. */
+  private addAuthorApprovalCaps(
+    needed: Capability[],
+    originalName: string,
+    manifestName: string | undefined,
+    extensionId: string,
+  ): void {
+    if (manifestName !== "extension-author" || this.registry.isBundled?.(extensionId) !== true) return;
+    // Mandatory in-chat approval for agent-driven extension install.
+    // The bundled `extension-author.install_draft` tool installs
+    // model-authored code that then runs with its declared
+    // permissions — the strongest trust boundary in the system. We
+    // inject the sensitive `ezcorp:extension:install` cap into the
+    // needed set HERE (rather than via the manifest CapabilityDeclaration
+    // machinery) so the existing watchdog-bounded sensitive-cap gate
+    // fires at tool-call start: the PDP subset check passes
+    // (extension-author is granted it via `custom.drafts.kinds`), it's
+    // sensitive + carved out of the bundled auto-allow + never
+    // persisted, so it ALWAYS prompts. Approve → tool body runs the
+    // `ezcorp/drafts.install` RPC; Deny → PermissionDeniedError, nothing
+    // installed. Scoped to the bundled extension-author so a
+    // user-installed look-alike can't reach this path.
+    if (originalName === "install_draft") {
+      // Boolean cap (no value) — like `shell`. The granted side
+      // (`grantsToCapabilitySet` from `custom.drafts.kinds`) is also
+      // valueless, so the subset check passes (a valued needed cap
+      // would FAIL `capabilityCovers` against the valueless grant).
+      // The specific draftId is already audited via the tool input.
+      needed.push({ kind: "ezcorp:extension:install" });
+    }
+
+    // Mandatory in-chat approval for agent-driven extension MODIFY.
+    // The bundled `extension-author.modify_extension` tool re-opens an
+    // installed extension for editing — the entry point to rewriting
+    // model-authored code. Same trust class and injection rationale as
+    // `install_draft` above: sensitive, carved out of the bundled
+    // auto-allow, never persisted → ALWAYS prompts. The host
+    // `ezcorp/drafts.reopen` action independently enforces owner +
+    // admin-`modifiable` + not-bundled authorization (defense in
+    // depth). Scoped to the bundled extension-author so a user-
+    // installed look-alike can't reach this path.
+    if (originalName === "modify_extension") {
+      needed.push({ kind: "ezcorp:extension:modify" });
+    }
+  }
+
+  /** Run the PDP, then ask the user for each sensitive cap it prompts
+   *  for, re-authorizing after every approval until it allows or denies. */
+  private async authorizeWithPrompts(
+    call: SensitivePromptCall,
+    needed: Capability[],
+    ctx: {
+      serviceInvocation: ServiceInvocation | undefined;
+      callerExtensionId: string | undefined;
+      capContext: CapabilitySet | undefined;
+      parentAuditId: string | undefined;
+    },
+  ): Promise<Decision> {
+    const { extensionId, toolName, originalName, conversationId } = call;
+    // Explicit `Decision` (not `typeof this.engine.authorize`): the
+    // `typeof this` type query is fragile under the backend-only tsc
+    // graph (a new drafts-handler→author-install→registry import edge
+    // exposed a resolution cycle that made `this` unresolvable here).
+    // `engine.authorize` returns `Promise<Decision>`, so this is
+    // semantically identical and graph-independent.
+    let decision: Decision;
+    // Re-authorize after each approved prompt: one call can need several
+    // sensitive caps, and approving one must never carry the others.
+    const promptApproved: Capability[] = [];
+    for (;;) {
+      try {
+        decision = await this.engine.authorize(
+          {
+            extensionId,
+            // Phase 6: null is the canonical "no user" signal — the
+            // PDP serializes it as JSON null in the audit row instead
+            // of the literal string "unknown".
+            userId: this.currentUserId ?? null,
+            serviceInvocation: ctx.serviceInvocation,
+            conversationId: conversationId ?? null,
+            toolName: originalName,
+            callerExtensionId: ctx.callerExtensionId,
+            capContext: ctx.capContext,
+            ...(ctx.parentAuditId !== undefined ? { parentAuditId: ctx.parentAuditId } : {}),
+            ...(promptApproved.length > 0 ? { promptApproved } : {}),
+          },
+          needed,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new PermissionDeniedError(
+          extensionId,
+          toolName,
+          `engine error: ${msg}`,
+        );
+      }
+
+      if (decision.decision === "deny") {
+        throw new PermissionDeniedError(extensionId, toolName, decision.reason);
+      }
+      if (decision.decision !== "prompt") return decision;
+      await this.awaitSensitivePrompt(call, decision);
+      promptApproved.push(decision.sensitive);
+    }
+  }
+
+  /** The always-allow row key for the scope the user picked. */
+  private alwaysAllowScopeId(scope: string, conversationId: string): string {
+    // Project scopeId resolution is deferred — for a `project` scope we use
+    // the conversationId as a stable key for now; a future commit can map
+    // conversation→project when the PDP gains project-aware lookups (the
+    // cache key already accommodates it). Comment lifted out of the ternary
+    // branch below so bun doesn't emit a phantom, never-hit DA record on an
+    // in-ternary comment line (which the per-file gate can't clear).
+    return scope === "conversation"
+      ? conversationId
+      : scope === "session"
+        ? `session:${this.currentUserId ?? ""}`
+        : scope === "project"
+          ? conversationId
+          : "*";
+  }
+
+  /** Phase 6 sensitive-cap UI gate for one `prompt` decision: show the
+   *  card and the prompt, await the user, and persist an approval. Throws
+   *  PermissionDeniedError on decline or gate failure. */
+  private async awaitSensitivePrompt(
+    call: SensitivePromptCall,
+    decision: Extract<Decision, { decision: "prompt" }>,
+  ): Promise<void> {
+    const { toolName, originalName, extensionId, conversationId, messageId, input, registered, meta } = call;
+    // Phase 6 — sensitive-cap UI gate. The PDP returned a `prompt`
+    // decision (every needed cap is granted, but a sensitive cap
+    // — `shell` or `fs.write` — lacks an always-allow row for the
+    // (user, scope, scopeId, capability) tuple). We open an
+    // extension-scoped permission gate, emit `tool:permission_request`
+    // for the originating user's UI, and AWAIT the user's
+    // `{allowed, scope}` decision. The user's chosen scope is
+    // persisted via `setSensitiveAlwaysAllow` so the next call to
+    // the same sensitive cap inside the same scope auto-allows.
+    //
+    // The PDP path also wrote a `PERM_PROMPTED` audit row before
+    // returning; we don't write a second row here. On user decline
+    // we throw `PermissionDeniedError` to mirror the deny path.
+    const sensitive = decision.sensitive;
+    // The PDP prompts only for a SENSITIVE_KINDS cap. Name it as-is:
+    // the user must see an install, not a generic file write.
+    const capabilityKind = sensitive.kind as SensitiveCapabilityKind;
+
+    const promptStartedAt = Date.now();
+    // Terminalize the (now visible) tool card on any prompt-branch
+    // failure — deny, gate transport error, or resolvePrompt error.
+    // Without this the card we just rendered would hang forever even
+    // though the call rejects. Uses the same namespaced `toolName` as
+    // tool:start so the store correlates it to the same card.
+    const terminalizePromptCard = async (message: string): Promise<void> => {
+      const errorResult: ToolCallResult = {
+        content: [{ type: "text", text: message }],
+        isError: true,
+      };
+      const toolEvent: DomainExtensionEvent = { id: crypto.randomUUID(), type: "tool:error", conversationId, payload: {
+        conversationId,
+        extensionId,
+        toolName,
+        error: message,
+        duration: Date.now() - promptStartedAt,
+        ...(registered.cardType && { cardType: registered.cardType }),
+        ...(registered.cardLayout && { cardLayout: registered.cardLayout }),
+        ...(meta?.source && { source: meta.source }),
+        ...(meta?.invocationId && { invocationId: meta.invocationId }),
+      } };
+      await this.recordToolCall(
+        conversationId,
+        messageId,
+        extensionId,
+        toolName,
+        input,
+        errorResult,
+        promptStartedAt,
+        registered.cardType,
+        registered.cardLayout,
+        toolEvent,
+      );
+      emitPersistedDomainEvent(this.bus, toolEvent);
+    };
+
+    // Emit tool:start FIRST so the card + tool_ref block exist before
+    // the prompt arrives. Same (namespaced) `toolName` the
+    // start/complete/error events use — previously this emitted
+    // `originalName`, which never matched the namespaced tool:start
+    // entry in the store, so even a rendered card wouldn't correlate.
+    call.emitToolStart(promptStartedAt);
+
+    // Surface the prompt to the originating user's UI session only.
+    // `userId` is the H7-scoped delivery key — the SSE filter at
+    // `sse-conversation-filter.ts:shouldDeliverEvent` enforces that
+    // only the matching subscriber sees the event.
+    this.bus?.emit("tool:permission_request", {
+      conversationId,
+      toolCallId: decision.promptId,
+      toolName,
+      input,
+      userId: this.currentUserId,
+      extensionId,
+      capabilityKind,
+      ...(sensitive.value !== undefined ? { capabilityValue: sensitive.value } : {}),
+      promptId: decision.promptId,
+    });
+
+    // Make this gate visible to the watchdog as a legitimate
+    // user-wait, exactly like the built-in tool path
+    // (setup-tools.ts). Keyed by `decision.promptId` — the same key
+    // `createExtensionPermissionGate` and the resolve route use, so
+    // register/deregister stay aligned with no toolCallId↔promptId
+    // skew. Without this the watchdog treats the wait as a hung
+    // in-flight tool and kills the run at the callTimeoutMs ceiling,
+    // tearing down the prompt before the user can answer it.
+    this.registerPendingPermission(decision.promptId, {
+      conversationId,
+      toolCallId: decision.promptId,
+      toolName: originalName,
+      input,
+      category: "extension-sensitive",
+    });
+
+    let resolution: ApprovalResolution;
+    try {
+      resolution = await createExtensionPermissionGate({
+        ...(call.signal ? { signal: call.signal } : {}),
+        promptId: decision.promptId,
+        conversationId,
+        userId: this.currentUserId ?? "",
+        extensionId,
+        toolName: originalName,
+        capabilityKind,
+        ...(sensitive.value !== undefined ? { capabilityValue: sensitive.value } : {}),
+      });
+    } catch (err) {
+      // The gate's promise resolves with `{allowed: false}` on
+      // decline; reaching the catch arm means a transport-level
+      // failure (e.g. server restart). Treat as deny.
+      const msg = err instanceof Error ? err.message : String(err);
+      await terminalizePromptCard(`permission gate error: ${msg}`);
+      throw new PermissionDeniedError(
+        extensionId,
+        toolName,
+        `permission gate error: ${msg}`,
+      );
+    } finally {
+      // Runs on every exit — gate resolved (allow/deny), gate threw
+      // (catch above), or any unexpected throw. Race-safe: the key is
+      // the immutable `decision.promptId`. Symmetric with the
+      // built-in path's `finally` deregister (setup-tools.ts).
+      this.deregisterPendingPermission(decision.promptId);
+    }
+
+    if (!resolution.allowed) {
+      await terminalizePromptCard("User declined permission prompt");
+      throw new PermissionDeniedError(
+        extensionId,
+        toolName,
+        "User declined permission prompt",
+      );
+    }
+
+    // Persist always-allow at the user-chosen scope (default session
+    // — least surprise; the gate falls back to "session" when no
+    // scope is supplied, matching the spec's locked default).
+    //
+    // `engine.resolvePrompt` is the single source of truth: it writes
+    // the always-allow settings row AND updates the engine's in-memory
+    // allow cache so the next call to the same sensitive cap in the
+    // same scope auto-allows. A previous version of this code ALSO
+    // called `setSensitiveAlwaysAllow` directly here, which wrote a
+    // second row under a different key shape (kind-only vs kind+value)
+    // — the reader's lookup never found the legacy row, so users
+    // hitting Allow Forever still re-prompted on every subsequent
+    // call. Collapsed to one writer to make the asymmetry impossible.
+    const scope = resolution.scope ?? "session";
+    const scopeId = this.alwaysAllowScopeId(scope, conversationId);
+    // Phase 56: forward the picker's `ttlOverrideMs` (when supplied)
+    // so the engine persists the per-row override alongside the
+    // always-allow row. `undefined` here means the user hit Allow
+    // via a legacy path (pre-Phase-56 client) — engine falls back
+    // to the existing TTL_CONFIG[kind] / foreverTtlMs lookup.
+    const resolvePromptOptions =
+      resolution.ttlOverrideMs !== undefined
+        ? { ttlOverrideMs: resolution.ttlOverrideMs }
+        : undefined;
+    try {
+      await this.engine.resolvePrompt(
+        decision.promptId,
+        true,
+        scope,
+        scopeId,
+        resolvePromptOptions,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await terminalizePromptCard(`permission persist error: ${msg}`);
+      throw err;
+    }
+  }
+
   /** Execute a tool call through the extension subprocess.
    *
    *  `invocationMetadata` (Phase 4 §5.1a) is opaque per-turn data threaded
@@ -244,29 +648,14 @@ export class ToolExecutor {
     input: Record<string, unknown>,
     conversationId: string,
     messageId: string | null,
-    _opts?: {
-      callerExtensionId?: string;
-      expectedReleaseBinding?: string;
-      signal?: AbortSignal;
-      invocationGuard?: InvocationGuard;
-      serviceInvocation?: ServiceInvocation;
-      _callDepth?: number;
-      metadata?: { invocationId?: string; source?: "inline" | "agent-run" };
-      /** Phase 4: caller∩callee intersected cap set for cross-ext invokes. */
-      capContext?: CapabilitySet;
-      /** Phase 1: parent audit row for the chain — set by `handlePiInvoke` etc. */
-      parentAuditId?: string;
-    },
+    _opts?: ExecuteToolCallOpts,
     invocationMetadata?: Record<string, unknown>,
   ): Promise<ToolCallResult> {
     const serviceInvocation = _opts?.serviceInvocation ?? getRuntimeToolContext()?.serviceInvocation;
-    if (serviceInvocation) {
-      if (!isSealedServiceInvocation(serviceInvocation) || this.currentUserId) throw new Error("Service invocation cannot use a human identity or an unsealed host origin");
-      await serviceInvocation.assertActive();
-    }
-    _opts?.signal?.throwIfAborted();
-    if (_opts?.invocationGuard) await _opts.invocationGuard();
-    _opts?.signal?.throwIfAborted();
+    // Awaited only when there is something to check, so a plain call reaches
+    // the PDP in the same number of microtasks as before the split.
+    if (serviceInvocation || _opts?.invocationGuard) await this.assertCallPreconditions(serviceInvocation, _opts);
+    else _opts?.signal?.throwIfAborted();
     const registered = this.registry.getRegisteredTool(toolName);
     if (!registered) {
       return {
@@ -322,13 +711,7 @@ export class ToolExecutor {
     // conversationId in the same Phase 6 commit, see M4) DON'T count
     // against the budget so their nested calls don't double-charge the
     // parent's quota.
-    if (conversationId && conversationId !== "cross-ext") {
-      const next = (toolCallsThisTurn.get(conversationId) ?? 0) + 1;
-      if (next > MAX_TOOL_CALLS_PER_TURN) {
-        throw new MaxToolCallsExceededError(conversationId, next);
-      }
-      toolCallsThisTurn.set(conversationId, next);
-    }
+    chargeTurnToolCall(conversationId);
 
     // Resolve symbolic arg references (e.g. attachment handles → data URIs)
     // BEFORE the PDP check. The post-resolved args are what the
@@ -373,77 +756,14 @@ export class ToolExecutor {
     // server-side from the conversation — identical semantics to the
     // advisory `ctx.rbac.check` via the shared `resolveExtensionScopeGrant`.
     const requiredScope = tool?.rbacScope;
-    let serviceTargetBinding: string | undefined;
-    if (serviceInvocation) {
-      const { assertServiceCapabilities } = await import("../service-capabilities");
-      serviceTargetBinding = await assertServiceCapabilities(serviceInvocation, extensionId, needed, { toolName, rbacScope: requiredScope });
-      if (_opts?.expectedReleaseBinding !== undefined && _opts.expectedReleaseBinding !== serviceTargetBinding) throw new Error("Service target does not match the expected release");
-    } else if (requiredScope) {
-      const scopeGranted = await this.resolveExtensionScopeGrant(
-        manifest?.name ?? extensionId,
-        requiredScope,
-        this.currentUserId ?? null,
-        conversationId ?? null,
-      );
-      if (!scopeGranted) {
-        throw new PermissionDeniedError(
-          extensionId,
-          toolName,
-          `requires extension RBAC scope '${requiredScope}'`,
-        );
-      }
-    }
-    const invocationGuard: InvocationGuard | undefined = serviceInvocation ? async database => {
-      await _opts?.invocationGuard?.(database);
-      const { assertServiceCapabilities } = await import("../service-capabilities");
-      const current = await assertServiceCapabilities(serviceInvocation, extensionId, needed, { toolName, rbacScope: requiredScope, database });
-      if (current !== serviceTargetBinding) throw new Error("Service target release changed during invocation");
-    } : _opts?.invocationGuard;
+    const { invocationGuard, serviceTargetBinding } = serviceInvocation || requiredScope
+      ? await this.authorizeInvocationScope({
+        serviceInvocation, extensionId, toolName, conversationId, needed, requiredScope,
+        manifestName: manifest?.name, opts: _opts,
+      })
+      : { invocationGuard: _opts?.invocationGuard, serviceTargetBinding: undefined };
 
-    // Mandatory in-chat approval for agent-driven extension install.
-    // The bundled `extension-author.install_draft` tool installs
-    // model-authored code that then runs with its declared
-    // permissions — the strongest trust boundary in the system. We
-    // inject the sensitive `ezcorp:extension:install` cap into the
-    // needed set HERE (rather than via the manifest CapabilityDeclaration
-    // machinery) so the existing watchdog-bounded sensitive-cap gate
-    // fires at tool-call start: the PDP subset check passes
-    // (extension-author is granted it via `custom.drafts.kinds`), it's
-    // sensitive + carved out of the bundled auto-allow + never
-    // persisted, so it ALWAYS prompts. Approve → tool body runs the
-    // `ezcorp/drafts.install` RPC; Deny → PermissionDeniedError, nothing
-    // installed. Scoped to the bundled extension-author so a
-    // user-installed look-alike can't reach this path.
-    if (
-      originalName === "install_draft" &&
-      manifest?.name === "extension-author" &&
-      this.registry.isBundled?.(extensionId) === true
-    ) {
-      // Boolean cap (no value) — like `shell`. The granted side
-      // (`grantsToCapabilitySet` from `custom.drafts.kinds`) is also
-      // valueless, so the subset check passes (a valued needed cap
-      // would FAIL `capabilityCovers` against the valueless grant).
-      // The specific draftId is already audited via the tool input.
-      needed.push({ kind: "ezcorp:extension:install" });
-    }
-
-    // Mandatory in-chat approval for agent-driven extension MODIFY.
-    // The bundled `extension-author.modify_extension` tool re-opens an
-    // installed extension for editing — the entry point to rewriting
-    // model-authored code. Same trust class and injection rationale as
-    // `install_draft` above: sensitive, carved out of the bundled
-    // auto-allow, never persisted → ALWAYS prompts. The host
-    // `ezcorp/drafts.reopen` action independently enforces owner +
-    // admin-`modifiable` + not-bundled authorization (defense in
-    // depth). Scoped to the bundled extension-author so a user-
-    // installed look-alike can't reach this path.
-    if (
-      originalName === "modify_extension" &&
-      manifest?.name === "extension-author" &&
-      this.registry.isBundled?.(extensionId) === true
-    ) {
-      needed.push({ kind: "ezcorp:extension:modify" });
-    }
+    this.addAuthorApprovalCaps(needed, originalName, manifest?.name, extensionId);
 
     // Phase 1 PDP gate. Fail-closed if the engine isn't wired —
     // constructor already enforces that, but the typecheck here is
@@ -465,228 +785,16 @@ export class ToolExecutor {
     const inheritedParentAuditId =
       _opts?.parentAuditId ?? upstreamCtx?.currentAuditId;
 
-    // Explicit `Decision` (not `typeof this.engine.authorize`): the
-    // `typeof this` type query is fragile under the backend-only tsc
-    // graph (a new drafts-handler→author-install→registry import edge
-    // exposed a resolution cycle that made `this` unresolvable here).
-    // `engine.authorize` returns `Promise<Decision>`, so this is
-    // semantically identical and graph-independent.
-    let decision: Decision;
-    try {
-      decision = await this.engine.authorize(
-        {
-          extensionId,
-          // Phase 6: null is the canonical "no user" signal — the
-          // PDP serializes it as JSON null in the audit row instead
-          // of the literal string "unknown".
-          userId: this.currentUserId ?? null,
-          serviceInvocation,
-          conversationId: conversationId ?? null,
-          toolName: originalName,
-          callerExtensionId: _opts?.callerExtensionId,
-          capContext: _opts?.capContext,
-          ...(inheritedParentAuditId !== undefined ? { parentAuditId: inheritedParentAuditId } : {}),
-        },
-        needed,
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new PermissionDeniedError(
-        extensionId,
-        toolName,
-        `engine error: ${msg}`,
-      );
-    }
-
-    if (decision.decision === "deny") {
-      throw new PermissionDeniedError(extensionId, toolName, decision.reason);
-    }
-    if (decision.decision === "prompt") {
-      // Phase 6 — sensitive-cap UI gate. The PDP returned a `prompt`
-      // decision (every needed cap is granted, but a sensitive cap
-      // — `shell` or `fs.write` — lacks an always-allow row for the
-      // (user, scope, scopeId, capability) tuple). We open an
-      // extension-scoped permission gate, emit `tool:permission_request`
-      // for the originating user's UI, and AWAIT the user's
-      // `{allowed, scope}` decision. The user's chosen scope is
-      // persisted via `setSensitiveAlwaysAllow` so the next call to
-      // the same sensitive cap inside the same scope auto-allows.
-      //
-      // The PDP path also wrote a `PERM_PROMPTED` audit row before
-      // returning; we don't write a second row here. On user decline
-      // we throw `PermissionDeniedError` to mirror the deny path.
-      const sensitive = decision.sensitive;
-      const capabilityKind: "shell" | "fs.write" =
-        sensitive.kind === "shell" ? "shell" : "fs.write";
-
-      const promptStartedAt = Date.now();
-      // Terminalize the (now visible) tool card on any prompt-branch
-      // failure — deny, gate transport error, or resolvePrompt error.
-      // Without this the card we just rendered would hang forever even
-      // though the call rejects. Uses the same namespaced `toolName` as
-      // tool:start so the store correlates it to the same card.
-      const terminalizePromptCard = async (message: string): Promise<void> => {
-        const errorResult: ToolCallResult = {
-          content: [{ type: "text", text: message }],
-          isError: true,
-        };
-        const toolEvent: DomainExtensionEvent = { id: crypto.randomUUID(), type: "tool:error", conversationId, payload: {
-          conversationId,
-          extensionId,
-          toolName,
-          error: message,
-          duration: Date.now() - promptStartedAt,
-          ...(registered.cardType && { cardType: registered.cardType }),
-          ...(registered.cardLayout && { cardLayout: registered.cardLayout }),
-          ...(meta?.source && { source: meta.source }),
-          ...(meta?.invocationId && { invocationId: meta.invocationId }),
-        } };
-        await this.recordToolCall(
-          conversationId,
-          messageId,
-          extensionId,
-          toolName,
-          input,
-          errorResult,
-          promptStartedAt,
-          registered.cardType,
-          registered.cardLayout,
-          toolEvent,
-        );
-        emitPersistedDomainEvent(this.bus, toolEvent);
-      };
-
-      // Emit tool:start FIRST so the card + tool_ref block exist before
-      // the prompt arrives. Same (namespaced) `toolName` the
-      // start/complete/error events use — previously this emitted
-      // `originalName`, which never matched the namespaced tool:start
-      // entry in the store, so even a rendered card wouldn't correlate.
-      emitToolStart(promptStartedAt);
-
-      // Surface the prompt to the originating user's UI session only.
-      // `userId` is the H7-scoped delivery key — the SSE filter at
-      // `sse-conversation-filter.ts:shouldDeliverEvent` enforces that
-      // only the matching subscriber sees the event.
-      this.bus?.emit("tool:permission_request", {
-        conversationId,
-        toolCallId: decision.promptId,
-        toolName,
-        input,
-        userId: this.currentUserId,
-        extensionId,
-        capabilityKind,
-        ...(sensitive.value !== undefined ? { capabilityValue: sensitive.value } : {}),
-        promptId: decision.promptId,
-      });
-
-      // Make this gate visible to the watchdog as a legitimate
-      // user-wait, exactly like the built-in tool path
-      // (setup-tools.ts). Keyed by `decision.promptId` — the same key
-      // `createExtensionPermissionGate` and the resolve route use, so
-      // register/deregister stay aligned with no toolCallId↔promptId
-      // skew. Without this the watchdog treats the wait as a hung
-      // in-flight tool and kills the run at the callTimeoutMs ceiling,
-      // tearing down the prompt before the user can answer it.
-      this.registerPendingPermission(decision.promptId, {
-        conversationId,
-        toolCallId: decision.promptId,
-        toolName: originalName,
-        input,
-        category: "extension-sensitive",
-      });
-
-      let resolution: ApprovalResolution;
-      try {
-        resolution = await createExtensionPermissionGate({
-          ...(_opts?.signal ? { signal: _opts.signal } : {}),
-          promptId: decision.promptId,
-          conversationId,
-          userId: this.currentUserId ?? "",
-          extensionId,
-          toolName: originalName,
-          capabilityKind,
-          ...(sensitive.value !== undefined ? { capabilityValue: sensitive.value } : {}),
-        });
-      } catch (err) {
-        // The gate's promise resolves with `{allowed: false}` on
-        // decline; reaching the catch arm means a transport-level
-        // failure (e.g. server restart). Treat as deny.
-        const msg = err instanceof Error ? err.message : String(err);
-        await terminalizePromptCard(`permission gate error: ${msg}`);
-        throw new PermissionDeniedError(
-          extensionId,
-          toolName,
-          `permission gate error: ${msg}`,
-        );
-      } finally {
-        // Runs on every exit — gate resolved (allow/deny), gate threw
-        // (catch above), or any unexpected throw. Race-safe: the key is
-        // the immutable `decision.promptId`. Symmetric with the
-        // built-in path's `finally` deregister (setup-tools.ts).
-        this.deregisterPendingPermission(decision.promptId);
-      }
-
-      if (!resolution.allowed) {
-        await terminalizePromptCard("User declined permission prompt");
-        throw new PermissionDeniedError(
-          extensionId,
-          toolName,
-          "User declined permission prompt",
-        );
-      }
-
-      // Persist always-allow at the user-chosen scope (default session
-      // — least surprise; the gate falls back to "session" when no
-      // scope is supplied, matching the spec's locked default).
-      //
-      // `engine.resolvePrompt` is the single source of truth: it writes
-      // the always-allow settings row AND updates the engine's in-memory
-      // allow cache so the next call to the same sensitive cap in the
-      // same scope auto-allows. A previous version of this code ALSO
-      // called `setSensitiveAlwaysAllow` directly here, which wrote a
-      // second row under a different key shape (kind-only vs kind+value)
-      // — the reader's lookup never found the legacy row, so users
-      // hitting Allow Forever still re-prompted on every subsequent
-      // call. Collapsed to one writer to make the asymmetry impossible.
-      const scope = resolution.scope ?? "session";
-      // Project scopeId resolution is deferred — for a `project` scope we use
-      // the conversationId as a stable key for now; a future commit can map
-      // conversation→project when the PDP gains project-aware lookups (the
-      // cache key already accommodates it). Comment lifted out of the ternary
-      // branch below so bun doesn't emit a phantom, never-hit DA record on an
-      // in-ternary comment line (which the per-file gate can't clear).
-      const scopeId =
-        scope === "conversation"
-          ? conversationId
-          : scope === "session"
-            ? `session:${this.currentUserId ?? ""}`
-            : scope === "project"
-              ? conversationId
-              : "*";
-      // Phase 56: forward the picker's `ttlOverrideMs` (when supplied)
-      // so the engine persists the per-row override alongside the
-      // always-allow row. `undefined` here means the user hit Allow
-      // via a legacy path (pre-Phase-56 client) — engine falls back
-      // to the existing TTL_CONFIG[kind] / foreverTtlMs lookup.
-      const resolvePromptOptions =
-        resolution.ttlOverrideMs !== undefined
-          ? { ttlOverrideMs: resolution.ttlOverrideMs }
-          : undefined;
-      try {
-        await this.engine.resolvePrompt(
-          decision.promptId,
-          true,
-          scope,
-          scopeId,
-          resolvePromptOptions,
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await terminalizePromptCard(`permission persist error: ${msg}`);
-        throw err;
-      }
-      // Fall through to dispatch — the user authorized this call.
-    }
+    const decision = await this.authorizeWithPrompts(
+      { toolName, originalName, extensionId, conversationId, messageId, input, registered, meta, signal: _opts?.signal, emitToolStart },
+      needed,
+      {
+        serviceInvocation,
+        callerExtensionId: _opts?.callerExtensionId,
+        capContext: _opts?.capContext,
+        parentAuditId: inheritedParentAuditId,
+      },
+    );
 
     // Track current call context for reverse RPC handlers (e.g. ezcorp/storage)
     this.currentConversationId = conversationId;

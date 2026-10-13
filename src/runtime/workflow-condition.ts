@@ -38,7 +38,7 @@ function applyOp(op: WorkflowConditionOp, actual: unknown, value: unknown): bool
     }
     case "contains": {
       if (typeof actual === "string") return actual.includes(String(value));
-      if (Array.isArray(actual)) return actual.includes(value);
+      if (Array.isArray(actual)) return actual.some((item) => deepEq(item, value));
       return false;
     }
     case "exists":
@@ -68,12 +68,21 @@ export function conditionRefs(cond: WorkflowCondition): string[] {
   return typeof leaf.ref === "string" ? [leaf.ref] : [];
 }
 
+/** Structural equality. Object keys compare as a set (a step's JSON output
+ *  rarely lists keys in the author's order); arrays compare in order. */
 function deepEq(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
-    return JSON.stringify(a) === JSON.stringify(b);
+  if (typeof a !== "object" || a === null || typeof b !== "object" || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bArr = b as unknown[];
+    return a.length === bArr.length && a.every((item, i) => deepEq(item, bArr[i]));
   }
-  return false;
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const keys = Object.keys(aObj);
+  return keys.length === Object.keys(bObj).length
+    && keys.every((k) => Object.hasOwn(bObj, k) && deepEq(aObj[k], bObj[k]));
 }
 
 /**

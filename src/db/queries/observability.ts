@@ -112,10 +112,34 @@ export interface GlobalStats {
   topExtensions: { extensionId: string; callCount: number; successRate: number; avgDurationMs: number }[];
 }
 
-export async function getGlobalStats(options?: { days?: number }): Promise<GlobalStats> {
+/**
+ * `conversation_id` filter for one user's own activity: conversations they
+ * own, plus every sub-conversation below them (agent runs and team members
+ * carry `user_id = NULL`; their owner is the root of the parent chain).
+ * `UNION` (not `UNION ALL`) ends the walk on a corrupt parent cycle.
+ */
+function ownedConversationFilter(userId: string | undefined) {
+  if (userId === undefined) return sql``;
+  return sql`AND conversation_id IN (
+    WITH RECURSIVE owned(id) AS (
+      SELECT id FROM conversations WHERE user_id = ${userId}
+      UNION
+      SELECT c.id FROM conversations c JOIN owned o ON c.parent_conversation_id = o.id
+    )
+    SELECT id FROM owned
+  )`;
+}
+
+/**
+ * Usage totals for the dashboard. With `userId`, only that user's own
+ * conversations (and their sub-conversations) count; without it, every
+ * user's do — callers pass no `userId` for admins only.
+ */
+export async function getGlobalStats(options?: { days?: number; userId?: string }): Promise<GlobalStats> {
   const days = options?.days ?? 30;
   const db = getDb();
   const interval = `${days} days`;
+  const owned = ownedConversationFilter(options?.userId);
 
   // Authoritative token + turn counts come from messages.usage. Each assistant
   // message records its own token usage; observability turn_summary rows only
@@ -130,6 +154,7 @@ export async function getGlobalStats(options?: { days?: number }): Promise<Globa
     FROM messages
     WHERE role = 'assistant'
       AND created_at >= NOW() - ${interval}::interval
+      ${owned}
   `);
 
   // Response-time averages: keep from observability_events (messages have no duration).
@@ -138,6 +163,7 @@ export async function getGlobalStats(options?: { days?: number }): Promise<Globa
     FROM observability_events
     WHERE event_type = 'turn_summary'
       AND created_at >= NOW() - ${interval}::interval
+      ${owned}
   `);
 
   // Tool call count
@@ -146,6 +172,7 @@ export async function getGlobalStats(options?: { days?: number }): Promise<Globa
     FROM observability_events
     WHERE event_type IN ('tool_call', 'tool_error')
       AND created_at >= NOW() - ${interval}::interval
+      ${owned}
   `);
 
   // Tokens by day — sourced from messages.usage so multi-turn runs are
@@ -161,6 +188,7 @@ export async function getGlobalStats(options?: { days?: number }): Promise<Globa
     WHERE role = 'assistant'
       AND usage IS NOT NULL
       AND created_at >= NOW() - ${interval}::interval
+      ${owned}
     GROUP BY created_at::date
     ORDER BY created_at::date
   `);
@@ -175,6 +203,7 @@ export async function getGlobalStats(options?: { days?: number }): Promise<Globa
     FROM observability_events
     WHERE event_type IN ('tool_call', 'tool_error')
       AND created_at >= NOW() - ${interval}::interval
+      ${owned}
     GROUP BY data->>'extensionId'
     ORDER BY call_count DESC
     LIMIT 10

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from "svelte";
 	import ModelSelector from "./ModelSelector.svelte";
 	import ThinkingLevelSelector from "./ThinkingLevelSelector.svelte";
 	import ModeSelector from "./ModeSelector.svelte";
@@ -33,9 +34,10 @@
 	import { connectionState } from "$lib/stores/connection";
 	import { isChatDisabled, chatPlaceholder, setComposerDisplay } from "$lib/chat-input-logic";
 	import { isNavBlockedByOverlay } from "$lib/chat-prompt-nav.js";
-	import { detectMentionTrigger, insertMentionToken, insertCommandLiteral, getSegments, parseMentions, descendIntoFolder, MENTION_REGEX } from "$lib/mention-logic";
+	import { detectMentionTrigger, insertMentionToken, commitCommandLiteral, getSegments, parseMentions, descendIntoFolder, MENTION_REGEX } from "$lib/mention-logic";
 	import { toDisplay, displayTokenText, applyDisplayEdit, displayPosToWire, wirePosToDisplay } from "$lib/mention-display";
-	import { searchMentions } from "$lib/api";
+	import { searchMentionItems } from "$lib/mention-search";
+	import { createLatestSearch } from "$lib/latest-search";
 	import { inlineToolStore } from "$lib/inline-tool-store.svelte.js";
 	import { subConversationStore } from "$lib/sub-conversation-store.svelte.js";
 	import {
@@ -50,8 +52,8 @@
 		type ModelSelection,
 	} from "$lib/model-selector-logic.js";
 
-	let connState = $state<"connected" | "disconnected" | "reconnecting" | "failed">("connected");
-	connectionState.subscribe((info) => { connState = info.state; });
+	// `$store` subscribes for the component's lifetime and unsubscribes on destroy.
+	let connState = $derived($connectionState.state);
 
 	interface StagedToolCall {
 		extensionName: string;
@@ -394,7 +396,12 @@
 	let mentionLoading = $state(false);
 	let popoverRef = $state<MentionPopover | undefined>();
 	let isComposing = $state(false);
-	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	const mentionSearch = createLatestSearch<MentionItem[]>({
+		delayMs: 200,
+		fallback: [],
+		onLoading: (loading) => { mentionLoading = loading; },
+		onResult: (items) => { mentionItems = items; },
+	});
 	// Latest trigger query — drives the popover's "use current folder" entry.
 	let mentionTriggerQuery = $state("");
 
@@ -488,6 +495,11 @@
 	let suggestTimer: ReturnType<typeof setTimeout> | undefined;
 	let suggestAbort: AbortController | null = null;
 	let enhanceBackoffUntil = 0;
+	onDestroy(() => {
+		mentionSearch.cancel();
+		clearTimeout(suggestTimer);
+		suggestAbort?.abort();
+	});
 	let suggestOpen = $derived(
 		!suggestDismissed &&
 			!mentionOpen &&
@@ -824,9 +836,7 @@
 
 		if (!trigger) {
 			if (mentionOpen) {
-				mentionOpen = false;
-				mentionItems = [];
-				mentionTriggerQuery = "";
+				closeMention();
 			}
 			return;
 		}
@@ -836,25 +846,7 @@
 
 		// Debounced search. File searches REQUIRE `projectId`; without it the
 		// server returns [] and the popover shows "No matches found".
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(async () => {
-			mentionLoading = true;
-			try {
-				const results = await searchMentions(trigger.query, trigger.type, projectId);
-				mentionItems = results.map((r) => ({
-					name: r.name,
-					description: r.description,
-					kind: r.kind,
-					source: r.source,
-					fileCount: r.fileCount,
-					insertText: r.insertText,
-				}));
-			} catch {
-				mentionItems = [];
-			} finally {
-				mentionLoading = false;
-			}
-		}, 200);
+		mentionSearch.schedule(() => searchMentionItems(trigger.query, trigger.type, projectId));
 	}
 
 	// Current caret as a WIRE offset. The textarea reports a display-space
@@ -886,9 +878,7 @@
 				name: item.name,
 			});
 			setWire(result.text, result.cursor);
-			mentionOpen = false;
-			mentionItems = [];
-			mentionTriggerQuery = "";
+			closeMention();
 			adjustHeight();
 			return;
 		}
@@ -897,21 +887,10 @@
 		// verbatim instead of a `/[cmd:name]` token, so it reaches the
 		// server-side interceptor as plain text (`isGoalCommand` matches on
 		// `body.content`). Mirrors the `dir-target` commit epilogue above.
-		//
-		// Literal commands render as a compact pill whose width slightly
-		// exceeds its short raw text (e.g. `/goal`), so in the overlay the
-		// pill overflows and visually swallows a single trailing space. We
-		// commit TWO trailing spaces (normalising whatever the entry carried)
-		// so the pill clears the cursor and the user gets a visible gap to
-		// start typing the command's argument. The `/goal` interceptor trims
-		// everything after the token, so the extra space has no wire effect.
 		if (item.insertText) {
-			const literal = item.insertText.trimEnd() + "  ";
-			const result = insertCommandLiteral(value, wireCaret(), literal);
+			const result = commitCommandLiteral(value, wireCaret(), item.insertText);
 			setWire(result.text, result.cursor);
-			mentionOpen = false;
-			mentionItems = [];
-			mentionTriggerQuery = "";
+			closeMention();
 			adjustHeight();
 			return;
 		}
@@ -930,9 +909,7 @@
 			name: item.name,
 		});
 		setWire(result.text, result.cursor);
-		mentionOpen = false;
-		mentionItems = [];
-		mentionTriggerQuery = "";
+		closeMention();
 		adjustHeight();
 
 		// Auto-open tool form/picker for extension mentions. File mentions are
@@ -945,10 +922,12 @@
 		}
 	}
 
-	function handleMentionDismiss() {
+	/** Close the mention popover and drop any search still pending for it. */
+	function closeMention() {
 		mentionOpen = false;
 		mentionItems = [];
 		mentionTriggerQuery = "";
+		mentionSearch.cancel();
 	}
 
 	function submit() {
@@ -975,8 +954,7 @@
 		displayValue = "";
 		stagedFiles = [];
 		attachmentError = null;
-		mentionOpen = false;
-		mentionItems = [];
+		closeMention();
 		resetInlineToolState();
 		clearTimeout(suggestTimer);
 		suggestAbort?.abort();
@@ -1110,7 +1088,7 @@
 					loading={mentionLoading}
 					triggerQuery={mentionTriggerQuery}
 					onselect={handleMentionSelect}
-					ondismiss={handleMentionDismiss}
+					ondismiss={closeMention}
 				/>
 
 				{#if showToolPicker && activeExtension}

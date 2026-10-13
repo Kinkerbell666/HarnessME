@@ -20,8 +20,11 @@ mockDbConnection();
 const { deactivateUserAndTransferAgents } = await import(
   "../db/queries/user-deactivation"
 );
-const { createUser, getUserById } = await import("../db/queries/users");
+const { createUser, getUserById, updateUserStatus } = await import("../db/queries/users");
 const { listAuditLog } = await import("../db/queries/audit-log");
+const { createSession, listSessionsByUser, lookupSessionByTokenHash } = await import(
+  "../db/queries/sessions"
+);
 const { agentConfigs } = await import("../db/schema");
 const { eq } = await import("drizzle-orm");
 
@@ -89,6 +92,31 @@ describe("deactivateUserAndTransferAgents", () => {
       adminId,
     );
     expect(existed).toBe(false);
+  });
+
+  test("revokes every session of the target, so an open browser loses access", async () => {
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    await createSession({ userId: memberId, tokenHash: `deact-a-${memberId}`, expiresAt });
+    await createSession({ userId: memberId, tokenHash: `deact-b-${memberId}`, expiresAt });
+    const adminSession = await createSession({ userId: adminId, tokenHash: `deact-admin-${memberId}`, expiresAt });
+
+    await deactivateUserAndTransferAgents(memberId, adminId);
+
+    expect(await listSessionsByUser(memberId)).toEqual([]);
+    expect((await listSessionsByUser(adminId)).map((s) => s.id)).toContain(adminSession.id);
+  });
+
+  test("a session row of an inactive user no longer authenticates", async () => {
+    // The hook treats a missing lookup as a revoked session. A row that
+    // survives (e.g. status flipped outside deactivation) must not count.
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    const tokenHash = `inactive-${memberId}`;
+    await createSession({ userId: memberId, tokenHash, expiresAt });
+    expect(await lookupSessionByTokenHash(tokenHash)).not.toBeNull();
+
+    await updateUserStatus(memberId, "inactive");
+
+    expect(await lookupSessionByTokenHash(tokenHash)).toBeNull();
   });
 
   test("with no agents owned by the target, still deactivates the user", async () => {

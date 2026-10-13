@@ -360,9 +360,14 @@ async function handleList(
 ): Promise<JsonRpcResponse> {
   if (!consumeTokens(extensionId, 1)) return rpcError(id, -32004, "Rate limited");
 
-  const prefix = params.prefix as string | undefined;
-  const limit = Math.min((params.limit as number) ?? 100, 1000);
-  const keys = await repository.list(extensionId, scope, scopeId, prefix, limit);
+  const prefix = params.prefix;
+  const limit = params.limit ?? 100;
+  if (prefix !== undefined && typeof prefix !== "string") return rpcError(id, -32602, "prefix must be a string");
+  // `Math.min` lets NaN and negatives through to SQL, so check before the 1000 cap.
+  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
+    return rpcError(id, -32602, "limit must be a non-negative integer");
+  }
+  const keys = await repository.list(extensionId, scope, scopeId, prefix, Math.min(limit, 1000));
 
   return rpcResult(id, { keys });
 }

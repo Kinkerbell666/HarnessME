@@ -416,14 +416,6 @@
 					content: message.content,
 					selection,
 				});
-				console.info("[kokoro-tts-flow][click] start", {
-					extName: item.extName,
-					event: item.event,
-					messageId: message.id,
-					conversationId: conversationId ?? "",
-					hasSelection: selection != null,
-					contentLength: message.content.length,
-				});
 				// Fire an immediate info toast so the user knows the click
 				// registered, even after the toolbar collapses on
 				// mouseout. Short duration — the new turn (or an error
@@ -432,39 +424,12 @@
 					{ type: "info", message: `${item.tooltip}…` },
 					2500,
 				);
-				// Local fetcher wrapper so we can log the response shape.
-				// The underlying postExtensionEvent helper is left untouched —
-				// behavior identical, only the diagnostic stream is added.
-				const loggedFetcher = async (url: string, init: RequestInit) => {
-					const res = await userFetch(url, init);
-					try {
-						const cloned = res.clone();
-						const text = await cloned.text();
-						let parsedBody: unknown = text;
-						try { parsedBody = JSON.parse(text); } catch { /* keep raw */ }
-						console.info("[kokoro-tts-flow][click] response", {
-							status: res.status,
-							body: parsedBody,
-						});
-					} catch (err) {
-						console.warn("[kokoro-tts-flow][click] response (read failed)", {
-							status: res.status,
-							error: err instanceof Error ? err.message : String(err),
-						});
-					}
-					return res;
-				};
 				await postExtensionEvent(
 					buildExtensionEventUrl(item.extName, item.event),
 					payload,
 					item.tooltip,
-					{ fetcher: loggedFetcher, addToast },
+					{ fetcher: userFetch, addToast },
 				);
-				console.info("[kokoro-tts-flow][click] done", {
-					extName: item.extName,
-					event: item.event,
-					messageId: message.id,
-				});
 			},
 		}));
 	});

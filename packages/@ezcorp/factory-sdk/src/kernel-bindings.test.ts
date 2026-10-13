@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { compileFactory } from "./compiler";
 import { referenceCodeV1 } from "./references";
-import { simulateFactory } from "./simulator";
+import { simulateFactory, type SimulatedOutcome } from "./simulator";
 import type { CompiledFactory, FactoryDefinition, FactoryNode, JsonValue } from "./index";
 
 const digest = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
@@ -81,7 +81,7 @@ test("a scoped consumer resolves a declared ancestor output path", () => {
   };
   const seen: JsonValue[] = [];
   const result = simulateFactory(compiled([map]), "ancestor-path", {}, {
-    execute: (_node, command) => {
+    execute: (_node, command): SimulatedOutcome => {
       if (command.nodeId.endsWith("/producer")) return { kind: "success", output: { payload: { name: "ancestor" } } };
       seen.push(command.input);
       return { kind: "success", output: { seen: (command.input as { readonly name: string }).name } };

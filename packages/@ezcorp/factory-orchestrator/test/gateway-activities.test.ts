@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import type { IncomingMessage } from "node:http";
 import { createServer, type Server } from "node:https";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TLSSocket } from "node:tls";
 import { after, before, describe, it } from "node:test";
 import { MockActivityEnvironment, TestWorkflowEnvironment } from "@temporalio/testing";
+import type { CommandExecution } from "../src/contracts.ts";
 import { createGatewayFactoryActivities, createGatewayTransport, type GatewayTlsSecretPaths } from "../src/gateway-activities.ts";
 import { createGatewayFactoryCommandQueue } from "../src/queue-client.ts";
-import { factoryOrchestratorProductionDependencies, runFactoryOrchestratorProcess } from "../src/process.ts";
+import { factoryOrchestratorProductionDependencies, runFactoryOrchestratorProcess, type FactoryOrchestratorProcessOptions } from "../src/process.ts";
 import { createGatewayTransport as createSharedTransport } from "../../factory-transport/src/index.ts";
 
-const sha256 = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+const sha256 = (value: string | Buffer) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 let directory = "";
 let origin = "";
 let port = 0;
@@ -23,7 +26,23 @@ let expectedClientCn = "factory-orchestrator";
 let expectedToken = "gateway-token";
 let queueClaimBody: unknown;
 let paths: GatewayTlsSecretPaths;
-const calls = [];
+interface RecordedCall {
+  readonly method: string | undefined;
+  readonly path: string | undefined;
+  readonly authorization: string | undefined;
+  readonly version: string | string[] | undefined;
+  readonly body: Buffer;
+}
+const calls: RecordedCall[] = [];
+function lastCall(): RecordedCall {
+  const call = calls.at(-1);
+  assert.ok(call, "expected a recorded gateway call");
+  return call;
+}
+function callBody(call: RecordedCall | undefined): unknown {
+  assert.ok(call, "expected a recorded gateway call");
+  return JSON.parse(call.body.toString("utf8"));
+}
 const definitionDigest = sha256("compiled-definition");
 const definitionBody = Buffer.from(JSON.stringify({ digest: definitionDigest, partitions: [] }));
 const definitionPage = { index: 0, objectId: "definition-page", digest: sha256(definitionBody), encodedBytes: definitionBody.byteLength };
@@ -43,7 +62,7 @@ const loadedTransitionPage = { ...transitionPage, contentBase64: Buffer.from("pa
 const adversarialPageBody = Buffer.from(`${"\\\"".repeat(16_384)}`);
 const adversarialPage = { index: 0, objectId: "adversarial-page", digest: sha256(adversarialPageBody), encodedBytes: adversarialPageBody.byteLength };
 
-function openssl(...args) {
+function openssl(...args: string[]) {
   execFileSync("openssl", args, { cwd: directory, stdio: "ignore" });
 }
 
@@ -70,8 +89,8 @@ async function createPki() {
   };
 }
 
-async function readRequest(request) {
-  const chunks = [];
+async function readRequest(request: IncomingMessage) {
+  const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk);
   return Buffer.concat(chunks);
 }
@@ -119,19 +138,19 @@ before(async () => {
     else if (request.url?.includes("/cancel")) response.writeHead(204).end();
     else response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ kind: "admission-result", id: "event", atMs: 1, nodeId: "node", commandId: "command", candidateGeneration: 0, granted: true }));
   });
-  await new Promise((resolve) => server.listen(0, resolve));
-  port = server.address().port;
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  port = (server.address() as AddressInfo).port;
   origin = `https://localhost:${port}`;
 });
 
 after(async () => {
-  await new Promise((resolve) => server.close(resolve));
+  await new Promise<void>((resolve) => server.close(() => resolve()));
   await rm(directory, { recursive: true, force: true });
 });
 
 const identity = { tenantId: "tenant", projectId: "project", logicalRunId: "run", interpreterId: "build" };
 const transition = { ...identity, sourceSequence: 1, eventId: "start", eventHash: finalizedTransition.eventHash, artifactManifest: finalizedTransition.manifest };
-const activity = (environment, fn, value) => environment.run(fn, value);
+const activity = <P extends unknown[], R>(environment: MockActivityEnvironment, fn: (...args: P) => Promise<R>, ...args: P) => environment.run<P, R, typeof fn>(fn, ...args);
 
 describe("authenticated factory gateway activities", () => {
   it("keeps production readiness closed when the real server cannot prove its task queue poller", { timeout: 30_000 }, async () => {
@@ -142,7 +161,7 @@ describe("authenticated factory gateway activities", () => {
       path: process.env.FACTORY_TEMPORAL_TEST_SERVER ?? "/tmp/factory-tools/temporal-test-server/temporal-test-server_1.38.0_linux_amd64/temporal-test-server",
     } } });
     const controller = new AbortController();
-    const readiness = [];
+    const readiness: Parameters<FactoryOrchestratorProcessOptions["readiness"]["write"]>[0][] = [];
     const connection = Object.create(temporal.nativeConnection);
     Object.defineProperty(connection, "close", { value: async () => {} });
     try {
@@ -181,7 +200,7 @@ describe("authenticated factory gateway activities", () => {
     const sending = transport.request("POST", "/internal/factory/v1/commands/test", body);
     body.pinned = "changed";
     assert.equal((await sending).statusCode, 200);
-    assert.deepEqual(JSON.parse(calls.at(-1).body), { pinned: "original" });
+    assert.deepEqual(callBody(calls.at(-1)), { pinned: "original" });
     assert.equal((await transport.request("GET", "/internal/factory/v1/outbox/claim")).statusCode, 204);
     for (const path of [`${origin}/x`, "//localhost/x", "/\\\\localhost/x", "/x#fragment", "/x y", "/x\r\nheader", "relative"]) {
       await assert.rejects(transport.request("GET", path), /path/);
@@ -257,21 +276,21 @@ describe("authenticated factory gateway activities", () => {
     calls.length = 0;
     const activities = await createGatewayFactoryActivities({ baseUrl: origin, tls: paths, requestTimeoutMs: 1_000 });
     const environment = new MockActivityEnvironment();
-    assert.deepEqual(await activity(environment, activities.resolveFactory, { ...identity, factory: { id: "child", version: "1", digest: definitionDigest } }), source);
-    assert.deepEqual(await activity(environment, activities.loadManifestPage, { ...identity, definition: source, page: manifest }), { ...JSON.parse(manifestBody), self: manifest });
+    assert.deepEqual(await activity(environment, activities.resolveFactory, { ...identity, commandId: "child-command", factory: { id: "child", version: "1", digest: definitionDigest } }), source);
+    assert.deepEqual(await activity(environment, activities.loadManifestPage, { ...identity, definition: source, page: manifest }), { ...JSON.parse(manifestBody.toString("utf8")), self: manifest });
     assert.deepEqual(await activity(environment, activities.loadDefinitionPage, { ...identity, definitionDigest, page: definitionPage }), { index: 0, objectId: definitionPage.objectId, digest: definitionPage.digest, contentBase64: definitionBody.toString("base64") });
-    assert.deepEqual(await activity(environment, activities.loadExecutionManifest, { ...identity, definitionDigest, manifest: executionManifest }), JSON.parse(executionManifestBody));
-    assert.deepEqual(await activity(environment, activities.loadPartitionArtifact, { ...identity, definitionDigest, partition }), JSON.parse(partitionBody));
+    assert.deepEqual(await activity(environment, activities.loadExecutionManifest, { ...identity, definitionDigest, manifest: executionManifest }), JSON.parse(executionManifestBody.toString("utf8")));
+    assert.deepEqual(await activity(environment, activities.loadPartitionArtifact, { ...identity, definitionDigest, partition }), JSON.parse(partitionBody.toString("utf8")));
     assert.deepEqual(await activity(environment, activities.stageTransitionPage, { ...identity, sourceSequence: 1, index: 0, contentBase64: Buffer.from("page").toString("base64"), encodedBytes: 4 }), transitionPage);
     assert.deepEqual(await activity(environment, activities.finalizeTransitionArtifact, { ...identity, sourceSequence: 1, encodedBytes: 4, eventId: "start", pages: [transitionPage] }), finalizedTransition);
     assert.deepEqual(await activity(environment, activities.loadTransitionManifest, { ...identity, sourceSequence: 1, manifest: finalizedTransition.manifest }), transitionManifest);
     assert.deepEqual(await activity(environment, activities.loadTransitionPage, { ...identity, sourceSequence: 1, page: transitionPage }), loadedTransitionPage);
     assert.equal(await activity(environment, activities.recordTransition, transition), undefined);
-    const admission = { ...identity, command: { kind: "request-admission", id: "admit", nodeId: "node", candidateGeneration: 0, deadlineAtMs: 10 } };
-    assert.equal((await activity(environment, activities.executeCommand, admission)).kind, "admission-result");
-    const dispatch = { ...identity, command: { kind: "dispatch-node", id: "dispatch", nodeId: "node", candidateGeneration: 0, attempt: 1, input: {}, deadlineAtMs: 10, cancellationEpoch: 0 } };
-    assert.equal((await activity(environment, activities.executeCommand, dispatch)).kind, "admission-result");
-    const cancel = { ...identity, command: { kind: "cancel-node", id: "cancel", nodeId: "node", candidateGeneration: 0, attempt: 1, attemptCommandId: "dispatch", cancellationEpoch: 1 } };
+    const admission: CommandExecution = { ...identity, command: { kind: "request-admission", id: "admit", nodeId: "node", candidateGeneration: 0, deadlineAtMs: 10 } };
+    assert.equal((await activity(environment, activities.executeCommand, admission))?.kind, "admission-result");
+    const dispatch: CommandExecution = { ...identity, command: { kind: "dispatch-node", id: "dispatch", nodeId: "node", candidateGeneration: 0, attempt: 1, input: {}, deadlineAtMs: 10, cancellationEpoch: 0 } };
+    assert.equal((await activity(environment, activities.executeCommand, dispatch))?.kind, "admission-result");
+    const cancel: CommandExecution = { ...identity, command: { kind: "cancel-node", id: "cancel", nodeId: "node", candidateGeneration: 0, attempt: 1, attemptCommandId: "dispatch", cancellationEpoch: 1 } };
     assert.equal(await activity(environment, activities.executeCommand, cancel), null);
     assert.deepEqual(calls.map((call) => [call.method, call.path]), [
       ["POST", "/internal/factory/v1/definitions/resolve"], ["POST", "/internal/factory/v1/definitions/manifest"],
@@ -345,9 +364,9 @@ describe("authenticated factory gateway activities", () => {
     mode = "http-error";
     await assert.rejects(activity(new MockActivityEnvironment(), activities.recordTransition, transition), /HTTP 503/);
     mode = "invalid-json";
-    await assert.rejects(activity(new MockActivityEnvironment(), activities.resolveFactory, { ...identity, factory: { id: "child", version: "1", digest: definitionDigest } }), /invalid JSON/);
+    await assert.rejects(activity(new MockActivityEnvironment(), activities.resolveFactory, { ...identity, commandId: "child-command", factory: { id: "child", version: "1", digest: definitionDigest } }), /invalid JSON/);
     mode = "wrong-resolve";
-    await assert.rejects(activity(new MockActivityEnvironment(), activities.resolveFactory, { ...identity, factory: { id: "child", version: "1", digest: definitionDigest } }), /pinned child/);
+    await assert.rejects(activity(new MockActivityEnvironment(), activities.resolveFactory, { ...identity, commandId: "child-command", factory: { id: "child", version: "1", digest: definitionDigest } }), /pinned child/);
     mode = "normal";
     await assert.rejects(activity(new MockActivityEnvironment(), activities.loadDefinitionPage, { ...identity, definitionDigest, page: { ...definitionPage, digest: sha256("wrong") } }), /immutable reference/);
     await assert.rejects(activity(new MockActivityEnvironment(), activities.loadExecutionManifest, { ...identity, definitionDigest, manifest: { ...executionManifest, digest: sha256("wrong") } }), /immutable reference/);
@@ -384,13 +403,14 @@ describe("authenticated factory command queue", () => {
     assert.deepEqual(claim, queueClaimBody);
     assert.ok(claim);
     await queue.settle(claim, "outcome_unknown", "TEMPORAL_UNAVAILABLE");
+    assert.ok(queue.confirmInboxIdentity, "the gateway queue confirms inbox identities");
     assert.equal(await queue.confirmInboxIdentity(command), true);
     assert.deepEqual(calls.map((call) => call.path), [
       "/internal/factory/v1/outbox/claim", "/internal/factory/v1/outbox/settle", "/internal/factory/v1/outbox/confirm-inbox",
     ]);
-    assert.deepEqual(JSON.parse(calls[1].body.toString()), { claim, outcome: "outcome_unknown", errorCode: "TEMPORAL_UNAVAILABLE" });
+    assert.deepEqual(callBody(calls[1]), { claim, outcome: "outcome_unknown", errorCode: "TEMPORAL_UNAVAILABLE" });
     await queue.settle(claim, "delivered");
-    assert.deepEqual(JSON.parse(calls.at(-1).body.toString()), { claim, outcome: "delivered" });
+    assert.deepEqual(callBody(calls.at(-1)), { claim, outcome: "delivered" });
   });
 
   it("carries a legal near-64 KiB command inside the larger private envelope", async () => {
@@ -403,7 +423,7 @@ describe("authenticated factory command queue", () => {
     const claim = await queue.claim();
     assert.ok(claim);
     await queue.settle(claim, "delivered");
-    assert.ok(Buffer.byteLength(calls.at(-1).body) > 64 * 1024);
+    assert.ok(Buffer.byteLength(lastCall().body) > 64 * 1024);
     queueClaimBody = undefined;
   });
 
@@ -419,6 +439,7 @@ describe("authenticated factory command queue", () => {
     mode = "invalid-json";
     await assert.rejects(queue.claim(), /invalid factory claim JSON/);
     mode = "wrong-confirmation";
+    assert.ok(queue.confirmInboxIdentity, "the gateway queue confirms inbox identities");
     await assert.rejects(queue.confirmInboxIdentity(command), /invalid inbox confirmation/);
     await assert.rejects(queue.settle({ claimToken: "x".repeat(4_000), command }, "outcome_unknown", "x".repeat(513)), /invalid factory settlement error code/);
     await assert.rejects(queue.settle({ claimToken: "\\".repeat(4_000), command: { ...command, body: { value: "x".repeat(64 * 1024) } } }, "outcome_unknown"), /settlement exceeds/);

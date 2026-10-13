@@ -7,10 +7,11 @@ setupPiAiMocks({ textChunks: ["Hello"] });
 import { EventBus } from "../runtime/events";
 import { AgentExecutor } from "../runtime/executor";
 import { loadAgents } from "../runtime/loader";
-import { startTestServer as startServer } from "./helpers/test-server";
+import { startTestServer as startServer, TEST_USER_HEADER } from "./helpers/test-server";
 import { setupTestDb, closeTestDb, mockDbConnection, mockRealSettings, restoreFetch } from "./helpers/test-pglite";
 import { createProject } from "../db/queries/projects";
 import { createAgentConfig } from "../db/queries/agent-configs";
+import { createUser } from "../db/queries/users";
 import type { AgentEvents } from "../types";
 
 mockDbConnection();
@@ -20,6 +21,8 @@ let server: Awaited<ReturnType<typeof startServer>>;
 let baseUrl: string;
 let projectId: string;
 let agentConfigId: string;
+let asUser: Record<string, string>;
+let asOtherUser: Record<string, string>;
 
 beforeAll(async () => {
   restoreFetch();
@@ -37,6 +40,11 @@ beforeAll(async () => {
 
   const agentConfig = await createAgentConfig({ name: "Test Agent", description: "test", prompt: "You are a test agent" });
   agentConfigId = agentConfig.id;
+
+  const user = await createUser({ email: "sandbox-api@test.com", passwordHash: "hash", name: "Sandbox API" });
+  const other = await createUser({ email: "sandbox-api-other@test.com", passwordHash: "hash", name: "Sandbox Other" });
+  asUser = { [TEST_USER_HEADER]: user.id };
+  asOtherUser = { [TEST_USER_HEADER]: other.id };
 });
 
 afterAll(async () => {
@@ -65,7 +73,7 @@ describe("Sandbox test conversation API", () => {
 
     const testRes = await fetch(`${baseUrl}/api/conversations`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...asUser },
       body: JSON.stringify({ projectId, title: "Test Conv", test: true, agentConfigId }),
     });
     expect(testRes.status).toBe(201);
@@ -81,16 +89,24 @@ describe("Sandbox test conversation API", () => {
   });
 
   test("GET /api/agents/:agentConfigId/test-conversations returns only test conversations", async () => {
-    const res = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`);
+    const res = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`, { headers: asUser });
     expect(res.status).toBe(200);
     const convs = (await res.json()) as any[];
     expect(convs.some((c: any) => c.id === testConvId)).toBe(true);
     expect(convs.some((c: any) => c.id === normalConvId)).toBe(false);
   });
 
+  test("another user neither sees nor deletes them", async () => {
+    const list = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`, { headers: asOtherUser });
+    expect(await list.json()).toEqual([]);
+    const del = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`, { method: "DELETE", headers: asOtherUser });
+    expect(((await del.json()) as any).deleted).toBe(0);
+  });
+
   test("DELETE /api/agents/:agentConfigId/test-conversations bulk deletes and returns count", async () => {
     const res = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`, {
       method: "DELETE",
+      headers: asUser,
     });
     expect(res.status).toBe(200);
     const data = (await res.json()) as any;
@@ -98,7 +114,7 @@ describe("Sandbox test conversation API", () => {
   });
 
   test("after delete, GET returns empty array", async () => {
-    const res = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`);
+    const res = await fetch(`${baseUrl}/api/agents/${agentConfigId}/test-conversations`, { headers: asUser });
     expect(res.status).toBe(200);
     const convs = (await res.json()) as any[];
     expect(convs).toEqual([]);

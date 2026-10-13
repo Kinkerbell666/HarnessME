@@ -6,6 +6,7 @@ import { getUserById } from "$server/db/queries/users";
 import { checkProjectRole } from "$server/auth/middleware";
 import { requireScope } from "$lib/server/security/api-keys";
 import { errorJson } from "$lib/server/http-errors";
+import { lastOwnerConflict } from "./_owner-guard";
 import { PROJECT_MEMBER_ROLES } from "$server/db/schema";
 import type { RequestHandler } from "./$types";
 
@@ -77,10 +78,14 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
   const target = await getUserById(parsed.data.userId);
   if (!target) return errorJson(404, "User not found");
 
+  const role = parsed.data.role ?? "member";
+  const conflict = await lastOwnerConflict(params.id, parsed.data.userId, role);
+  if (conflict) return conflict;
+
   const member = await memberQueries.upsertProjectMember(
     params.id,
     parsed.data.userId,
-    parsed.data.role ?? "member",
+    role,
   );
   return json(member, { status: 201 });
 };

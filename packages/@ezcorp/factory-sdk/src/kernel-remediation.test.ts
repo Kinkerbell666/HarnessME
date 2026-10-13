@@ -4,6 +4,7 @@ import { advanceKernel, assertKernelContinuationState, createKernelState } from 
 import { referenceCodeV1 } from "./references";
 import { FACTORY_LIMITS } from "./types";
 import type { CompiledFactory, FactoryDefinition, JsonValue, KernelCommand, KernelEvent, KernelState } from "./index";
+import { mutableClone } from "../tests/mutable";
 
 const REJECTION = "factory_assurance_claim_failed";
 const stringPort = { type: "string" as const };
@@ -24,7 +25,7 @@ const codeGenerateInput = (remediation: string): JsonValue => ({ snapshot: artif
 
 /** A minimal producer plus acceptance, so a bound can be declared, omitted, or forged. */
 function acceptanceFixture(maxRepairs?: number): CompiledFactory {
-  const definition = structuredClone(referenceCodeV1);
+  const definition = mutableClone(referenceCodeV1);
   const producer = definition.graph.nodes.find(node => node.id === "generate-private-candidate");
   if (producer?.kind !== "task") throw new Error("fixture");
   definition.inputPorts = { request: stringPort };

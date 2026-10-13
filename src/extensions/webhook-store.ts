@@ -6,13 +6,14 @@
  * timestamps are host-issued; the caller owns clock injection.
  */
 import { getDb } from "../db/connection";
-import { extensionWebhooks, webhookDeliveries, type ExtensionWebhook } from "../db/schema";
+import { extensions, extensionWebhooks, webhookDeliveries, type ExtensionWebhook } from "../db/schema";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { nowMinusInterval } from "../db/queries/sql-interval";
 
 /**
  * The ENABLED webhook registry row for `(extensionId, slug)`, or `null` when
- * absent or soft-disabled. A `null` result is the route's enumeration-safe
+ * absent, soft-disabled, or its extension is disabled (disable leaves a
+ * user-created row enabled so re-enable restores it). A `null` result is the route's enumeration-safe
  * "unknown hook" — same shape whether the extension, the slug, or the grant is
  * missing (all three converge on no enabled row).
  */
@@ -24,6 +25,10 @@ export async function getEnabledWebhook(
     eq(extensionWebhooks.extensionId, extensionId),
     eq(extensionWebhooks.slug, slug),
     eq(extensionWebhooks.enabled, true),
+    inArray(
+      extensionWebhooks.extensionId,
+      getDb().select({ name: extensions.name }).from(extensions).where(eq(extensions.enabled, true)),
+    ),
   ));
   return rows[0] ?? null;
 }

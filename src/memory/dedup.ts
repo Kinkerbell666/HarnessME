@@ -152,9 +152,20 @@ export async function dedupAndWriteMemory(
     // and then OVERWRITE — another user's memory row via the update branch
     // below. A conversation with no resolvable owner matches nothing
     // (fail-closed) and falls through to a fresh insert.
+    //
+    // Only ACTIVE rows are dedup targets. Retrieval never returns an
+    // archived row, so a restated fact written into one would be lost.
+    //
+    // Only rows the writing scope can always see are targets, too: a
+    // project fact matches rows that are members of that project (visible
+    // with or without memory isolation); a global fact matches global rows
+    // only. A fact merged into another project's row would be invisible
+    // where it was said.
     const conv = await getConversation(conversationId);
     const similar = await findSimilarMemory(embedding, EXTRACTION_DEDUP_THRESHOLD, {
       ownerUserId: conv?.userId ?? null,
+      status: "active",
+      ...(projectId ? { projectId } : { projectIds: [] }),
     });
     if (similar) {
       const updatedProvenance: MemoryProvenance = {

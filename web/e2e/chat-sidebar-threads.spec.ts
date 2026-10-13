@@ -13,7 +13,8 @@ import { makeProject, makeConversation, makeMessage } from "./fixtures/data.js";
  *   - "All chats" lands on the full list at full width and does NOT get
  *     bounced by the index page's redirect to the last chat — and is offered
  *     even with only a few chats, since search, rename and delete live there;
- *   - plain /chat still redirects to your last chat (unchanged);
+ *   - plain /chat still redirects to your last chat (unchanged) — also when
+ *     you come to it from "All chats", where SvelteKit reuses the page;
  *   - "+ New chat" creates one and it appears in the section;
  *   - collapsing is remembered across a reload.
  */
@@ -123,6 +124,22 @@ test("the full list creates a thread and refreshes the persistent sidebar", asyn
 	await page.getByRole("navigation", { name: "Conversations" }).getByRole("button", { name: /New chat/i }).click();
 	await expect(page).toHaveURL(/\/project\/proj-1\/chat\/new-conv$/);
 	await expect(threadRow(page, "new-conv")).toHaveAttribute("aria-current", "page");
+});
+
+test("from All chats, the Chat label takes you back to your last chat @evidence", async ({ page, mockApi }, testInfo) => {
+	await mockApi(setup());
+	await page.goto("/project/proj-1/chat/conv-2");
+	await section(page).getByTestId("chat-nav-show-all").click();
+	await expect(page).toHaveURL(/\/project\/proj-1\/chat\?all=1$/);
+	await expect(page.getByRole("navigation", { name: "Conversations" }).getByText("Planning the installer")).toBeVisible();
+
+	// Same route, only `?all` changes: the page is reused, and it must decide
+	// the redirect again rather than show "No conversations yet".
+	await section(page).getByTestId("chat-nav-link").click();
+	await expect(page).toHaveURL(/\/project\/proj-1\/chat\/conv-2$/);
+	await expect(page.getByText("Hi! How can I help?")).toBeVisible();
+	await expect(page.getByText("No conversations yet")).toBeHidden();
+	await captureEvidence(page, testInfo, "chat-label-from-all-chats");
 });
 
 test("plain /chat still takes you to your most recent chat", async ({ page, mockApi }) => {

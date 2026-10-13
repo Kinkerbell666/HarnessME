@@ -134,13 +134,16 @@ export function validateCompiledFactoryShape(factory: CompiledFactory): void {
   }
 }
 
-export function validateInboxEnvelope(value: FactoryInboxEnvelope): void {
+/** Signal payloads are untrusted, so this takes `unknown` and narrows. */
+export function validateInboxEnvelope(value: unknown): asserts value is FactoryInboxEnvelope {
   if (typeof value !== "object" || value === null) throw new Error("factory inbox envelope must be an object");
-  if (!Number.isSafeInteger(value.sequence) || value.sequence < 1) throw new Error("factory inbox sequence must be a positive safe integer");
-  requiredIdentity(value.eventId, "factory inbox event ID");
-  digest(value.eventHash, "factory inbox event hash");
-  validateInboxEvent(value.event as unknown as JsonValue);
-  if (value.event.id !== value.eventId) throw new Error("factory inbox event ID does not match its envelope");
+  const envelope: { readonly [Key in keyof FactoryInboxEnvelope]?: unknown } = value;
+  if (!Number.isSafeInteger(envelope.sequence) || (envelope.sequence as number) < 1) throw new Error("factory inbox sequence must be a positive safe integer");
+  requiredIdentity(typeof envelope.eventId === "string" ? envelope.eventId : "", "factory inbox event ID");
+  digest(envelope.eventHash, "factory inbox event hash");
+  const event = envelope.event as JsonValue;
+  validateInboxEvent(event);
+  if (event.id !== envelope.eventId) throw new Error("factory inbox event ID does not match its envelope");
   assertActivityPayloadSize(value, "factory inbox signal");
 }
 

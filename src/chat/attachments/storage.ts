@@ -20,7 +20,10 @@ export function attachmentsRoot(projectRoot: string): string {
 
 function sanitizeSegment(s: string): string {
   // Defensive — ids are UUIDs/DB-generated, but never allow path traversal.
-  return s.replace(/[^a-zA-Z0-9._-]/g, "_");
+  // A segment of only dots ("", ".", "..") would resolve to the parent or the
+  // root itself, and the delete helpers rm -rf whatever it names.
+  const safe = s.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return /^\.*$/.test(safe) ? safe.replace(/\./g, "_") || "_" : safe;
 }
 
 function extFromMime(mimeType: string, filename: string): string {

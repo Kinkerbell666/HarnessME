@@ -5,7 +5,7 @@ import { setupTestDb, closeTestDb, mockDbConnection } from "./helpers/test-pglit
 mockDbConnection();
 
 import { getDb } from "../db/connection";
-import { projects, agentConfigs, conversations, observabilityEvents } from "../db/schema";
+import { projects, agentConfigs, conversations, observabilityEvents, users } from "../db/schema";
 import {
   createConversation,
   createMessage,
@@ -29,9 +29,16 @@ import { eq, sql } from "drizzle-orm";
 let projectId: string;
 let agentConfigId: string;
 let agentConfigId2: string;
+// Test conversations are per user; every sandbox row here belongs to this one.
+let userId: string;
 
 beforeAll(async () => {
   await setupTestDb();
+  const userRows = await getDb()
+    .insert(users)
+    .values({ email: "sandbox-obs@test.com", passwordHash: "hash", name: "Sandbox Obs" })
+    .returning();
+  userId = userRows[0]!.id;
 
   // Seed a project
   const projRows = await getDb()
@@ -115,7 +122,7 @@ describe("listConversations", () => {
   test("returns only non-test conversations (test=false or test=null)", async () => {
     await createConversation(projectId, { title: "Normal 1" });
     await createConversation(projectId, { title: "Normal 2" });
-    await createConversation(projectId, { title: "Test Conv", test: true, agentConfigId });
+    await createConversation(projectId, { title: "Test Conv", test: true, agentConfigId, userId });
 
     const list = await listConversations(projectId);
     expect(list.length).toBe(2);
@@ -123,7 +130,7 @@ describe("listConversations", () => {
   });
 
   test("does NOT return test conversations (test=true)", async () => {
-    await createConversation(projectId, { title: "Test Only", test: true, agentConfigId });
+    await createConversation(projectId, { title: "Test Only", test: true, agentConfigId, userId });
 
     const list = await listConversations(projectId);
     expect(list.length).toBe(0);
@@ -152,11 +159,11 @@ describe("listConversations", () => {
 
 describe("getTestConversations", () => {
   test("returns only test conversations for given agentConfigId", async () => {
-    await createConversation(projectId, { title: "Test Alpha", test: true, agentConfigId });
-    await createConversation(projectId, { title: "Test Beta", test: true, agentConfigId: agentConfigId2 });
+    await createConversation(projectId, { title: "Test Alpha", test: true, agentConfigId, userId });
+    await createConversation(projectId, { title: "Test Beta", test: true, agentConfigId: agentConfigId2, userId });
     await createConversation(projectId, { title: "Normal", agentConfigId });
 
-    const tests = await getTestConversations(agentConfigId);
+    const tests = await getTestConversations(agentConfigId, userId);
     expect(tests.length).toBe(1);
     expect(tests[0]!.title).toBe("Test Alpha");
     expect(tests[0]!.test).toBe(true);
@@ -164,20 +171,20 @@ describe("getTestConversations", () => {
   });
 
   test("returns empty array when no test conversations exist", async () => {
-    const tests = await getTestConversations(agentConfigId);
+    const tests = await getTestConversations(agentConfigId, userId);
     expect(tests).toEqual([]);
   });
 
   test("orders by createdAt desc", async () => {
-    await createConversation(projectId, { title: "First", test: true, agentConfigId });
+    await createConversation(projectId, { title: "First", test: true, agentConfigId, userId });
     // Push second conversation's createdAt into the future so ordering is deterministic
-    const second = await createConversation(projectId, { title: "Second", test: true, agentConfigId });
+    const second = await createConversation(projectId, { title: "Second", test: true, agentConfigId, userId });
     await getDb()
       .update(conversations)
       .set({ createdAt: sql`NOW() + interval '1 second'` })
       .where(eq(conversations.id, second.id));
 
-    const tests = await getTestConversations(agentConfigId);
+    const tests = await getTestConversations(agentConfigId, userId);
     expect(tests.length).toBe(2);
     // Most recent first
     expect(tests[0]!.title).toBe("Second");
@@ -187,30 +194,30 @@ describe("getTestConversations", () => {
 
 describe("deleteTestConversations", () => {
   test("deletes all test conversations for given agentConfigId", async () => {
-    await createConversation(projectId, { title: "T1", test: true, agentConfigId });
-    await createConversation(projectId, { title: "T2", test: true, agentConfigId });
+    await createConversation(projectId, { title: "T1", test: true, agentConfigId, userId });
+    await createConversation(projectId, { title: "T2", test: true, agentConfigId, userId });
 
-    const count = await deleteTestConversations(agentConfigId);
+    const count = await deleteTestConversations(agentConfigId, userId);
     expect(count).toBe(2);
 
-    const remaining = await getTestConversations(agentConfigId);
+    const remaining = await getTestConversations(agentConfigId, userId);
     expect(remaining.length).toBe(0);
   });
 
   test("returns count of deleted conversations", async () => {
-    await createConversation(projectId, { title: "T1", test: true, agentConfigId });
-    await createConversation(projectId, { title: "T2", test: true, agentConfigId });
-    await createConversation(projectId, { title: "T3", test: true, agentConfigId });
+    await createConversation(projectId, { title: "T1", test: true, agentConfigId, userId });
+    await createConversation(projectId, { title: "T2", test: true, agentConfigId, userId });
+    await createConversation(projectId, { title: "T3", test: true, agentConfigId, userId });
 
-    const count = await deleteTestConversations(agentConfigId);
+    const count = await deleteTestConversations(agentConfigId, userId);
     expect(count).toBe(3);
   });
 
   test("does NOT delete non-test conversations", async () => {
     await createConversation(projectId, { title: "Normal", agentConfigId });
-    await createConversation(projectId, { title: "Test", test: true, agentConfigId });
+    await createConversation(projectId, { title: "Test", test: true, agentConfigId, userId });
 
-    await deleteTestConversations(agentConfigId);
+    await deleteTestConversations(agentConfigId, userId);
 
     const list = await listConversations(projectId);
     expect(list.length).toBe(1);
@@ -218,13 +225,13 @@ describe("deleteTestConversations", () => {
   });
 
   test("does NOT delete test conversations for other agentConfigIds", async () => {
-    await createConversation(projectId, { title: "Alpha Test", test: true, agentConfigId });
-    await createConversation(projectId, { title: "Beta Test", test: true, agentConfigId: agentConfigId2 });
+    await createConversation(projectId, { title: "Alpha Test", test: true, agentConfigId, userId });
+    await createConversation(projectId, { title: "Beta Test", test: true, agentConfigId: agentConfigId2, userId });
 
-    await deleteTestConversations(agentConfigId);
+    await deleteTestConversations(agentConfigId, userId);
 
-    const alphaTests = await getTestConversations(agentConfigId);
-    const betaTests = await getTestConversations(agentConfigId2);
+    const alphaTests = await getTestConversations(agentConfigId, userId);
+    const betaTests = await getTestConversations(agentConfigId2, userId);
     expect(alphaTests.length).toBe(0);
     expect(betaTests.length).toBe(1);
     expect(betaTests[0]!.title).toBe("Beta Test");
@@ -767,6 +774,7 @@ describe("integration: full sandbox lifecycle", () => {
       title: "Sandbox Test Run",
       test: true,
       agentConfigId,
+      userId,
     });
     expect(testConv.test).toBe(true);
     expect(testConv.agentConfigId).toBe(agentConfigId);
@@ -777,7 +785,7 @@ describe("integration: full sandbox lifecycle", () => {
     });
 
     // Step 2: Verify test conversation appears in getTestConversations
-    const testConvs = await getTestConversations(agentConfigId);
+    const testConvs = await getTestConversations(agentConfigId, userId);
     expect(testConvs.length).toBe(1);
     expect(testConvs[0]!.id).toBe(testConv.id);
 
@@ -822,11 +830,11 @@ describe("integration: full sandbox lifecycle", () => {
     expect(testStats.turnCount).toBe(1);
 
     // Step 7: Delete test conversations
-    const deletedCount = await deleteTestConversations(agentConfigId);
+    const deletedCount = await deleteTestConversations(agentConfigId, userId);
     expect(deletedCount).toBe(1);
 
     // Step 8: Verify test conversation is gone
-    const remainingTests = await getTestConversations(agentConfigId);
+    const remainingTests = await getTestConversations(agentConfigId, userId);
     expect(remainingTests.length).toBe(0);
 
     // Step 9: Verify cascade deletes observability events for the test conversation

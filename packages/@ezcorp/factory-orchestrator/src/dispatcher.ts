@@ -1,4 +1,4 @@
-import { type Client, WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
+import { type WorkflowStartOptions, WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
 import { WorkflowIdConflictPolicy, WorkflowIdReusePolicy } from "@temporalio/common";
 import {
   FACTORY_INBOX_RECEIPT_QUERY,
@@ -8,6 +8,7 @@ import {
   factoryWorkflowId,
   type ClaimedFactoryCommand,
   type FactoryCommandQueue,
+  type FactoryInboxEnvelope,
   type FactoryInboxReceipt,
   type FactoryTransportCommand,
   type FactoryWorkflowInput,
@@ -18,6 +19,21 @@ const START_OPTIONS = Symbol.for("__temporal_internal_client_workflow_start_opti
 const START_MEMO_KEY = "ezcorp.factory.start.v1";
 
 export type DispatchVerdict = "delivered" | "retry" | "outcome_unknown";
+
+/** The part of a Temporal workflow handle the dispatcher uses. */
+export interface FactoryDispatchHandle {
+  describe(): Promise<{ readonly type: string; readonly memo?: Record<string, unknown> }>;
+  query(queryType: string): Promise<FactoryInboxReceipt>;
+  signal(signalName: string, envelope: FactoryInboxEnvelope): Promise<void>;
+}
+
+/** The part of a Temporal Client the dispatcher uses; a real Client satisfies it. */
+export interface FactoryDispatchClient {
+  readonly workflow: {
+    start(workflowType: string, options: WorkflowStartOptions): Promise<unknown>;
+    getHandle(workflowId: string): FactoryDispatchHandle;
+  };
+}
 
 /** Only infrastructure that proves no Temporal request was issued may use this marker. */
 export class FactoryPreSendError extends Error {
@@ -66,7 +82,7 @@ function sameStartIdentity(actual: unknown, expected: Record<string, string | un
 }
 
 export async function reconcileFactoryCommand(
-  client: Client,
+  client: FactoryDispatchClient,
   command: FactoryTransportCommand,
   identityStore?: Pick<FactoryCommandQueue, "confirmInboxIdentity">,
 ): Promise<"delivered" | "outcome_unknown"> {
@@ -79,7 +95,7 @@ export async function reconcileFactoryCommand(
         : "outcome_unknown";
     }
     if (!command.eventId || !command.eventSequence || !command.eventHash) return "outcome_unknown";
-    const receipt = await handle.query<FactoryInboxReceipt>(FACTORY_INBOX_RECEIPT_QUERY);
+    const receipt = await handle.query(FACTORY_INBOX_RECEIPT_QUERY);
     if (receipt.pending.some((item) => item.sequence === command.eventSequence && item.eventId === command.eventId && item.eventHash === command.eventHash)) return "delivered";
     if (receipt.acknowledgedSequence < command.eventSequence || !identityStore?.confirmInboxIdentity) return "outcome_unknown";
     return await identityStore.confirmInboxIdentity(command) ? "delivered" : "outcome_unknown";
@@ -88,7 +104,7 @@ export async function reconcileFactoryCommand(
   }
 }
 
-export async function deliverFactoryCommand(client: Client, command: FactoryTransportCommand): Promise<void> {
+export async function deliverFactoryCommand(client: FactoryDispatchClient, command: FactoryTransportCommand): Promise<void> {
   if (command.requestId !== command.commandId) throw new Error("Temporal request ID must equal command ID");
   if (command.kind === "start_run") {
     const input = startInput(command);
@@ -111,7 +127,7 @@ export async function deliverFactoryCommand(client: Client, command: FactoryTran
   }
   if (!command.eventId || !command.eventSequence || !command.eventHash) throw new Error("signal command requires a stable event identity, hash, and sequence");
   const envelope = { sequence: command.eventSequence, eventId: command.eventId, eventHash: command.eventHash, event: command.body };
-  validateInboxEnvelope(envelope as never);
+  validateInboxEnvelope(envelope);
   await client.workflow.getHandle(commandWorkflowId(command)).signal(FACTORY_INBOX_SIGNAL, envelope);
 }
 
@@ -119,7 +135,7 @@ export function classifyDispatchError(error: unknown): DispatchVerdict {
   return error instanceof FactoryPreSendError ? "retry" : "outcome_unknown";
 }
 
-export async function dispatchClaim(client: Client, queue: FactoryCommandQueue, claim: ClaimedFactoryCommand): Promise<DispatchVerdict> {
+export async function dispatchClaim(client: FactoryDispatchClient, queue: FactoryCommandQueue, claim: ClaimedFactoryCommand): Promise<DispatchVerdict> {
   try {
     await deliverFactoryCommand(client, claim.command);
     await queue.settle(claim, "delivered");
@@ -135,13 +151,13 @@ export async function dispatchClaim(client: Client, queue: FactoryCommandQueue, 
   }
 }
 
-export async function reconcileClaim(client: Client, queue: FactoryCommandQueue, claim: ClaimedFactoryCommand): Promise<"delivered" | "outcome_unknown"> {
+export async function reconcileClaim(client: FactoryDispatchClient, queue: FactoryCommandQueue, claim: ClaimedFactoryCommand): Promise<"delivered" | "outcome_unknown"> {
   const verdict = await reconcileFactoryCommand(client, claim.command, queue);
   if (verdict === "delivered") await queue.settle(claim, "delivered");
   return verdict;
 }
 
-export async function dispatchNext(client: Client, queue: FactoryCommandQueue): Promise<DispatchVerdict | "empty"> {
+export async function dispatchNext(client: FactoryDispatchClient, queue: FactoryCommandQueue): Promise<DispatchVerdict | "empty"> {
   const claim = await queue.claim();
   return claim ? dispatchClaim(client, queue, claim) : "empty";
 }

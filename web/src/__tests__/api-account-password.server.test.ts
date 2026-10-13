@@ -2,8 +2,9 @@
  * Server-handler unit tests for /api/account/password/+server.ts.
  *
  * Covers auth gate, scope gate, validation, current-password verification,
- * happy-path side-effects (hashPassword + updateUserPassword + audit log +
- * cleared session cookie), and 404 when the user row is missing.
+ * happy-path side-effects (hashPassword + updateUserPassword keeping the
+ * current session + audit log, with the session cookie untouched), and 404
+ * when the user row is missing.
  */
 
 import { test, expect, describe, vi, beforeEach } from "vitest";
@@ -139,7 +140,7 @@ describe("PUT /api/account/password", () => {
 		expect(vi.mocked(hashPassword)).not.toHaveBeenCalled();
 	});
 
-	test("happy path: hashes new password, persists, audits, clears session", async () => {
+	test("happy path: hashes, persists, audits, and keeps only the current session", async () => {
 		const cookieCalls: CookieCall[] = [];
 		vi.mocked(getUserById).mockResolvedValue(dbUser as any);
 		vi.mocked(verifyPassword).mockResolvedValue(true);
@@ -149,34 +150,30 @@ describe("PUT /api/account/password", () => {
 		const res = await PUT(
 			makeEvent({
 				body: VALID_BODY,
-				locals: { user },
+				locals: { user, sessionId: "current-session" },
 				cookieCalls,
 			}),
 		);
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { success?: boolean; message?: string };
 		expect(body.success).toBe(true);
-		expect(body.message).toBe("Password changed. Please log in again.");
+		expect(body.message).toBe("Password changed. Other sessions were signed out.");
 
 		// Side-effect: hash was called with the new password
 		expect(vi.mocked(hashPassword)).toHaveBeenCalledWith("NewPass1!");
-		// Side-effect: stored hash is the hashPassword return value, NOT the
-		// new password plaintext.
+		// The stored hash is the hashPassword return value, NOT the plaintext.
+		// The caller's session is kept; updateUserPassword revokes the others.
 		expect(vi.mocked(updateUserPassword)).toHaveBeenCalledWith(
 			user.id,
 			"$argon2id$NEW",
+			{ keepSessionId: "current-session" },
 		);
 		// Side-effect: audit log entry written
 		expect(vi.mocked(insertAuditEntry)).toHaveBeenCalledWith(
 			user.id,
 			"auth:password_changed",
 		);
-		// Side-effect: session cookie cleared (maxAge: 0)
-		expect(cookieCalls).toHaveLength(1);
-		expect(cookieCalls[0]).toMatchObject({
-			name: "ezcorp_session",
-			value: "",
-			opts: { maxAge: 0, path: "/", httpOnly: true, sameSite: "lax" },
-		});
+		// The current tab stays signed in: the session cookie is not touched.
+		expect(cookieCalls).toEqual([]);
 	});
 });

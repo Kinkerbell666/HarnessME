@@ -196,4 +196,30 @@ test.describe("@evidence default model selection", () => {
 		expect(sent.body!.provider).toBe("anthropic");
 		expect(sent.body!.model).toBe("claude-sonnet-4-20250514");
 	});
+
+	test("a failed model list stops retrying once you leave the chat", async ({ page, mockApi }) => {
+		const conv = makeConversation({ id: "D4", projectId: "p-def", title: "Models down" });
+		await mockApi({ projects: [proj], conversations: [conv], messages: [] });
+		await stubDefaultSelection(page, "auto");
+		let modelRequests = 0;
+		await page.route("**/api/models", (route) => {
+			modelRequests++;
+			return route.fulfill({ status: 503, body: "down" });
+		});
+		// Fast-forward the picker's 1s/2s backoff instead of sleeping through it.
+		await page.clock.install();
+
+		const firstFailure = page.waitForResponse((res) => new URL(res.url()).pathname === "/api/models");
+		await page.goto("/project/p-def/chat/D4");
+		await firstFailure;
+		const before = modelRequests;
+
+		// Leave the chat in-app: the composer and its picker unmount.
+		await page.getByRole("link", { name: "Memories" }).first().click();
+		await expect(page).toHaveURL(/\/memories/);
+		await page.clock.runFor(10_000);
+
+		expect(modelRequests).toBe(before);
+		await expect(page.getByText("Failed to load models")).toHaveCount(0);
+	});
 });

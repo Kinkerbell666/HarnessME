@@ -88,9 +88,14 @@
 
 	const COST_LABELS: Record<string, string> = { low: "$", medium: "$$", high: "$$$" };
 
+	// Set on unmount: the backoff retries stop, and no toast lands on
+	// whatever page the user moved on to.
+	let destroyed = false;
+
 	async function loadModels(attempt = 0) {
 		try {
 			const res = await fetch("/api/models");
+			if (destroyed) return;
 			if (res.ok) {
 				const data: ModelOption[] = await res.json();
 				models = filterAvailable(data);
@@ -112,12 +117,17 @@
 		} catch {}
 		if (attempt < MAX_RETRIES - 1) {
 			await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+			if (destroyed) return;
 			return loadModels(attempt + 1);
 		}
+		if (destroyed) return;
 		addToast({ type: "warning", message: "Failed to load models. Check your API keys in Settings." });
 	}
 
-	onMount(() => { loadModels(); });
+	onMount(() => {
+		loadModels();
+		return () => { destroyed = true; };
+	});
 
 	// Default for a user with no saved selection — fires at most once, and only
 	// once BOTH inputs are known: the loaded model list and the instance

@@ -920,6 +920,10 @@ export class HarnessClient {
         }
       }
     } finally {
+      // Cancel, not only release: the server never ends an SSE stream, so a
+      // consumer that stops early would otherwise leave the connection open.
+      // An already-errored stream rejects with the error the read threw.
+      await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
   }

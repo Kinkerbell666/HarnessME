@@ -7,9 +7,12 @@ import {
   setupTestDb, closeTestDb, mockDbConnection, getTestDb,
 } from "../../__tests__/helpers/test-pglite";
 
+// The loops kill switch is the only setting the daemon reads.
+let killSwitchSetting: unknown;
+
 mock.module("../../db/queries/settings", () => ({
   async getAllSettings() { return {}; },
-  async getSetting() { return undefined; },
+  async getSetting() { return killSwitchSetting; },
   async upsertSetting() {},
   async deleteSetting() { return false; },
   async isListingInstalled() { return false; },
@@ -49,6 +52,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  killSwitchSetting = undefined;
   await getTestDb().delete(extensionScheduleFires);
   await _wipeSchedulesForTests(extId);
   await _wipeSchedulesForTests(extId2);
@@ -158,6 +162,30 @@ describe("ScheduleDaemon — claim-before-dispatch", () => {
     const result = await daemon.tick();
     expect(result.claimed).toBe(0);
     daemon.stop();
+  });
+
+  test("a disabled extension's enabled rows neither fire nor catch up", async () => {
+    // Disabling an extension leaves its user-created (dynamic) rows enabled
+    // so re-enabling it restores them; the daemon must skip them meanwhile.
+    const offExt = await ensureExtension(`sched-ext-off-${crypto.randomUUID()}`);
+    await getTestDb().update(extensions).set({ enabled: false }).where(eq(extensions.id, offExt));
+    await getTestDb().insert(extensionSchedules).values({
+      extensionId: offExt, cron: "0 * * * *", nextFireAt: new Date(Date.now() - 10 * 60_000),
+      enabled: true, dynamic: true, key: "user-job",
+    });
+    const daemon = new ScheduleDaemon({
+      skipLockfile: true,
+      registry: {
+        getProcessIfRunning() { return null; },
+        getGrantedPermissions() {
+          return { schedule: { maxRetries: 0, maxRunsPerDay: 24, maxRunDurationMs: 1000, missedRunPolicy: "fire-once" } };
+        },
+      } as any,
+    });
+    await daemon.start();
+    expect((await daemon.tick()).claimed).toBe(0);
+    daemon.stop();
+    expect(await getTestDb().select().from(extensionScheduleFires)).toHaveLength(0);
   });
 
   // ── Phase 1 repro: registry-less dispatch must NOT masquerade as success ──
@@ -490,6 +518,77 @@ describe("ScheduleDaemon — hardening (Phase 51.5.5/51.5.6)", () => {
     const fires = await getTestDb().select().from(extensionScheduleFires).where(eq(extensionScheduleFires.scheduleId, sched!.id));
     expect(fires.length).toBe(1);
     expect(fires[0]!.catchUp).toBe(true);
+    daemon.stop();
+  });
+
+  test("missed-run policy: kill switch engaged at start → no catch-up fire, row stays due", async () => {
+    killSwitchSetting = true;
+    const past = new Date(Date.now() - 10 * 60_000);
+    const [sched] = await getTestDb().insert(extensionSchedules).values({
+      extensionId: extId, cron: "0 * * * *",
+      nextFireAt: past, enabled: true,
+    }).returning();
+    const daemon = new ScheduleDaemon({
+      skipLockfile: true,
+      registry: {
+        getProcessIfRunning() { return null; },
+        getGrantedPermissions() {
+          return { schedule: { maxRetries: 0, maxRunsPerDay: 24, maxRunDurationMs: 1000, missedRunPolicy: "fire-all" } };
+        },
+      } as any,
+    });
+    await daemon.start();
+    const fires = await getTestDb().select().from(extensionScheduleFires).where(eq(extensionScheduleFires.scheduleId, sched!.id));
+    expect(fires.length).toBe(0);
+    const [row] = await getTestDb().select().from(extensionSchedules).where(eq(extensionSchedules.id, sched!.id));
+    expect(row!.nextFireAt.getTime()).toBe(past.getTime());
+    daemon.stop();
+  });
+
+  test("missed-run policy: two instances starting together fire one catch-up, not two", async () => {
+    const past = new Date(Date.now() - 10 * 60_000);
+    const [sched] = await getTestDb().insert(extensionSchedules).values({
+      extensionId: extId, cron: "0 * * * *",
+      nextFireAt: past, enabled: true,
+    }).returning();
+    const registry = {
+      getProcessIfRunning() { return null; },
+      getGrantedPermissions() {
+        return { schedule: { maxRetries: 0, maxRunsPerDay: 24, maxRunDurationMs: 1000, missedRunPolicy: "fire-once" } };
+      },
+    } as any;
+    const a = new ScheduleDaemon({ skipLockfile: true, registry });
+    const b = new ScheduleDaemon({ skipLockfile: true, registry });
+    await Promise.all([a.start(), b.start()]);
+    const fires = await getTestDb().select().from(extensionScheduleFires).where(eq(extensionScheduleFires.scheduleId, sched!.id));
+    expect(fires.length).toBe(1);
+    a.stop();
+    b.stop();
+  });
+
+  test("missed-run policy: fire-all fires every missed slot, starting at next_fire_at", async () => {
+    const now = new Date("2026-01-01T12:30:00Z");
+    const [sched] = await getTestDb().insert(extensionSchedules).values({
+      extensionId: extId, cron: "0 * * * *",
+      nextFireAt: new Date("2026-01-01T10:00:00Z"), enabled: true,
+    }).returning();
+    const daemon = new ScheduleDaemon({
+      skipLockfile: true,
+      now: () => now,
+      registry: {
+        getProcessIfRunning() { return null; },
+        getGrantedPermissions() {
+          return { schedule: { maxRetries: 0, maxRunsPerDay: 24, maxRunDurationMs: 1000, missedRunPolicy: "fire-all" } };
+        },
+      } as any,
+    });
+    await daemon.start();
+    const fires = await getTestDb().select().from(extensionScheduleFires).where(eq(extensionScheduleFires.scheduleId, sched!.id));
+    expect(fires.map((f) => f.scheduledAt.toISOString()).sort()).toEqual([
+      "2026-01-01T10:00:00.000Z",
+      "2026-01-01T11:00:00.000Z",
+      "2026-01-01T12:00:00.000Z",
+    ]);
     daemon.stop();
   });
 

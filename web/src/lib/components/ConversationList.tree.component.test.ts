@@ -16,6 +16,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, fireEvent, cleanup, waitFor } from "@testing-library/svelte";
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { tick } from "svelte";
 import type { Conversation } from "$lib/api.js";
 
 // Mock the API module BEFORE importing the component — fetchConversations runs
@@ -283,5 +284,59 @@ describe("ConversationList — fork tree rendering", () => {
 		await findByText("Forked: a path");
 		// Only the parent row gets a badge — exactly one in the tree.
 		expect(queryAllByTestId("fork-count-badge")).toHaveLength(1);
+	});
+});
+
+describe("ConversationList — overlapping loads", () => {
+	test("a slow load for the previous project never replaces the current project's list", async () => {
+		let resolveOld: (rows: Conversation[]) => void = () => { throw new Error("Old load was not started"); };
+		fetchConversations.mockImplementation((projectId: string) =>
+			projectId === "p1"
+				? new Promise<Conversation[]>((resolve) => { resolveOld = resolve; })
+				: Promise.resolve([conv({ id: "b", title: "Project two chat" })]),
+		);
+		const view = render(ConversationList, { projectId: "p1", oncreate: () => {}, onselect: () => {} });
+		await view.rerender({ projectId: "p2", oncreate: () => {}, onselect: () => {} });
+		await view.findByText("Project two chat");
+
+		resolveOld([conv({ id: "a", title: "Project one chat" })]);
+		// The old load's continuation is queued first, so two ticks settle it.
+		await tick();
+		await tick();
+		expect(view.queryByText("Project one chat")).toBeNull();
+		expect(view.getByText("Project two chat")).toBeInTheDocument();
+	});
+
+	test("a next page still loading when the list reloads is dropped, not appended", async () => {
+		let reportIntersecting: () => void = () => { throw new Error("Observer was not created"); };
+		vi.stubGlobal("IntersectionObserver", class {
+			constructor(callback: IntersectionObserverCallback) {
+				reportIntersecting = () => callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+			}
+			observe() {}
+			disconnect() {}
+		});
+		try {
+			const firstPage = Array.from({ length: 30 }, (_, i) => conv({ id: `c${i}`, title: `Chat ${i}` }));
+			let resolveNextPage: (rows: Conversation[]) => void = () => { throw new Error("Next page was not requested"); };
+			fetchConversations.mockImplementation((_projectId: string, opts?: { offset?: number }) =>
+				opts?.offset ? new Promise<Conversation[]>((resolve) => { resolveNextPage = resolve; }) : Promise.resolve(firstPage),
+			);
+			const view = render(ConversationList, { projectId: "p1", oncreate: () => {}, onselect: () => {} });
+			await view.findByText("Chat 0");
+
+			reportIntersecting();
+			await waitFor(() => expect(fetchConversations).toHaveBeenCalledWith("p1", { limit: 30, offset: 30 }));
+			notifyConversationsChanged("p1");
+			await tick();
+
+			resolveNextPage([conv({ id: "stale", title: "Stale next page" })]);
+			await tick();
+			await tick();
+			expect(view.queryByText("Stale next page")).toBeNull();
+			expect(view.getByText("Chat 0")).toBeInTheDocument();
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 });

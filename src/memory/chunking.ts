@@ -58,6 +58,9 @@ export function chunkText(
 
     chunks.push({ content: text.slice(offset, end), index });
     index++;
+    // This chunk already holds the tail; another pass would only emit
+    // slivers of it.
+    if (end === text.length) break;
 
     // Advance by (chunk length - overlap), but at least 1 character
     const advance = Math.max(end - offset - overlap, 1);

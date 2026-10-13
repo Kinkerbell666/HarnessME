@@ -88,7 +88,9 @@ sys.exit(1)
       allowedUid: process.getuid!(),
       python: wrapperPath,
     })).rejects.toThrow("Unix peer gateway exited");
-    const [privatePath, owner, mode] = (await readFile(observationPath, "utf8")).trim().split("\n");
+    const observed = (await readFile(observationPath, "utf8")).trim().split("\n");
+    expect(observed).toHaveLength(3);
+    const [privatePath, owner, mode] = observed as [string, string, string];
     expect(owner).toBe(String(process.getuid!()));
     expect(mode).toBe("700");
     await expect(lstat(privatePath)).rejects.toThrow();

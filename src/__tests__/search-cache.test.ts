@@ -10,7 +10,14 @@ describe("SearchCache.key", () => {
   test("embeds provider:kind:query:extra and normalizes the query", () => {
     expect(SearchCache.key("searxng", "search", "  Bun Runtime ", 5)).toBe("searxng:search:bun runtime:5");
     expect(SearchCache.key("duckduckgo", "search", "Bun Runtime", 5)).toBe("duckduckgo:search:bun runtime:5");
-    expect(SearchCache.key("jina", "read", "https://X", "raw")).toBe("jina:read:https://x:raw");
+    expect(SearchCache.key("jina", "read", " https://X ", "raw")).toBe("jina:read:https://X:raw");
+  });
+
+  test("a read key keeps the URL's case — paths are case-sensitive", () => {
+    // Lower-casing would serve /README.md's cached page for /readme.md.
+    expect(SearchCache.key("jina", "read", " https://x.dev/README.md ", "raw")).toBe("jina:read:https://x.dev/README.md:raw");
+    expect(SearchCache.key("jina", "read", "https://youtu.be/dQw4w9WgXcQ", "raw"))
+      .not.toBe(SearchCache.key("jina", "read", "https://youtu.be/dqw4w9wgxcq", "raw"));
   });
 
   test("provider name in the key keeps fallback results in a SEPARATE namespace", () => {

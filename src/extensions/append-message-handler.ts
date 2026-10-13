@@ -4,9 +4,9 @@
  * Lets an extension author a turn directly into the conversation it's
  * wired to. The new turn is always `role: "extension"` and forced
  * `excluded: true` — `role: "extension"` rows are filtered out of LLM
- * history by `src/runtime/stream-chat/build-pi-agent.ts` (only
- * user/assistant/toolResult survive `convertToLlm`), but we also flip
- * `excluded` so the chat UI's "excluded from chat context" pill renders.
+ * history by `src/runtime/stream-chat/load-history.ts` (only `user` and
+ * `assistant` rows become turns), but we also flip `excluded` so the chat
+ * UI's "excluded from chat context" pill renders.
  * The `appendMessages.excludedDefault` field on the manifest grant is
  * reserved for a future opt-in tier; for now it has no runtime effect.
  *
@@ -176,9 +176,8 @@ function coerceToolCallOutput(output: unknown, isError: boolean): ToolCallResult
  * Persist an extension-authored turn + its inline tool-calls + reattribute
  * any pre-uploaded attachments. The forced `excluded: true` is a
  * belt-and-suspenders defense — `role: "extension"` rows are already
- * filtered from LLM history by `build-pi-agent.ts`'s `convertToLlm`,
- * but flipping `excluded` makes the UI's pill render and survives any
- * future widening of the role enum.
+ * filtered from LLM history by `load-history.ts`'s role allowlist, but
+ * flipping `excluded` makes the UI's pill render.
  */
 export async function handleAppendMessageRpc(
   extensionId: string,

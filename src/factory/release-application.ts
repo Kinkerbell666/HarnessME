@@ -41,6 +41,9 @@ export class FactoryReleaseApplication {
    */
   async prepare(actor: FactoryPrincipal, projectId: string, body: FactoryReleasePrepareBody, idempotencyKey: string, signal?: AbortSignal) {
     const request = { projectId, ...structuredClone(body) };
+    // Authorize before the resolve reads the run's acceptance, so a caller without the grant
+    // learns nothing about another project's runs. The store authorizes again in its transaction.
+    await this.grants.authorize(actor, projectId, "factory.release");
     const preparation = await this.releases.resolvePreparation({
       projectId, runId: request.runId, nodeInstanceId: request.nodeInstanceId, candidateGeneration: request.candidateGeneration,
       decisionId: request.decisionId, candidateDigest: request.candidateDigest,

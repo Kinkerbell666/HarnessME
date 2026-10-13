@@ -191,6 +191,30 @@ test.describe("Projects", () => {
 		});
 	}
 
+	test("a plain project member sees no Delete control @evidence", async ({ page, mockApi }, testInfo) => {
+		const proj = makeProject({ id: "proj-member-view", name: "Member View Project" });
+		const memberMe = { user: { id: "e2e-member", email: "member@test.local", name: "E2E Member", role: "member" } };
+		await mockApi({
+			projects: [proj],
+			routes: {
+				"/api/auth/me": () => memberMe,
+				[`/api/projects/${proj.id}/members`]: () => [
+					{ userId: "e2e-member", role: "member" },
+					{ userId: "e2e-owner", role: "owner" },
+				],
+			},
+		});
+		const membersLoaded = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/projects/${proj.id}/members`);
+
+		await page.goto(`/project/${proj.id}/settings`);
+		await membersLoaded;
+
+		await expect(page.getByRole("heading", { name: "Member View Project", exact: true })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Update", exact: true })).toBeEnabled();
+		await expect(page.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+		await captureEvidence(page, testInfo, "project-settings-member-no-delete");
+	});
+
 	test("keeps settings usable when the integration check fails and deletes the project", async ({ page, mockApi }) => {
 		const proj = makeProject({ id: "proj-settings-delete", name: "Delete Settings Project" });
 		await mockApi({ projects: [proj] });

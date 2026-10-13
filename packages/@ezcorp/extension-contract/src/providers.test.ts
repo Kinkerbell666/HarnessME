@@ -39,9 +39,10 @@ const sandboxProvider = {
 describe("provider manifest contributions", () => {
   test("preserves legacy manifests and admits bounded sandbox and static-secret declarations", () => {
     const legacy = { schemaVersion: 4, name: "legacy", version: "1.0.0", description: "Legacy", author: { name: "Tests" }, permissions: {} };
-    expect(validateManifest(legacy)).toEqual(legacy);
+    // Validated output against the raw fixture: a data comparison, not a type one.
+    expect<unknown>(validateManifest(legacy)).toEqual(legacy);
     expect(validateManifest({ ...legacy, skills: [{ name: "summarize", description: "Summarize a document" }] }).skills?.[0]?.name).toBe("summarize");
-    expect(validateManifest({ ...base, providers: [sandboxProvider] }).providers?.[0]).toEqual(sandboxProvider);
+    expect<unknown>(validateManifest({ ...base, providers: [sandboxProvider] }).providers?.[0]).toEqual(sandboxProvider);
     const transfer = { name: "sandbox.transfer.v1" as const, methods: { beginExport: "transfer/beginExport", readExport: "transfer/readExport", endExport: "transfer/endExport" } };
     const withTransfer = { ...base, methods: [...base.methods, ...declaredMethods(transfer.name, transfer.methods)], providers: [{ ...sandboxProvider, methodGroups: [...sandboxGroups, transfer] }] };
     expect(validateManifest(withTransfer).providers?.[0]?.methodGroups.at(-1)).toEqual(transfer);

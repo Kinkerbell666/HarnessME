@@ -232,7 +232,8 @@ export interface SweepAllResult {
  * capability while rows survive is still reconciled instead of being
  * skipped by a declaration that no longer matches reality. (Total removal
  * of the capability is {@link revokeDynamicTriggers}'s job, on the
- * activate path; this is not a second copy of that policy.)
+ * publish path (`publishExtensionGeneration`); this is not a second copy of
+ * that policy.)
  *
  * Never throws FOR A PER-EXTENSION FAILURE — those are counted in
  * `errored` and the pass continues, because one extension's DB error must

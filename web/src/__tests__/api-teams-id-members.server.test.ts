@@ -21,6 +21,11 @@ vi.mock("$server/db/queries/teams", () => ({
   removeTeamMember: vi.fn(async () => true),
 }));
 
+// POST checks that the target user exists; every id names a user here.
+vi.mock("$server/db/queries/users", () => ({
+  getUserById: vi.fn(async (id: string) => ({ id })),
+}));
+
 const {
   getTeamMembers,
   getTeamMembership,

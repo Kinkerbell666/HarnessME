@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { connectionState } from "$lib/stores/connection";
+	import { onMount } from "svelte";
+	import { connectionState, type ConnectionInfo } from "$lib/stores/connection";
 	import { wsManualRetry } from "$lib/stores.svelte.js";
 	import { isBannerVisible, bannerColorClass } from "$lib/connection-banner-logic";
 
@@ -10,7 +11,17 @@
 	let wasDisconnected = $state(false);
 	let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-	connectionState.subscribe((info) => {
+	// onMount runs untracked, so the store's immediate first call does not
+	// make the reads below dependencies. Its cleanup ends the subscription.
+	onMount(() => {
+		const unsubscribe = connectionState.subscribe(onConnectionChange);
+		return () => {
+			unsubscribe();
+			if (hideTimer) clearTimeout(hideTimer);
+		};
+	});
+
+	function onConnectionChange(info: ConnectionInfo) {
 		const prev = connStatus;
 		connStatus = info.state;
 		attempt = info.attempt;
@@ -27,7 +38,7 @@
 		if (info.state !== "connected") {
 			wasDisconnected = true;
 		}
-	});
+	}
 
 	let visible = $derived(isBannerVisible(connStatus, showConnected));
 </script>

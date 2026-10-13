@@ -18,6 +18,13 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+/** This server has no sessions; a test names the acting user with this header. */
+export const TEST_USER_HEADER = "x-test-user-id";
+
+function testUserId(req: Request): string | undefined {
+  return req.headers.get(TEST_USER_HEADER) ?? undefined;
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -230,6 +237,7 @@ export async function startTestServer(
             agentConfigId: body.agentConfigId,
             systemPrompt,
             test: body.test,
+            userId: testUserId(req),
           }), 201);
         })();
       }
@@ -421,12 +429,15 @@ export async function startTestServer(
       const testConvMatch = pathname.match(/^\/api\/agents\/([^/]+)\/test-conversations$/);
       if (testConvMatch) {
         const agentConfigId = testConvMatch[1]!;
+        // Per-user like the real route: the caller names itself by header.
+        const userId = testUserId(req);
+        if (!userId) return json({ error: "Authentication required" }, 401);
         if (method === "GET") {
-          return (async () => json(await getConvQueries().getTestConversations(agentConfigId)))();
+          return (async () => json(await getConvQueries().getTestConversations(agentConfigId, userId)))();
         }
         if (method === "DELETE") {
           return (async () => {
-            const count = await getConvQueries().deleteTestConversations(agentConfigId);
+            const count = await getConvQueries().deleteTestConversations(agentConfigId, userId);
             return json({ deleted: count });
           })();
         }

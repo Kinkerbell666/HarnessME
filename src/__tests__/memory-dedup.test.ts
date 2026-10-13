@@ -52,7 +52,7 @@ const {
   withDedupLock,
   dedupLockKey,
 } = await import("../memory/dedup");
-const { searchMemories } = await import("../db/queries/memories");
+const { searchMemories, updateMemoryStatus, assignMemoryToProjects } = await import("../db/queries/memories");
 // The mocked embedder above — seeding a row the dedup query must MATCH
 // means computing its vector with the same function the helper uses.
 const { generateEmbedding } = await import("../memory/embeddings");
@@ -186,6 +186,30 @@ describe("dedupAndWriteMemory — UPDATE branch (similar existing)", () => {
     const rows = await searchMemories({ projectId: projectAId });
     expect(rows).toHaveLength(1);
   });
+
+  test("an archived match is not a dedup target — the restated fact lands as a new active row", async () => {
+    // Retrieval never returns archived rows. Writing the restated fact into
+    // one would make it invisible to injection for good.
+    const fact = { content: "Restated fact after decay", category: "preferences" as const, confidence: "high" as const, messageIds: ["m1"] };
+    const first = await dedupAndWriteMemory({
+      fact,
+      conversationId: conversationAId,
+      projectId: projectAId,
+      provenanceFactory: legacyExtractionProvenance,
+    });
+    await updateMemoryStatus(first.memoryId, "archived", "auto-decay");
+
+    const second = await dedupAndWriteMemory({
+      fact,
+      conversationId: conversationAId,
+      projectId: projectAId,
+      provenanceFactory: legacyExtractionProvenance,
+    });
+    expect(second.action).toBe("inserted");
+    expect(second.memoryId).not.toBe(first.memoryId);
+    const active = await searchMemories({ projectId: projectAId, status: "active" });
+    expect(active.map((m) => m.id)).toEqual([second.memoryId]);
+  });
 });
 
 describe("dedupAndWriteMemory — owner and eligibility COLUMNS", () => {
@@ -280,6 +304,8 @@ describe("dedupAndWriteMemory — owner and eligibility COLUMNS", () => {
       injectionEligible: false,
       provenance: legacyExtractionProvenance("created", fact, conversationAId) as never,
     }).returning({ id: memories.id });
+    // The junction, not the legacy column, puts the row in project A.
+    await assignMemoryToProjects(seeded!.id, [projectAId]);
 
     const result = await dedupAndWriteMemory({
       fact,
@@ -440,5 +466,43 @@ describe("dedupAndWriteMemory — cross-extension visibility", () => {
     });
     expect(second.action).toBe("updated");
     expect(second.memoryId).toBe(first.memoryId);
+  });
+});
+
+describe("dedupAndWriteMemory — project scope", () => {
+  // Retrieval for project P reads P's rows (+ global rows unless P is
+  // isolated). A fact written into a row outside that set is invisible in P.
+  const write = (content: string, projectId: string | null) => dedupAndWriteMemory({
+    fact: { content, category: "technical", confidence: "high", messageIds: [] },
+    conversationId: conversationAId,
+    projectId,
+    provenanceFactory: legacyExtractionProvenance,
+  });
+
+  test("a fact from project A never merges into a row only project B has", async () => {
+    const inB = await write("Deploys go through the staging cluster", projectBId);
+    const fromA = await write("Deploys go through the staging cluster", projectAId);
+
+    expect(fromA.action).toBe("inserted");
+    expect(fromA.memoryId).not.toBe(inB.memoryId);
+    const visibleInA = await searchMemories({ projectId: projectAId });
+    expect(visibleInA.map((m) => m.id)).toContain(fromA.memoryId);
+  });
+
+  test("a global fact never merges into a project-only row", async () => {
+    const inB = await write("Prefers tabs over spaces", projectBId);
+    const global = await write("Prefers tabs over spaces", null);
+
+    expect(global.action).toBe("inserted");
+    expect(global.memoryId).not.toBe(inB.memoryId);
+  });
+
+  test("a fact still merges into a row its own project shares with others", async () => {
+    const shared = await write("Uses pnpm workspaces", projectAId);
+    await assignMemoryToProjects(shared.memoryId, [projectBId]);
+
+    const again = await write("Uses pnpm workspaces", projectBId);
+    expect(again.action).toBe("updated");
+    expect(again.memoryId).toBe(shared.memoryId);
   });
 });

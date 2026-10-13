@@ -13,14 +13,19 @@
  *
  * Validation rules:
  *   - 5-field expressions only (no `@every`, no seconds).
- *   - Min 5-minute interval — reject `* * * * *`, `*\/1 * * * *`,
- *     `*\/2 * * * *`, `*\/3 * * * *`, `*\/4 * * * *`.
+ *   - Min 5-minute interval — checked by walking real fire times, so
+ *     every equivalent form is refused (`* * * * *`, `*\/1`, `0-59`,
+ *     `1,2,3`, `* * * * 1`, ...), not only a few literal strings.
  */
 
-const SUB_5_MIN_PATTERNS = [
-  /^\*\s+\*\s+\*\s+\*\s+\*\s*$/,
-  /^\*\/[1-4]\s+\*\s+\*\s+\*\s+\*\s*$/,
-];
+const MIN_INTERVAL_MS = 5 * 60_000;
+// Number of consecutive fires to inspect. A sub-5-minute gap always
+// shows up as adjacent fires, so a modest window surfaces any dense
+// cluster.
+const MIN_INTERVAL_SAMPLES = 48;
+// Fixed reference instant — NOT `Date.now()`, so the gate is
+// deterministic regardless of when it runs.
+const MIN_INTERVAL_REFERENCE = new Date(Date.UTC(2024, 0, 1, 0, 0, 0));
 
 interface ParsedField {
   /** Sorted unique values within this field's allowed range. */
@@ -100,17 +105,40 @@ export function validateCron(expr: string): { ok: true } | { ok: false; reason: 
   if (parts.length !== 5) {
     return { ok: false, reason: `expected 5 fields, got ${parts.length}` };
   }
-  for (const re of SUB_5_MIN_PATTERNS) {
-    if (re.test(trimmed)) {
-      return { ok: false, reason: "min-5-min-interval-required" };
-    }
-  }
+  let parsed: ParsedCron;
   try {
-    parseExpression(trimmed);
+    parsed = parseExpression(trimmed);
   } catch (err) {
     return { ok: false, reason: `parse-error: ${(err as Error)?.message ?? String(err)}` };
   }
+  if (!passesMinIntervalGate(parsed)) {
+    return { ok: false, reason: "min-5-min-interval-required" };
+  }
   return { ok: true };
+}
+
+/** Walk consecutive fires in UTC and require every gap to be >= 5 min.
+ *  Seeds from the FIRST fire, not the reference instant: only the gap
+ *  BETWEEN fires matters (`2 * * * *` is a 60-min cadence). */
+function passesMinIntervalGate(parsed: ParsedCron): boolean {
+  let prev: Date;
+  try {
+    prev = findNextWallClock(parsed, MIN_INTERVAL_REFERENCE, "UTC");
+  } catch {
+    // No fire within the 4-year horizon: cannot violate the floor.
+    return true;
+  }
+  for (let i = 0; i < MIN_INTERVAL_SAMPLES; i++) {
+    let next: Date;
+    try {
+      next = findNextWallClock(parsed, prev, "UTC");
+    } catch {
+      return true;
+    }
+    if (next.getTime() - prev.getTime() < MIN_INTERVAL_MS) return false;
+    prev = next;
+  }
+  return true;
 }
 
 function parseExpression(expr: string): ParsedCron {

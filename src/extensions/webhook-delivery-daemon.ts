@@ -20,6 +20,8 @@
  *     delivery maps to the same run.
  *   - **Kill-switch-gated.** When `loopsKillSwitchEngaged()`, the tick claims
  *     nothing — pending rows survive and drain the moment the switch lifts.
+ *   - **Disabled extension → held.** Its deliveries stay `pending`, are never
+ *     claimed, and drain after re-enable (the schedule daemon's rule).
  *   - **Subprocess down → no loss.** If the target process isn't running the
  *     claimed row reverts to `pending` (never marked delivered) so a later tick
  *     redelivers.
@@ -31,7 +33,7 @@
 import { logger } from "../logger";
 import { getDb } from "../db/connection";
 import { extensions, webhookDeliveries } from "../db/schema";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import type { ExtensionRegistry } from "./registry";
 import { insertAuditEntry } from "../db/queries/audit-log";
 import { EXT_AUDIT_ACTIONS } from "./audit-actions";
@@ -78,11 +80,23 @@ async function defaultResolveExtensionId(name: string): Promise<string | null> {
 
 // ── Shared claim + dispatch primitives (daemon tick + route drain reuse) ─
 
+/**
+ * Deliveries of a disabled extension stay `pending` and are never claimed —
+ * held until re-enable, like the schedule daemon's due rows. A delivery's
+ * `extension_id` is the extension NAME.
+ */
+function ofEnabledExtension() {
+  return inArray(
+    webhookDeliveries.extensionId,
+    getDb().select({ name: extensions.name }).from(extensions).where(eq(extensions.enabled, true)),
+  );
+}
+
 /** CAS claim: flip pending→running. Returns true when THIS caller won. */
 async function claimDelivery(id: string, now: Date): Promise<boolean> {
   const won = await getDb().update(webhookDeliveries)
     .set({ status: "running", claimedAt: now })
-    .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.status, "pending")))
+    .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.status, "pending"), ofEnabledExtension()))
     .returning({ id: webhookDeliveries.id });
   return won.length > 0;
 }
@@ -247,7 +261,7 @@ export class WebhookDeliveryDaemon {
     // Oldest-first (FIFO) so the drain order is deterministic + fair — a burst
     // never starves an earlier pending delivery (mirrors cron catch-up order).
     const pending = await getDb().select().from(webhookDeliveries)
-      .where(eq(webhookDeliveries.status, "pending"))
+      .where(and(eq(webhookDeliveries.status, "pending"), ofEnabledExtension()))
       .orderBy(asc(webhookDeliveries.receivedAt))
       .limit(this.opts.maxPerTick);
 

@@ -35,8 +35,8 @@ printf '%s\\n%s\\n' "$XDG_RUNTIME_DIR" "$DBUS_SESSION_BUS_ADDRESS"
 async function provision(overrides: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), "runner-delegation-test-"));
   try {
-    const process = Bun.spawn(["bash", "-c", fixture], { env: { ...Bun.env, TEST_ROOT: root, TEST_HELPER: helper, ...overrides }, stdout: "pipe", stderr: "pipe" });
-    const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text()]);
+    const child = Bun.spawn(["bash", "-c", fixture], { env: { ...process.env, TEST_ROOT: root, TEST_HELPER: helper, ...overrides }, stdout: "pipe", stderr: "pipe" });
+    const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
     const commands = await Bun.file(join(root, "commands")).exists() ? await readFile(join(root, "commands"), "utf8") : "";
     const dropIn = await Bun.file(join(root, "drop-in")).exists() ? await readFile(join(root, "drop-in"), "utf8") : "";
     return { exitCode, stdout, stderr, commands, dropIn };

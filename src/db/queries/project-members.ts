@@ -131,12 +131,13 @@ export async function removeProjectMember(projectId: string, userId: string): Pr
  * Used by the remove route to refuse the LAST membership row. A project with
  * no members is reachable only through the instance-admin override, which is
  * exactly the state the migration's backfill exists to prevent — so the API
- * must not be able to create it either.
+ * must not be able to create it either. With `role`, counts only members
+ * holding it — the routes also refuse to leave a project with no owner.
  */
-export async function countProjectMembers(projectId: string): Promise<number> {
+export async function countProjectMembers(projectId: string, role?: ProjectMemberRole): Promise<number> {
   const rows = await getDb()
     .select({ id: projectMembers.id })
     .from(projectMembers)
-    .where(eq(projectMembers.projectId, projectId));
+    .where(and(eq(projectMembers.projectId, projectId), role ? eq(projectMembers.role, role) : undefined));
   return rows.length;
 }

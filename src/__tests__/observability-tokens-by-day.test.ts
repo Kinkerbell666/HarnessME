@@ -22,11 +22,29 @@ import { createMessage } from "../db/queries/conversations";
 
 let projectId: string;
 
-async function createConv(title = "c"): Promise<string> {
+async function createConv(
+  title = "c",
+  owner: { userId?: string; parentId?: string } = {},
+): Promise<string> {
   const db = getTestDb();
   const id = crypto.randomUUID();
-  await db.execute(sql`INSERT INTO conversations (id, project_id, title) VALUES (${id}, ${projectId}, ${title})`);
+  await db.execute(sql`INSERT INTO conversations (id, project_id, title, user_id, parent_conversation_id)
+    VALUES (${id}, ${projectId}, ${title}, ${owner.userId ?? null}, ${owner.parentId ?? null})`);
   return id;
+}
+
+async function createUserRow(name: string): Promise<string> {
+  const id = crypto.randomUUID();
+  await getTestDb().execute(sql`INSERT INTO users (id, email, password_hash, name)
+    VALUES (${id}, ${`${name}-${id}@test.com`}, 'hash', ${name})`);
+  return id;
+}
+
+/** One assistant turn with usage, one tool call and one turn summary. */
+async function seedActivity(convId: string, tokens: number, extensionId: string, durationMs: number) {
+  await createMessage(convId, { role: "assistant", content: "r", usage: { inputTokens: tokens, outputTokens: tokens } });
+  await insertObservabilityEvent({ conversationId: convId, eventType: "tool_call", data: { extensionId, success: true }, durationMs });
+  await insertObservabilityEvent({ conversationId: convId, eventType: "turn_summary", data: {}, durationMs });
 }
 
 async function insertOldMessage(convId: string, inputTokens: number, outputTokens: number, daysAgo: number) {
@@ -203,5 +221,34 @@ describe("getConversationStats — authoritative from messages.usage", () => {
 
     const stats = await getConversationStats(conv);
     expect(stats.avgDurationMs).toBe(600); // (500 + 700) / 2
+  });
+});
+
+describe("getGlobalStats — per-user scope", () => {
+  test("a user's totals cover only their own conversations and their sub-conversations", async () => {
+    const userA = await createUserRow("a");
+    const userB = await createUserRow("b");
+    const aConv = await createConv("a", { userId: userA });
+    const aSub = await createConv("a-sub", { parentId: aConv });
+    const bConv = await createConv("b", { userId: userB });
+    const unowned = await createConv("unowned");
+    await seedActivity(aConv, 10, "ext-a", 100);
+    await seedActivity(aSub, 5, "ext-a", 300);
+    await seedActivity(bConv, 1000, "ext-b", 5000);
+    await seedActivity(unowned, 7000, "ext-x", 9000);
+
+    const mine = await getGlobalStats({ days: 30, userId: userA });
+    expect(mine.totalInputTokens).toBe(15);
+    expect(mine.totalOutputTokens).toBe(15);
+    expect(mine.totalTurnCount).toBe(2);
+    expect(mine.totalToolCalls).toBe(2);
+    expect(mine.avgResponseMs).toBe(200);
+    expect(mine.tokensByDay.reduce((n, d) => n + d.input, 0)).toBe(15);
+    expect(mine.topExtensions.map((e) => e.extensionId)).toEqual(["ext-a"]);
+
+    const all = await getGlobalStats({ days: 30 });
+    expect(all.totalInputTokens).toBe(8015);
+    expect(all.totalToolCalls).toBe(4);
+    expect(all.topExtensions.map((e) => e.extensionId).sort()).toEqual(["ext-a", "ext-b", "ext-x"]);
   });
 });

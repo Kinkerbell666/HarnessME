@@ -123,6 +123,9 @@ export class FactoryAssuranceCommands {
     [actor, projectId, runId, approvalId, contextDigest, choice] = snapshot([actor, projectId, runId, approvalId, contextDigest, choice]);
     text(projectId, runId, approvalId, choice); assertFactoryIdentity(projectId, runId, approvalId, actor.id);
     if (!/^[a-f0-9]{64}$/.test(contextDigest) || expectedRevision !== 0 || actor.kind !== "user" || actor.authentication !== "session") throw new FactoryAssuranceCommandError("factory_command_approval_invalid");
+    // Authorize before the lookup, so a caller without the grant cannot tell a real approval
+    // in another project from a missing one. The mutation authorizes again in its transaction.
+    await this.grants.authorize(actor, projectId, "factory.approve");
     const locator = await this.findById(this.database, projectId, approvalId);
     if (!locator || locator.run_id !== runId) throw new FactoryAssuranceCommandError("factory_command_approval_not_found");
     this.decode(locator);

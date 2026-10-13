@@ -70,13 +70,13 @@ Each write is independently try/caught; a failure is logged to `error_logs` and 
 
 | Method & path | Scope | Purpose |
 |---|---|---|
-| `GET /api/observability?days=30` | `read` | Global stats: token totals, turn count, avg response ms, tokens-by-day chart, top-10 extensions by tool-call count. |
-| `GET /api/observability/[conversationId]` | `read` | Per-conversation `{events, stats}` (raw event list + token/tool/duration roll-up). |
+| `GET /api/observability?days=30` | `read` | Usage stats: token totals, turn count, avg response ms, tokens-by-day chart, top-10 extensions by tool-call count. An admin gets every user's totals (`scope: "all"`); anyone else gets the same shape for their own conversations and their sub-conversations only (`scope: "own"`) — `getGlobalStats({ userId })` filters in SQL. No session → 401. |
+| `GET /api/observability/[conversationId]` | `read` | Per-conversation `{events, stats}` (raw event list + token/tool/duration roll-up). Owner of the root conversation or admin only; anyone else gets 404. No session → 401. |
 
 ### UI entry points
 
 - `/audit` (`web/src/routes/(app)/audit/+page.svelte`) — admin global audit page: 24h stats strip + filters + cursor-paginated timeline.
-- `/observability` (`web/src/routes/(app)/observability/+page.svelte`) — global perf/cost dashboard (`?days=` range).
+- `/observability` (`web/src/routes/(app)/observability/+page.svelte`) — perf/cost dashboard (`?days=` range). Under the title it says whose usage it shows: "All users" for an admin, "Your conversations" for anyone else.
 - `/settings/admin/audit` — the legacy flat `audit_log` viewer (`AuditLogSection.svelte` → `/api/audit-log`).
 - `/extensions/[id]/audit` — per-extension drill-down (timeline + capability filter pills + 24h stats + current-grants rail).
 - `/project/[id]/chat/[convId]/audit` — per-conversation audit timeline.
@@ -123,7 +123,7 @@ Each write is independently try/caught; a failure is logged to `error_logs` and 
 - [[streaming-runtime]] — `obs:turn` / `tool:*` / `run:error` bus events feed the observability collector.
 - [[agents]] — `agent:complete` events anchor sub-agent success/failure to the parent conversation's observability panel.
 - [[api-security]] — every audit/observability route is gated by `requireScope` (+ `requireRole("admin")` for governance); the conversation audit route is fail-closed 404.
-- [[admin-surfaces]] — `/audit`, `/observability`, and `/settings/admin/audit` are admin-facing operational views.
+- [[admin-surfaces]] — `/audit` and `/settings/admin/audit` are admin-facing operational views; `/observability` is open to every user but shows non-admins only their own usage.
 - [[builtin-file-tools]] — `tool_calls.output` is secret-scrubbed at the write boundary via `redactToolCallOutputContent`.
 
 ## Related docs

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures/test-base.js";
+import { test, expect, captureEvidence } from "./fixtures/test-base.js";
 import { makeProject } from "./fixtures/data.js";
 
 test.describe("Account Page", () => {
@@ -109,6 +109,35 @@ test.describe("Account Page", () => {
 		await page.getByRole("button", { name: "Change Password" }).click();
 
 		await expect(page.getByText("Passwords do not match")).toBeVisible({ timeout: 3000 });
+	});
+
+	test("password change keeps the user on the account page @evidence", async ({ page, mockApi }, testInfo) => {
+		await mockApi({
+			projects: [proj],
+			routes: {
+				"/api/auth/me": () => meResponse,
+				"/api/account": () => accountData,
+			},
+		});
+		await page.route("**/api/account/password", (route) =>
+			route.fulfill({ json: { success: true, message: "Password changed. Other sessions were signed out." } }),
+		);
+
+		await page.goto("/account");
+
+		await expect(page.locator("#current-pw")).toBeVisible({ timeout: 5000 });
+		await page.locator("#current-pw").fill("password123");
+		await page.locator("#new-pw").fill("NewPass1!");
+		await page.locator("#confirm-pw").fill("NewPass1!");
+		await page.getByRole("button", { name: "Change Password" }).click();
+
+		await expect(page.getByText("Password changed. Other sessions were signed out.")).toBeVisible({ timeout: 5000 });
+		// The current session is kept, so the page stays put and clears the form.
+		await expect(page).toHaveURL(/\/account$/);
+		await expect(page.locator("#current-pw")).toHaveValue("");
+		await expect(page.locator("#new-pw")).toHaveValue("");
+		await expect(page.locator("#confirm-pw")).toHaveValue("");
+		await captureEvidence(page, testInfo, "account-password-changed");
 	});
 
 	test("profile save success shows confirmation", async ({ page, mockApi }) => {

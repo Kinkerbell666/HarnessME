@@ -71,6 +71,14 @@ describe("isBlockedIp", () => {
     "2002:a9fe:a9fe::", // 6to4 wrapping 169.254.169.254 metadata
     "64:ff9b::7f00:1", // NAT64 wrapping 127.0.0.1
     "64:ff9b::a9fe:a9fe", // NAT64 wrapping metadata
+    "0.1.2.3", // 0.0.0.0/8 "this network", not just 0.0.0.0
+    "224.0.0.1", "239.255.255.250", // multicast 224.0.0.0/4 (SSDP)
+    "240.0.0.1", "255.255.255.255", // reserved 240.0.0.0/4 incl. broadcast
+    "198.18.0.1", "198.19.255.255", // benchmark 198.18.0.0/15
+    "ff02::1", "ff05::c", // IPv6 multicast ff00::/8
+    "::ffff:224.0.0.1", // IPv4-mapped multicast
+    "::ffff:255.255.255.255", // IPv4-mapped broadcast
+    "::ffff:c612:1", // IPv4-mapped benchmark (hex-grouped, 198.18.0.1)
     "not-an-ip", // fail closed
   ];
   for (const ip of blocked) {
@@ -84,6 +92,8 @@ describe("isBlockedIp", () => {
     "172.32.0.1", // just outside RFC-1918
     "192.169.0.1", // just outside 192.168/16
     "100.63.255.255", "100.128.0.1", // just outside CGN
+    "198.17.255.255", "198.20.0.1", // just outside benchmark 198.18/15
+    "223.255.255.255", // just below multicast
     "2606:2800:220:1:248:1893:25c8:1946", // public IPv6
     "2001:db8:1:ffff:1:2:3:4", // public IPv6 containing ffff mid-address (NOT v4-mapped)
     "2002:0808:0808::", // 6to4 wrapping a PUBLIC v4 (8.8.8.8) — not over-blocked

@@ -114,6 +114,52 @@ test.describe("Workflow editor", () => {
 		expect(putBody).not.toHaveProperty("visibility");
 	});
 
+	test("@evidence a renamed workflow keeps its new name when saved again", async ({ page }, testInfo) => {
+		// A stateful stand-in for the single-workflow route: PUT stores the
+		// definition (a rename moves it), GET serves whatever is stored.
+		let stored: Record<string, unknown> = { ...WORKFLOW };
+		const puts: { path: string; body: Record<string, unknown> }[] = [];
+		await page.route(/\/api\/workflows\/[^/?]+$/, (route) => {
+			const req = route.request();
+			const name = decodeURIComponent(new URL(req.url()).pathname.split("/").pop() ?? "");
+			if (name === "runs") return route.fallback();
+			if (req.method() === "PUT") {
+				const body = req.postDataJSON() as Record<string, unknown>;
+				puts.push({ path: name, body });
+				stored = { ...stored, ...body };
+				return route.fulfill({ json: { id: "wf-1", ...stored, version: puts.length + 1, versionMinted: true } });
+			}
+			if (req.method() === "GET") {
+				if (name !== stored.name) return route.fulfill({ status: 404, json: { error: "Not found" } });
+				return route.fulfill({
+					json: { source: "db", visibility: "project", projectId: null, userId: "u1", forkedFrom: null, canEdit: true, ...stored },
+				});
+			}
+			return route.fallback();
+		});
+
+		await openEditor(page);
+		await page.getByTestId("tab-yaml").click();
+		await page
+			.getByTestId("yaml-editor")
+			.fill("name: docs-guide\ndescription: writes the docs\nsteps:\n  - name: step-1\n    agent: summarizer\n");
+		await page.getByTestId("save-yaml").click();
+
+		// Save follows the new name; the reused page must load it.
+		await expect(page).toHaveURL(/\/workflows\/docs-guide\/edit$/);
+		await expect(page.getByRole("heading", { name: "Edit docs-guide" })).toBeVisible();
+
+		// Second save, from the form: it must not write the old name back.
+		await page.getByTestId("tab-form").click();
+		await expect(page.getByLabel("Workflow Name")).toHaveValue("docs-guide");
+		await page.getByRole("button", { name: "Save changes" }).click();
+		await expect.poll(() => puts.length).toBe(2);
+		expect(puts[0]).toMatchObject({ path: "docs-factory", body: { name: "docs-guide" } });
+		expect(puts[1]).toMatchObject({ path: "docs-guide", body: { name: "docs-guide" } });
+		await expect(page).toHaveURL(/\/workflows\/docs-guide\/edit$/);
+		await captureEvidence(page, testInfo, "workflow-editor-renamed", { fullPage: true });
+	});
+
 	test("@evidence a dry run reports which steps were stubbed and which really ran", async ({
 		page,
 	}, testInfo) => {

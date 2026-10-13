@@ -115,6 +115,26 @@ describe("PermissionGate — extension-scoped gate (Phase 6)", () => {
 		);
 	});
 
+	test.each([
+		["ezcorp:extension:install", /Install an extension/],
+		["ezcorp:extension:modify", /Edit an installed extension/],
+	] as const)("%s names the real capability and offers only a one-time allow", async (kind, description) => {
+		const { getByTestId, queryByTestId } = render(PermissionGate, {
+			props: { toolCall: makeExtensionGate({ capabilityKind: kind }) },
+		});
+		expect(getByTestId("permission-extension-description")).toHaveTextContent(description);
+		// Never persisted server-side, so no lasting scope may be offered.
+		expect(queryByTestId("permission-allow-forever")).toBeNull();
+		expect(queryByTestId("permission-allow-project")).toBeNull();
+		expect(queryByTestId("permission-allow-conversation")).toBeNull();
+		expect(queryByTestId("permission-allow-session")).toBeNull();
+		await fireEvent.click(getByTestId("permission-allow-once"));
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/tool-calls/prompt-ext-1/permission",
+			expect.objectContaining({ method: "POST" }),
+		);
+	});
+
 	test("renders fs.write description with the requested path", () => {
 		const { getByTestId } = render(PermissionGate, {
 			props: {

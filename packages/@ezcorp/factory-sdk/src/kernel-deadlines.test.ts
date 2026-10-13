@@ -3,6 +3,7 @@ import { referenceCodeV1 } from "./references.js";
 import { compileFactory } from "./compiler";
 import { advanceKernel, createKernelState } from "./kernel";
 import type { CompiledFactory, FactoryDefinition, FactoryNode, KernelState } from "./index";
+import { findCommand } from "../tests/kernel-commands";
 
 const digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const runner = { package: "inert", manifestName: "inert", version: "1", digest, export: "run" } as const;
@@ -105,7 +106,7 @@ test("loop maxElapsedMs installs expiry, cancels its active child, then fails af
   };
   const graph = compiled([loop]);
   const started = start(graph, "loop-elapsed");
-  const loopTimer = started.commands.find((command) => command.kind === "start-timer" && command.nodeId === "loop");
+  const loopTimer = findCommand(started.commands, "start-timer", "loop");
   expect(loopTimer).toEqual(expect.objectContaining({ kind: "start-timer", nodeId: "loop", deadlineAtMs: 5 }));
   const state = admit(graph, started.nextState, "loop/items/0/child", "admit-child").nextState;
   const child = state.nodes["loop/items/0/child"]!.attempts.at(-1)!;

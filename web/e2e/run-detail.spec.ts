@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures/test-base.js";
 import { captureEvidence } from "./fixtures/evidence.js";
 import { makeRun, makeProject } from "./fixtures/data.js";
+import { clickInAppLink } from "./fixtures/client-nav.js";
 
 test.describe("Run Detail", () => {
 	test("shows run status, agent name, and run ID", async ({ page, mockApi }) => {
@@ -52,6 +53,7 @@ test.describe("Run Detail", () => {
 
 		await expect(page.getByText("Finished")).toBeVisible();
 		await expect(page.getByText("Duration")).toBeVisible();
+		await expect(page.getByText("2m 45s", { exact: true })).toBeVisible();
 	});
 
 	test("shows logs section", async ({ page, mockApi }) => {
@@ -117,6 +119,27 @@ test.describe("Run Detail", () => {
 
 		await expect(page.getByText("Result")).toBeVisible();
 		await expect(page.getByText("A brief summary")).toBeVisible();
+	});
+
+	test("moving from run A to run B in-app shows run B @evidence", async ({ page, mockApi }, testInfo) => {
+		await mockApi({
+			runs: [
+				makeRun({ id: "run-a", agentName: "summarizer", status: "success" }),
+				makeRun({ id: "run-b", agentName: "translator", status: "error" }),
+			],
+		});
+		await page.goto("/runs/run-a");
+		await expect(page.getByRole("heading", { name: "summarizer" })).toBeVisible();
+
+		// Same route, new id: the page is reused and must load run B.
+		await clickInAppLink(page, "/runs/run-b");
+		await expect(page).toHaveURL("/runs/run-b");
+		await expect(page.getByRole("heading", { name: "translator" })).toBeVisible();
+		await expect(page.getByText("run-b")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "summarizer" })).toHaveCount(0);
+		// A run left open for days reads in days and hours, not "410131m 29s".
+		await expect(page.getByText(/^\d+d \d+h$/)).toBeVisible();
+		await captureEvidence(page, testInfo, "run-detail-second-run");
 	});
 
 	test("missing run shows the error after the 404 response @evidence", async ({ page, mockApi }, testInfo) => {

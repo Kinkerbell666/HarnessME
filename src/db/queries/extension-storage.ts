@@ -7,6 +7,11 @@ export type StorageDatabase = Pick<ReturnType<typeof getDb>, "select" | "insert"
 
 // ── Read ─────────────────────────────────────────────────────────────
 
+/** Rows past their TTL are invisible to every read, before the sweep deletes them. */
+function notExpired() {
+  return sql`(${extensionStorage.expiresAt} IS NULL OR ${extensionStorage.expiresAt} >= NOW())`;
+}
+
 export async function getStorageValue(
   extensionId: string,
   scope: Scope,
@@ -121,11 +126,12 @@ export async function listStorageKeys(
     scopeId === null
       ? sql`${extensionStorage.scopeId} IS NULL`
       : eq(extensionStorage.scopeId, scopeId),
+    notExpired(),
   ];
 
   if (prefix) {
-    // Escape LIKE wildcards to prevent pattern injection
-    const escaped = prefix.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    // Escape the LIKE escape char and both wildcards so the prefix matches literally
+    const escaped = prefix.replace(/[\\%_]/g, "\\$&");
     conditions.push(like(extensionStorage.key, `${escaped}%`));
   }
 
@@ -174,7 +180,7 @@ export async function listStorageRowsForKey(
         eq(extensionStorage.scope, scope),
         eq(extensionStorage.key, key),
         page ? sql`${extensionStorage.scopeId} > ${page.afterScopeId}` : undefined,
-        sql`(${extensionStorage.expiresAt} IS NULL OR ${extensionStorage.expiresAt} >= NOW())`,
+        notExpired(),
       ),
     ).orderBy(extensionStorage.scopeId).limit(page ? Math.max(1, Math.min(500, Math.trunc(page.limit))) : 2147483647);
   return rows.map((r: { scopeId: string | null; value: unknown }) => ({
@@ -199,7 +205,7 @@ export async function getStorageUsage(
     .where(
       and(
         eq(extensionStorage.extensionId, extensionId),
-        sql`(${extensionStorage.expiresAt} IS NULL OR ${extensionStorage.expiresAt} >= NOW())`,
+        notExpired(),
       ),
     );
 

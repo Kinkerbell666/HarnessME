@@ -100,6 +100,17 @@ interface RawExtensionRow {
   };
 }
 
+/**
+ * One id as one URL path segment. Ids reach the routes below from MCP tool
+ * input, so a raw `/`, `?` or dot segment would steer the bearer-carrying
+ * request to a different route. The URL parser resolves `.` and `..` even
+ * when encoded, so those are refused rather than escaped.
+ */
+function pathSegment(id: string): string {
+  if (id === "" || id === "." || id === "..") throw new Error(`Invalid path segment: '${id}'`);
+  return encodeURIComponent(id);
+}
+
 export interface ClientOptions {
   baseUrl?: string;
   /** Public origin used to build clickable URLs returned in tool
@@ -255,7 +266,7 @@ export class EzcorpClient {
   }
 
   getProject(id: string): Promise<Project> {
-    return this.request(`/api/projects/${encodeURIComponent(id)}`);
+    return this.request(`/api/projects/${pathSegment(id)}`);
   }
 
   // ────── conversations ──────
@@ -285,14 +296,14 @@ export class EzcorpClient {
   }
 
   getConversation(id: string): Promise<Conversation> {
-    return this.request(`/api/conversations/${id}`);
+    return this.request(`/api/conversations/${pathSegment(id)}`);
   }
 
   getMessages(
     id: string,
     opts: { leafMessageId?: string; all?: boolean; withToolCalls?: boolean } = {},
   ): Promise<Message[]> {
-    return this.request(`/api/conversations/${id}/messages`, {
+    return this.request(`/api/conversations/${pathSegment(id)}/messages`, {
       query: {
         leafMessageId: opts.leafMessageId,
         all: opts.all ? "true" : undefined,
@@ -303,32 +314,32 @@ export class EzcorpClient {
 
   sendMessage(conversationId: string, body: SendMessageInput): Promise<SendMessageResult> {
     const parsed = sendMessageInput.parse(this.withModelDefaults(body));
-    return this.request(`/api/conversations/${conversationId}/messages`, {
+    return this.request(`/api/conversations/${pathSegment(conversationId)}/messages`, {
       method: "POST",
       body: JSON.stringify(parsed),
     });
   }
 
   cancelRun(conversationId: string, force = false): Promise<{ ok: boolean }> {
-    return this.request(`/api/conversations/${conversationId}/active-run`, {
+    return this.request(`/api/conversations/${pathSegment(conversationId)}/active-run`, {
       method: "POST",
       body: JSON.stringify({ action: force ? "force-cancel" : "cancel" }),
     });
   }
 
   getSubConversations(id: string): Promise<Conversation[]> {
-    return this.request(`/api/conversations/${id}/sub-conversations`);
+    return this.request(`/api/conversations/${pathSegment(id)}/sub-conversations`);
   }
 
   // ────── tasks ──────
 
   getTasks(conversationId: string): Promise<unknown> {
-    return this.request(`/api/conversations/${conversationId}/tasks`);
+    return this.request(`/api/conversations/${pathSegment(conversationId)}/tasks`);
   }
 
   assignTask(body: AssignTaskInput): Promise<{ assignment: { id: string; status: string } }> {
     const p = assignTaskInput.parse(body);
-    return this.request(`/api/conversations/${p.conversationId}/tasks/${p.taskId}/assign`, {
+    return this.request(`/api/conversations/${pathSegment(p.conversationId)}/tasks/${pathSegment(p.taskId)}/assign`, {
       method: "POST",
       body: JSON.stringify({ agentConfigId: p.agentConfigId, subtaskId: p.subtaskId }),
     });
@@ -339,7 +350,7 @@ export class EzcorpClient {
   ): Promise<{ runId: string; subConversationId: string }> {
     const p = startAssignmentInput.parse(this.withModelDefaults(body));
     return this.request(
-      `/api/conversations/${p.conversationId}/tasks/${p.taskId}/assignments/${p.assignmentId}/start`,
+      `/api/conversations/${pathSegment(p.conversationId)}/tasks/${pathSegment(p.taskId)}/assignments/${pathSegment(p.assignmentId)}/start`,
       { method: "POST", body: JSON.stringify({ model: p.model, provider: p.provider }) },
     );
   }
@@ -462,6 +473,10 @@ export class EzcorpClient {
         }
       }
     } finally {
+      // Cancel, not only release: the server never ends an SSE stream, so a
+      // consumer that stops early would otherwise leave the connection open.
+      // An already-errored stream rejects with the error the read threw.
+      await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
   }

@@ -31,6 +31,8 @@ import type { ExtensionRegistry } from "./registry";
 import { isInternalHost as _isInternalHost, normalizeHostname } from "./runtime/internal-host";
 
 const TEN_MB = 10 * 1024 * 1024;
+const MAX_REDIRECTS = 20;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export interface NetworkInternalContext {
   extensionId: string;
@@ -83,41 +85,59 @@ export async function handleNetworkInternalRpc(
     return jsonRpcError(req.id, -32602, "Invalid url");
   }
 
-  // PDP gate. The wrapper-level call is currently `toolName: undefined`
-  // (Phase 4 may revisit to attribute by tool). The engine reads the
-  // extension's manifest network grant via `getGrantedPermissions`.
-  const decision = await ctx.engine.authorize(
-    {
-      extensionId: ctx.extensionId,
-      userId: ctx.userId,
-      conversationId: ctx.conversationId,
-    },
-    // Use the SAME normalization the in-sandbox wrapper uses — strips
-    // IPv6 `[...]` brackets that `URL.hostname` keeps. Pre-extraction
-    // bug: PDP saw `[::1]` while the wrapper saw `::1`, so a manifest
-    // declaring `network: ["::1"]` was denied at the host but allowed
-    // at the wrapper level (which never reached this RPC because
-    // wrapper-side classification matched and routed here). Keeping
-    // both sides on the same value avoids the split-brain.
-    [{ kind: "network", value: normalizeHostname(parsed.hostname) }],
-  );
-
-  if (decision.decision === "deny") {
-    return jsonRpcError(
-      req.id,
-      -32001,
-      `Network denied: ${decision.reason}`,
-    );
-  }
-
-  // Perform fetch host-side.
+  // Redirects are followed here, not by `fetch`, so the PDP gates every
+  // hop: a granted host must not bounce the host-side fetch to a host
+  // the extension holds no grant for.
   const fetchImpl = deps.fetchImpl ?? fetch;
+  let url = parsed;
+  let init = normalizeInit(params.init) ?? {};
   let resp: Response;
-  try {
-    resp = await fetchImpl(params.url, normalizeInit(params.init));
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return jsonRpcError(req.id, -32000, `Upstream error: ${msg}`);
+  for (let hop = 0; ; hop++) {
+    // PDP gate. The wrapper-level call is currently `toolName: undefined`
+    // (Phase 4 may revisit to attribute by tool). The engine reads the
+    // extension's manifest network grant via `getGrantedPermissions`.
+    const decision = await ctx.engine.authorize(
+      {
+        extensionId: ctx.extensionId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+      },
+      // Use the SAME normalization the in-sandbox wrapper uses — strips
+      // IPv6 `[...]` brackets that `URL.hostname` keeps. Pre-extraction
+      // bug: PDP saw `[::1]` while the wrapper saw `::1`, so a manifest
+      // declaring `network: ["::1"]` was denied at the host but allowed
+      // at the wrapper level (which never reached this RPC because
+      // wrapper-side classification matched and routed here). Keeping
+      // both sides on the same value avoids the split-brain.
+      [{ kind: "network", value: normalizeHostname(url.hostname) }],
+    );
+
+    if (decision.decision === "deny") {
+      return jsonRpcError(
+        req.id,
+        -32001,
+        `Network denied: ${decision.reason}`,
+      );
+    }
+
+    // Perform fetch host-side.
+    try {
+      resp = await fetchImpl(hop === 0 ? params.url : url.href, { ...init, redirect: "manual" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return jsonRpcError(req.id, -32000, `Upstream error: ${msg}`);
+    }
+
+    const location = REDIRECT_STATUSES.has(resp.status) ? resp.headers.get("location") : null;
+    if (location === null) break;
+    await resp.body?.cancel();
+    if (hop === MAX_REDIRECTS) return jsonRpcError(req.id, -32000, "Upstream error: too many redirects");
+    const next = URL.canParse(location, url.href) ? new URL(location, url) : null;
+    if (!next || (next.protocol !== "http:" && next.protocol !== "https:")) {
+      return jsonRpcError(req.id, -32000, "Upstream error: invalid redirect location");
+    }
+    init = redirectInit(init, resp.status, url, next);
+    url = next;
   }
 
   // Read body up to the size cap. We materialize the full ArrayBuffer
@@ -193,4 +213,26 @@ function normalizeInit(init: InternalRpcParams["init"]): RequestInit | undefined
   }
   if (typeof init.body === "string") out.body = init.body;
   return out;
+}
+
+/**
+ * The next hop's init, per the Fetch redirect rules: a 303 (or a 301/302
+ * after a POST) becomes a body-less GET, and credentials are not sent to
+ * a different origin.
+ */
+function redirectInit(init: RequestInit, status: number, from: URL, to: URL): RequestInit {
+  const method = (init.method ?? "GET").toUpperCase();
+  const next: RequestInit = { ...init };
+  if ((status === 303 && method !== "HEAD") || ((status === 301 || status === 302) && method === "POST")) {
+    next.method = "GET";
+    delete next.body;
+  }
+  if (from.origin !== to.origin && init.headers) {
+    next.headers = Object.fromEntries(
+      Object.entries(init.headers as Record<string, string>).filter(
+        ([name]) => !["authorization", "cookie", "proxy-authorization"].includes(name.toLowerCase()),
+      ),
+    );
+  }
+  return next;
 }

@@ -141,6 +141,13 @@ export interface AuthorizeContext {
   /** Host-only sealed File Organizer action. Worker RPC cannot construct it. */
   fileOrganizerActionAuthority?: unknown;
   fileOrganizerEffect?: { action: string; subject: string; paths: readonly string[]; privatePath?: string };
+  /**
+   * Host-only: sensitive caps the user already approved at a prompt
+   * earlier in THIS call. The executor re-authorizes after each approval
+   * so every other sensitive cap still prompts; this list stops a
+   * one-shot cap (install / modify, never persisted) from re-prompting.
+   */
+  promptApproved?: readonly Capability[];
 }
 
 export type Decision =
@@ -198,6 +205,12 @@ export interface PermissionEngine {
   _resetCacheForTests(): void;
 }
 
+/** The request's only cap when it is one `fs.write` of a concrete path. */
+function singleFsWrite(needed: CapabilitySet): Capability | undefined {
+  const [only] = needed;
+  return needed.length === 1 && only?.kind === "fs.write" && typeof only.value === "string" ? only : undefined;
+}
+
 // ── Implementation ──────────────────────────────────────────────────
 
 /**
@@ -214,12 +227,12 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
     throw new Error("PermissionEngine requires db (pass an opaque token in tests)");
   }
 
-  // In-memory always-allow cache. Key shape:
-  // `${extensionId}:${userId}:${scope}:${scopeId}:${capKind}:${capValue ?? ""}`.
-  // Populated lazily on first miss; updated by `resolvePrompt`. Bounded
-  // by extension count × user count × scope count × cap count — fine
-  // for any plausible workload.
-  const allowCache = new Map<string, boolean>();
+  // Session-scope always-allow grants. "Allow until restart" lives in
+  // memory only, never on disk (docs/permissions/four-scope-modal.md).
+  // The other scopes are read live from `settings` on every sensitive
+  // call, so a revoke or an expiry sweep takes effect on the next call.
+  // Key shape: `${extensionId}:${userId}:session:${scopeId}:${capKind}`.
+  const sessionAllows = new Set<string>();
 
   // Pending-prompt registry. Populated when the engine returns a
   // `prompt` decision; consumed when the UI calls `resolvePrompt`.
@@ -284,91 +297,18 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
     needed: CapabilitySet,
   ): Promise<Decision> {
     const auditId = crypto.randomUUID();
-
-    // Phase 4 §M2 — resolve parentAuditId if the caller didn't set
-    // one. Spawned-child conversations have a `spawnParentAuditId`
-    // seed stored on `conversations.metadata` by the spawn-assignment
-    // handler; the engine reads it once per authorize() so every
-    // tool call inside the child threads its audit chain back to
-    // the spawn's authorize row.
-    let parentAuditId = ctx.parentAuditId;
-    if (parentAuditId === undefined) {
-      try {
-        parentAuditId = (await loadSpawnParentAuditId(ctx.conversationId)) ?? undefined;
-      } catch {
-        // Fallback: leave undefined — audit chain will simply not
-        // reach the spawn root, but the call still succeeds.
-      }
-    }
-    const ctxWithChain: AuthorizeContext = {
-      ...ctx,
-      ...(parentAuditId !== undefined ? { parentAuditId } : {}),
-    };
+    const ctxWithChain = await withAuditChain(ctx);
     const { getRuntimeToolContext } = await import("./runtime-tool-context");
     const serviceInvocation = ctx.serviceInvocation ?? getRuntimeToolContext()?.serviceInvocation;
     if (serviceInvocation) {
-      try {
-        if (ctx.userId) throw new Error("Service capability cannot use a human principal");
-        const { assertServiceCapabilities } = await import("./service-capabilities");
-        await assertServiceCapabilities(serviceInvocation, ctx.extensionId, needed);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : "Service capability denied";
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason);
-        return { decision: "deny", reason, auditId };
-      }
+      const refused = await refuseServiceInvocation(serviceInvocation, ctx, needed, auditId, ctxWithChain);
+      if (refused) return refused;
     }
 
-    // 1. Compute effective grant set.
-    //
-    // Resolution order (most-specific first):
-    //   a. `ctx.capContext` — provided by `handlePiInvoke` for cross-
-    //      extension calls; the caller×callee intersected set.
-    //   b. Per-conversation effective grant override (Phase 4 §6.4) —
-    //      written by `spawn-assignment-handler` so a sub-conversation
-    //      can be capped by `intersect(parent, child-agent)` without
-    //      mutating the extension's installed grants.
-    //   c. Extension's installed grants from the registry (default).
-    let granted: CapabilitySet;
-    if (ctx.capContext) {
-      granted = ctx.capContext;
-    } else {
-      let override: ExtensionPermissions | null;
-      try {
-        override = await loadConversationOverride(
-          ctx.conversationId,
-          ctx.extensionId,
-        );
-      } catch (error) {
-        // Phase 54 SEC-01 (swap) — post-cache DB failure → fail-closed
-        // deny. Plan 01's cache absorbs warm-up lag; if we still throw
-        // after the cache miss, the underlying DB is unhealthy and
-        // silent registry-grant widening would be a security
-        // regression (CC1 close-out — see tasks/v1.3-security-review.md).
-        const reason = "override-lookup-failed";
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason, {
-          underlyingError: error instanceof Error ? error.message : String(error),
-        });
-        return { decision: "deny", reason, auditId };
-      }
-      granted = override
-        ? grantsToCapabilitySet(override, ctx.userId)
-        : grantedFromRegistry(deps.registry, ctx.extensionId, ctx.userId);
-    }
-
-    let liveGranted: CapabilitySet | undefined;
-    if (deps.registry.getManifest?.(ctx.extensionId)?.schemaVersion === 4) {
-      try {
-        const { getExtension } = await import("../db/queries/extensions");
-        const current = await getExtension(ctx.extensionId);
-        liveGranted = current?.enabled && current.source === "release-v4"
-          ? grantsToCapabilitySet(current.grantedPermissions, ctx.userId)
-          : [];
-      } catch {
-        const reason = "live-release-grant-unavailable";
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason);
-        return { decision: "deny", reason, auditId };
-      }
-    }
+    const granted = await resolveGrantedSet(ctx, auditId, ctxWithChain);
+    if ("denied" in granted) return granted.denied;
+    const live = await resolveLiveReleaseGrant(ctx, auditId, ctxWithChain);
+    if ("denied" in live) return live.denied;
 
     // 2. Subset check. The first missing cap is the deny reason.
     //
@@ -382,7 +322,7 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
     // reason, so only byte-identical refusals fold, and the summary
     // preserves the count plus the first/last timestamps — see
     // `perm-audit-coalescer.ts`.
-    const missing = firstMissingCapability(needed, granted) ?? (liveGranted ? firstMissingCapability(needed, liveGranted) : undefined);
+    const missing = firstMissingCapability(needed, granted.set) ?? (live.set ? firstMissingCapability(needed, live.set) : undefined);
     // A route-issued File Organizer proof is a finite action permit, never a
     // general consent. Once the host applier supplies it, handle the entire
     // request here so a stale, forged, or spent proof cannot fall through to
@@ -390,56 +330,9 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
     // require the normal `/data` manifest/live grant; public effects use the
     // live project binding admission instead of that virtual worker grant.
     if (ctx.fileOrganizerActionAuthority !== undefined || ctx.fileOrganizerEffect !== undefined) {
-      if (!ctx.fileOrganizerActionAuthority || !ctx.fileOrganizerEffect) {
-        const reason = "invalid-file-organizer-action-context";
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, missing ?? undefined, reason);
-        return { decision: "deny", reason, auditId, ...(missing ? { missing } : {}) };
-      }
-      const requested = needed.length === 1 && needed[0]?.kind === "fs.write" && typeof needed[0].value === "string"
-        ? needed[0]
-        : undefined;
-      const denyFileOrganizerAction = async (reason: string, capability = (requested ?? missing) ?? undefined): Promise<Decision> => {
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, capability, reason, {
-          fileOrganizerAction: ctx.fileOrganizerEffect?.action,
-          fileOrganizerSubject: ctx.fileOrganizerEffect?.subject,
-        });
-        return { decision: "deny", reason, auditId, ...(missing ? { missing } : {}) };
-      };
-      if (!requested) return denyFileOrganizerAction("invalid-file-organizer-action-capability");
-
-      const { admitFileOrganizerEffect, admitFileOrganizerPrivateEffect, matchesFileOrganizerActionContext } = await import("./file-organizer-action-authority");
-      const value = requested.value!;
-      const matches = matchesFileOrganizerActionContext(ctx.fileOrganizerActionAuthority, ctx.extensionId, [value]);
-      if (ctx.fileOrganizerEffect.privatePath === value) {
-        if (missing) return denyFileOrganizerAction("file-organizer-private-grant-missing");
-        if (matches && await admitFileOrganizerPrivateEffect(ctx.fileOrganizerActionAuthority, ctx.userId, ctx.fileOrganizerEffect, value)) {
-          await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, requested, "file-organizer-action-private-data", {
-            fileOrganizerAction: ctx.fileOrganizerEffect.action,
-            fileOrganizerSubject: ctx.fileOrganizerEffect.subject,
-          });
-          return { decision: "allow", auditId };
-        }
-        return denyFileOrganizerAction("invalid-file-organizer-private-action");
-      }
-      if (ctx.fileOrganizerEffect.paths.includes(value)
-        && matches
-        && await admitFileOrganizerEffect(ctx.fileOrganizerActionAuthority, ctx.userId, ctx.fileOrganizerEffect)) {
-        await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, requested, "file-organizer-project-binding", {
-          fileOrganizerAction: ctx.fileOrganizerEffect.action,
-          fileOrganizerSubject: ctx.fileOrganizerEffect.subject,
-          fileOrganizerPaths: ctx.fileOrganizerEffect.paths,
-        });
-        return { decision: "allow", auditId };
-      }
-      return denyFileOrganizerAction("invalid-file-organizer-project-binding");
+      return authorizeFileOrganizerAction(ctx, needed, missing, auditId, ctxWithChain);
     }
-    if (missing) {
-      const reason = formatMissingReason(missing, ctx.toolName);
-      if (permCoalescer.shouldWrite(permKeyOf(ctxWithChain, "deny", missing, reason), auditId)) {
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, missing, reason);
-      }
-      return { decision: "deny", reason, auditId, missing };
-    }
+    if (missing) return denyMissing(missing, auditId, ctxWithChain);
 
     // 3. Sensitive-cap gate. If any needed cap is sensitive AND no
     //    always-allow row exists for the (user, scope, scopeId, kind)
@@ -453,93 +346,321 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
       await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, undefined, "service-delegation-consent");
       return { decision: "allow", auditId };
     }
-    const sensitive = needed.find((c) => SENSITIVE_KINDS.has(c.kind));
-    if (sensitive) {
-      if (ctx.projectConsent) {
-        const { hasProjectOperationConsent } = await import("./project-consent");
-        if (await hasProjectOperationConsent(ctx, needed)) {
-          await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, sensitive, "project-operation-consent");
-          return { decision: "allow", auditId };
-        }
-        await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, sensitive, "invalid-project-operation-consent");
-        return { decision: "deny", reason: "invalid-project-operation-consent", auditId };
-      }
-      // `ezcorp:extension:install` is NEVER persisted as an
-      // always-allow grant (every install is individually consented).
-      // Force the read to "not allowed" so a stray/legacy row can
-      // never suppress the prompt — defence-in-depth alongside the
-      // non-persist carve-out in `resolvePrompt`.
-      const allowed =
-        sensitive.kind === "ezcorp:extension:install" ||
-        sensitive.kind === "ezcorp:extension:modify"
-          ? false
-          : await isAlwaysAllowed(allowCache, ctx, sensitive);
-      if (!allowed) {
-        // Bundled-ceiling auto-allow. Bundled extensions are first-party
-        // code shipped in `src/extensions/bundled.ts`; their declared
-        // sensitive caps were vetted into the bundled ceiling at install
-        // and ALREADY passed the subset check above (needed ⊆ granted).
-        // The interactive sensitive prompt exists to gate third-party /
-        // user-authored extensions — forcing it on bundled extensions
-        // (e.g. extension-author writing inside its own declared
-        // `.ezcorp/extension-data` dir) only produced an unanswerable
-        // gate and a permanently "stuck" chat. Audited with an explicit
-        // reason so a security review can see WHY it wasn't prompted.
-        // Fail-closed: a registry without `isBundled` (older/mock) →
-        // `undefined === true` → false → fall through to the prompt.
-        // Carve-out: `ezcorp:extension:install` and
-        // `ezcorp:extension:modify` MUST always prompt, even though
-        // extension-author is bundled. The bundled auto-allow exists so
-        // first-party code doesn't hit an unanswerable fs/shell gate —
-        // but installing OR re-opening-for-edit model-authored code is
-        // precisely the decision a human must make every time, so both
-        // kinds are excluded from the bypass.
-        if (
-          sensitive.kind !== "ezcorp:extension:install" &&
-          sensitive.kind !== "ezcorp:extension:modify" &&
-          deps.registry.isBundled?.(ctx.extensionId) === true
-        ) {
-          await writeAuditRow(
-            AUDIT_PERM_ALLOWED,
-            auditId,
-            ctxWithChain,
-            sensitive,
-            "bundled-ceiling-auto-allow",
-          );
-          return { decision: "allow", auditId };
-        }
-        const promptId = crypto.randomUUID();
-        pendingPrompts.set(promptId, {
-          extensionId: ctx.extensionId,
-          userId: ctx.userId ?? "",
-          capability: sensitive,
-        });
-        await writeAuditRow(
-          AUDIT_PERM_PROMPTED,
-          auditId,
-          ctxWithChain,
-          sensitive,
-          undefined,
-          { promptId },
-        );
-        return { decision: "prompt", promptId, auditId, sensitive };
+    const sensitiveDecision = await authorizeSensitiveCaps(ctx, needed, auditId, ctxWithChain);
+    if (sensitiveDecision) return sensitiveDecision;
+    return allowWithAudit(needed, auditId, ctxWithChain);
+  }
+
+  /**
+   * Phase 4 §M2 — resolve parentAuditId if the caller didn't set one.
+   * Spawned-child conversations have a `spawnParentAuditId` seed stored
+   * on `conversations.metadata` by the spawn-assignment handler; the
+   * engine reads it once per authorize() so every tool call inside the
+   * child threads its audit chain back to the spawn's authorize row.
+   */
+  async function withAuditChain(ctx: AuthorizeContext): Promise<AuthorizeContext> {
+    let parentAuditId = ctx.parentAuditId;
+    if (parentAuditId === undefined) {
+      try {
+        parentAuditId = (await loadSpawnParentAuditId(ctx.conversationId)) ?? undefined;
+      } catch {
+        // Fallback: leave undefined — audit chain will simply not
+        // reach the spawn root, but the call still succeeds.
       }
     }
+    return {
+      ...ctx,
+      ...(parentAuditId !== undefined ? { parentAuditId } : {}),
+    };
+  }
 
-    // 4. Allow.
-    //
-    // Coalesced: a single requested capability belongs in the row and in
-    // its burst identity. That lets an audit reader distinguish an allowed
-    // append from an allowed filesystem or network operation. A multi-cap
-    // decision has no truthful single kind, so it remains an aggregate.
-    // Prompts, the fail-closed `override-lookup-failed` deny and the
-    // sensitive `bundled-ceiling-auto-allow` above are NEVER folded —
-    // see `perm-audit-coalescer.ts`.
-    // Values are intentionally excluded from an allowed capability record.
-    // A read walk supplies a distinct path per file; including that value in
-    // the key would turn one bounded allow window into hundreds of audit rows.
-    // Denials still retain the requested value below because it identifies
-    // the exact refused operation.
+  /** A service invocation must carry no human principal and hold every needed cap. */
+  async function refuseServiceInvocation(
+    serviceInvocation: import("./service-invocation").ServiceInvocation,
+    ctx: AuthorizeContext,
+    needed: CapabilitySet,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision | undefined> {
+    try {
+      if (ctx.userId) throw new Error("Service capability cannot use a human principal");
+      const { assertServiceCapabilities } = await import("./service-capabilities");
+      await assertServiceCapabilities(serviceInvocation, ctx.extensionId, needed);
+      return undefined;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Service capability denied";
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason);
+      return { decision: "deny", reason, auditId };
+    }
+  }
+
+  /**
+   * 1. Compute effective grant set.
+   *
+   * Resolution order (most-specific first):
+   *   a. `ctx.capContext` — provided by `handlePiInvoke` for cross-
+   *      extension calls; the caller×callee intersected set.
+   *   b. Per-conversation effective grant override (Phase 4 §6.4) —
+   *      written by `spawn-assignment-handler` so a sub-conversation
+   *      can be capped by `intersect(parent, child-agent)` without
+   *      mutating the extension's installed grants.
+   *   c. Extension's installed grants from the registry (default).
+   */
+  async function resolveGrantedSet(
+    ctx: AuthorizeContext,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<{ set: CapabilitySet } | { denied: Decision }> {
+    if (ctx.capContext) return { set: ctx.capContext };
+    let override: ExtensionPermissions | null;
+    try {
+      override = await loadConversationOverride(
+        ctx.conversationId,
+        ctx.extensionId,
+      );
+    } catch (error) {
+      // Phase 54 SEC-01 (swap) — post-cache DB failure → fail-closed
+      // deny. Plan 01's cache absorbs warm-up lag; if we still throw
+      // after the cache miss, the underlying DB is unhealthy and
+      // silent registry-grant widening would be a security
+      // regression (CC1 close-out — see tasks/v1.3-security-review.md).
+      const reason = "override-lookup-failed";
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason, {
+        underlyingError: error instanceof Error ? error.message : String(error),
+      });
+      return { denied: { decision: "deny", reason, auditId } };
+    }
+    return {
+      set: override
+        ? grantsToCapabilitySet(override, ctx.userId)
+        : grantedFromRegistry(deps.registry, ctx.extensionId, ctx.userId),
+    };
+  }
+
+  /**
+   * A v4 release must still be enabled and published for its grant to
+   * count; a disabled or replaced release grants nothing. Unreadable →
+   * fail-closed deny.
+   */
+  async function resolveLiveReleaseGrant(
+    ctx: AuthorizeContext,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<{ set?: CapabilitySet } | { denied: Decision }> {
+    if (deps.registry.getManifest?.(ctx.extensionId)?.schemaVersion !== 4) return {};
+    try {
+      const { getExtension } = await import("../db/queries/extensions");
+      const current = await getExtension(ctx.extensionId);
+      return {
+        set: current?.enabled && current.source === "release-v4"
+          ? grantsToCapabilitySet(current.grantedPermissions, ctx.userId)
+          : [],
+      };
+    } catch {
+      const reason = "live-release-grant-unavailable";
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, undefined, reason);
+      return { denied: { decision: "deny", reason, auditId } };
+    }
+  }
+
+  /** Decide a request that carries a File Organizer action proof. */
+  async function authorizeFileOrganizerAction(
+    ctx: AuthorizeContext,
+    needed: CapabilitySet,
+    missing: Capability | null | undefined,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision> {
+    if (!ctx.fileOrganizerActionAuthority || !ctx.fileOrganizerEffect) {
+      const reason = "invalid-file-organizer-action-context";
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, missing ?? undefined, reason);
+      return { decision: "deny", reason, auditId, ...(missing ? { missing } : {}) };
+    }
+    const effect = ctx.fileOrganizerEffect;
+    const requested = singleFsWrite(needed);
+    const denyFileOrganizerAction = async (reason: string, capability = (requested ?? missing) ?? undefined): Promise<Decision> => {
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, capability, reason, {
+        fileOrganizerAction: effect.action,
+        fileOrganizerSubject: effect.subject,
+      });
+      return { decision: "deny", reason, auditId, ...(missing ? { missing } : {}) };
+    };
+    if (!requested) return denyFileOrganizerAction("invalid-file-organizer-action-capability");
+
+    const { admitFileOrganizerEffect, admitFileOrganizerPrivateEffect, matchesFileOrganizerActionContext } = await import("./file-organizer-action-authority");
+    const authority = ctx.fileOrganizerActionAuthority;
+    const value = requested.value!;
+    const matches = matchesFileOrganizerActionContext(authority, ctx.extensionId, [value]);
+    if (effect.privatePath === value) {
+      if (missing) return denyFileOrganizerAction("file-organizer-private-grant-missing");
+      if (matches && await admitFileOrganizerPrivateEffect(authority, ctx.userId, effect, value)) {
+        await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, requested, "file-organizer-action-private-data", {
+          fileOrganizerAction: effect.action,
+          fileOrganizerSubject: effect.subject,
+        });
+        return { decision: "allow", auditId };
+      }
+      return denyFileOrganizerAction("invalid-file-organizer-private-action");
+    }
+    if (effect.paths.includes(value)
+      && matches
+      && await admitFileOrganizerEffect(authority, ctx.userId, effect)) {
+      await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, requested, "file-organizer-project-binding", {
+        fileOrganizerAction: effect.action,
+        fileOrganizerSubject: effect.subject,
+        fileOrganizerPaths: effect.paths,
+      });
+      return { decision: "allow", auditId };
+    }
+    return denyFileOrganizerAction("invalid-file-organizer-project-binding");
+  }
+
+  /** Deny on the first missing cap, with the coalesced audit row. */
+  async function denyMissing(
+    missing: Capability,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision> {
+    const reason = formatMissingReason(missing, ctxWithChain.toolName);
+    if (permCoalescer.shouldWrite(permKeyOf(ctxWithChain, "deny", missing, reason), auditId)) {
+      await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, missing, reason);
+    }
+    return { decision: "deny", reason, auditId, missing };
+  }
+
+  /**
+   * The sensitive-cap gate. Every sensitive cap is checked, not just the
+   * first: consent (or the bundled auto-allow) for one cap must never
+   * carry another. `undefined` means no sensitive cap needs a decision,
+   * so the caller allows.
+   */
+  async function authorizeSensitiveCaps(
+    ctx: AuthorizeContext,
+    needed: CapabilitySet,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision | undefined> {
+    const sensitiveCaps = needed.filter((c) => SENSITIVE_KINDS.has(c.kind));
+    if (sensitiveCaps.length === 0) return undefined;
+    if (ctx.projectConsent) return authorizeProjectConsent(ctx, needed, sensitiveCaps[0]!, auditId, ctxWithChain);
+    let bundledAutoAllowed: Capability | undefined;
+    for (const sensitive of sensitiveCaps) {
+      const cover = await sensitiveCapCover(ctx, sensitive);
+      if (cover === "covered") continue;
+      if (cover === "bundled") {
+        bundledAutoAllowed ??= sensitive;
+        continue;
+      }
+      return openPrompt(ctx, sensitive, auditId, ctxWithChain);
+    }
+    if (!bundledAutoAllowed) return undefined;
+    await writeAuditRow(
+      AUDIT_PERM_ALLOWED,
+      auditId,
+      ctxWithChain,
+      bundledAutoAllowed,
+      "bundled-ceiling-auto-allow",
+    );
+    return { decision: "allow", auditId };
+  }
+
+  /** A project-operation consent settles the whole sensitive gate. */
+  async function authorizeProjectConsent(
+    ctx: AuthorizeContext,
+    needed: CapabilitySet,
+    sensitive: Capability,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision> {
+    const { hasProjectOperationConsent } = await import("./project-consent");
+    if (await hasProjectOperationConsent(ctx, needed)) {
+      await writeAuditRow(AUDIT_PERM_ALLOWED, auditId, ctxWithChain, sensitive, "project-operation-consent");
+      return { decision: "allow", auditId };
+    }
+    await writeAuditRow(AUDIT_PERM_DENIED, auditId, ctxWithChain, sensitive, "invalid-project-operation-consent");
+    return { decision: "deny", reason: "invalid-project-operation-consent", auditId };
+  }
+
+  /**
+   * What already covers one sensitive cap: an approval earlier in this
+   * call or an always-allow grant (`covered`), the bundled ceiling
+   * (`bundled`), or nothing (`prompt`).
+   */
+  async function sensitiveCapCover(
+    ctx: AuthorizeContext,
+    sensitive: Capability,
+  ): Promise<"covered" | "bundled" | "prompt"> {
+    // `ezcorp:extension:install` / `ezcorp:extension:modify` are
+    // NEVER persisted as always-allow grants and are excluded from
+    // the bundled auto-allow below: installing OR re-opening-for-edit
+    // model-authored code is a decision a human must make every
+    // time. Skipping the always-allow read means a stray/legacy row
+    // can never suppress the prompt — defence-in-depth alongside the
+    // non-persist carve-out in `resolvePrompt`.
+    const oneShot = sensitive.kind === "ezcorp:extension:install" || sensitive.kind === "ezcorp:extension:modify";
+    if (ctx.promptApproved?.some((c) => c.kind === sensitive.kind && c.value === sensitive.value)) return "covered";
+    if (oneShot) return "prompt";
+    if (await isAlwaysAllowed(sessionAllows, ctx, sensitive)) return "covered";
+    // Bundled-ceiling auto-allow. Bundled extensions are first-party
+    // code shipped in `src/extensions/bundled.ts`; their declared
+    // sensitive caps were vetted into the bundled ceiling at install
+    // and ALREADY passed the subset check above (needed ⊆ granted).
+    // The interactive sensitive prompt exists to gate third-party /
+    // user-authored extensions — forcing it on bundled extensions
+    // (e.g. extension-author writing inside its own declared
+    // `.ezcorp/extension-data` dir) only produced an unanswerable
+    // gate and a permanently "stuck" chat. Audited with an explicit
+    // reason so a security review can see WHY it wasn't prompted.
+    // Fail-closed: a registry without `isBundled` (older/mock) →
+    // `undefined === true` → false → fall through to the prompt.
+    return deps.registry.isBundled?.(ctx.extensionId) === true ? "bundled" : "prompt";
+  }
+
+  /** Register a pending prompt for one sensitive cap and audit it. */
+  async function openPrompt(
+    ctx: AuthorizeContext,
+    sensitive: Capability,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision> {
+    const promptId = crypto.randomUUID();
+    pendingPrompts.set(promptId, {
+      extensionId: ctx.extensionId,
+      userId: ctx.userId ?? "",
+      capability: sensitive,
+    });
+    await writeAuditRow(
+      AUDIT_PERM_PROMPTED,
+      auditId,
+      ctxWithChain,
+      sensitive,
+      undefined,
+      { promptId },
+    );
+    return { decision: "prompt", promptId, auditId, sensitive };
+  }
+
+  /**
+   * 4. Allow.
+   *
+   * Coalesced: a single requested capability belongs in the row and in
+   * its burst identity. That lets an audit reader distinguish an allowed
+   * append from an allowed filesystem or network operation. A multi-cap
+   * decision has no truthful single kind, so it remains an aggregate.
+   * Prompts, the fail-closed `override-lookup-failed` deny and the
+   * sensitive `bundled-ceiling-auto-allow` above are NEVER folded —
+   * see `perm-audit-coalescer.ts`.
+   * Values are intentionally excluded from an allowed capability record.
+   * A read walk supplies a distinct path per file; including that value in
+   * the key would turn one bounded allow window into hundreds of audit rows.
+   * Denials still retain the requested value because it identifies
+   * the exact refused operation.
+   */
+  async function allowWithAudit(
+    needed: CapabilitySet,
+    auditId: string,
+    ctxWithChain: AuthorizeContext,
+  ): Promise<Decision> {
     const auditCapability = needed.length === 1
       ? { kind: needed[0]!.kind }
       : undefined;
@@ -587,6 +708,11 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
       return;
     }
 
+    if (scope === "session") {
+      sessionAllows.add(sessionKeyOf(pending.extensionId, pending.userId, scopeId, pending.capability));
+      return;
+    }
+
     const settingKey = alwaysAllowSettingKey({
       extensionId: pending.extensionId,
       userId: pending.userId,
@@ -614,21 +740,10 @@ export function createPermissionEngine(deps: PermissionEngineDeps): PermissionEn
       settingKey,
       buildAlwaysAllowValue(true, now, { ttlOverrideMs, expiresAt }),
     );
-
-    // Update cache for this exact tuple so the next authorize call
-    // sees the new value without a DB round-trip.
-    const cacheKey = cacheKeyOf(
-      pending.extensionId,
-      pending.userId,
-      scope,
-      scopeId,
-      pending.capability,
-    );
-    allowCache.set(cacheKey, true);
   }
 
   function _resetCacheForTests(): void {
-    allowCache.clear();
+    sessionAllows.clear();
     pendingPrompts.clear();
     // Drop any open coalescing window WITHOUT emitting its summary — a
     // leftover window would otherwise make the next test's first decision
@@ -811,27 +926,24 @@ function alwaysAllowCapKey(c: Capability): string {
   return c.kind;
 }
 
-function cacheKeyOf(
+function sessionKeyOf(
   extensionId: string,
-  userId: string | null,
-  scope: AlwaysAllowScope,
+  userId: string,
   scopeId: string,
   c: Capability,
 ): string {
-  // Phase 6: null userId is encoded as empty in the cache key. Keys are
-  // local to one process; collision-safety is the same as before.
-  return `${extensionId}:${userId ?? ""}:${scope}:${scopeId}:${alwaysAllowCapKey(c)}`;
+  return `${extensionId}:${userId}:session:${scopeId}:${alwaysAllowCapKey(c)}`;
 }
 
 /**
  * Look up always-allow for the (user, scope, scopeId, cap) tuple.
- * Tries each scope in order: conversation > forever. The caller's
- * `ctx.conversationId` is used as the conversation scopeId. Session
- * and project scopes are not yet emitted by the UI (Phase 6 will);
- * declared in `AlwaysAllowScope` for the future.
+ * Tries each scope in order: conversation, session, project, forever.
+ * Session grants come from the engine's memory; every other scope is
+ * read from `settings` on each call so a revoked or expired row denies
+ * at once.
  */
 async function isAlwaysAllowed(
-  cache: Map<string, boolean>,
+  sessionAllows: ReadonlySet<string>,
   ctx: AuthorizeContext,
   cap: Capability,
 ): Promise<boolean> {
@@ -851,12 +963,12 @@ async function isAlwaysAllowed(
   }
   candidates.push({ scope: "forever", scopeId: "*" });
 
+  const now = Date.now();
   for (const c of candidates) {
-    const key = cacheKeyOf(ctx.extensionId, ctx.userId, c.scope, c.scopeId, cap);
-    const cached = cache.get(key);
-    if (cached === true) return true;
-    if (cached === false) continue;
-
+    if (c.scope === "session") {
+      if (sessionAllows.has(sessionKeyOf(ctx.extensionId, ctx.userId, c.scopeId, cap))) return true;
+      continue;
+    }
     const settingKey = alwaysAllowSettingKey({
       extensionId: ctx.extensionId,
       userId: ctx.userId,
@@ -868,9 +980,7 @@ async function isAlwaysAllowed(
     // Cap-expiry Phase 1: read accepts BOTH legacy `boolean` and the
     // new `{allowed, grantedAt}` shape. Legacy `true` is treated as
     // "allowed, never expires" (Phase 2 sweep skips it).
-    const allowed = parseAlwaysAllowValue(value) === "allowed";
-    cache.set(key, allowed);
-    if (allowed) return true;
+    if (parseAlwaysAllowValue(value, now) === "allowed") return true;
   }
 
   return false;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { createGenerator } from "ts-json-schema-generator";
+import { createFormatter, createParser, createProgram, DEFAULT_CONFIG, SchemaGenerator } from "ts-json-schema-generator";
 import {
   compiledExecutionManifestJsonSchema,
   compiledFactoryJsonSchema,
@@ -30,15 +30,22 @@ describe("generated definition schema", () => {
       ["FactoryApiResponse", "urn:ezcorp:factory:api-response:v1", factoryApiResponseJsonSchema],
       ["FactoryDurableInput", "urn:ezcorp:factory:lazy-input:v1", factoryDurableInputJsonSchema],
     ] as const;
+    // Building the TypeScript program is the slow part, so all nine types
+    // share one. Each type still gets its own parser, formatter and
+    // generator, exactly as createGenerator builds them: one generator
+    // reused across types loses definitions it already emitted.
+    const base = {
+      ...DEFAULT_CONFIG,
+      path: resolve(import.meta.dir, "types.ts"),
+      tsconfig: resolve(import.meta.dir, "../tsconfig.build.json"),
+      skipTypeCheck: true,
+    };
+    const program = createProgram(base);
     for (const [type, id, checkedIn] of schemas) {
-      const generated = createGenerator({
-        path: resolve(import.meta.dir, "types.ts"),
-        tsconfig: resolve(import.meta.dir, "../tsconfig.build.json"),
-        type,
-        id,
-        skipTypeCheck: true,
-      }).createSchema(type);
-      expect(checkedIn).toEqual({ $id: id, ...generated });
+      const config = { ...base, type, schemaId: id };
+      const generated = new SchemaGenerator(program, createParser(program, config), createFormatter(config), config).createSchema(type);
+      const actual: unknown = checkedIn;
+      expect(actual).toEqual(generated);
     }
   });
 

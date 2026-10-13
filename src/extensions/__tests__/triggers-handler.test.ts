@@ -422,6 +422,33 @@ describe("rung 7 — per-kind caps", () => {
     expect(errOf(over).reason).toBe("TRIGGERS_QUOTA_EXCEEDED");
   });
 
+  test("a disabled cron row frees its slot; reviving it at the cap is refused", async () => {
+    for (let i = 0; i < GRANT.maxCron; i++) {
+      await call({ action: "register", kind: "cron", key: `job:${i}`, cron: "0 9 * * 1" });
+    }
+    // The orphan sweep (or capability revoke) soft-disables a row; it no
+    // longer fires, so it must not hold a slot.
+    await getTestDb().update(extensionSchedules).set({ enabled: false })
+      .where(and(eq(extensionSchedules.extensionId, extId), eq(extensionSchedules.key, "job:0")));
+    const fresh = await call({ action: "register", kind: "cron", key: "job:new", cron: "0 9 * * 1" });
+    expect((fresh as { result?: unknown }).result).toBeDefined();
+    // Re-registering the disabled key would re-enable it: that is a new
+    // slot, and the enabled rows are at the cap again.
+    const revive = await call({ action: "register", kind: "cron", key: "job:0", cron: "0 9 * * 1" });
+    expect(errOf(revive).reason).toBe("TRIGGERS_QUOTA_EXCEEDED");
+    expect(errOf(revive).data).toMatchObject({ used: GRANT.maxCron, cap: GRANT.maxCron });
+  });
+
+  test("a disabled webhook row frees its slot", async () => {
+    for (let i = 0; i < GRANT.maxWebhooks; i++) {
+      await call({ action: "register", kind: "webhook", key: `hook:${i}` });
+    }
+    await getTestDb().update(extensionWebhooks).set({ enabled: false })
+      .where(and(eq(extensionWebhooks.extensionId, EXT_NAME), eq(extensionWebhooks.key, "hook:0")));
+    const fresh = await call({ action: "register", kind: "webhook", key: "hook:new" });
+    expect((fresh as { result?: unknown }).result).toBeDefined();
+  });
+
   test("a zero webhook cap refuses webhooks while cron still works", async () => {
     const over = { grantedPermissions: { triggers: { ...GRANT, maxWebhooks: 0 }, grantedAt: {} } };
     const denied = await call({ action: "register", kind: "webhook", key: "hook:1" }, over);

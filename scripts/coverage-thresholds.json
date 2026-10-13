@@ -900,6 +900,7 @@
   "src/runtime/nested-workflow-resolver.ts": 100,
   "web/src/routes/api/projects/[id]/members/+server.ts": 100,
   "web/src/routes/api/projects/[id]/members/[userId]/+server.ts": 100,
+  "web/src/routes/api/projects/[id]/members/_owner-guard.ts": 100,
   "src/memory/kb-sharing.ts": 100,
   "web/src/routes/api/knowledge-base/[id]/share/+server.ts": 100,
   "src/extensions/rbac-scopes.ts": 100,

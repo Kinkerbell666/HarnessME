@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { tick } from "svelte";
+	import { onDestroy, tick } from "svelte";
 	import MentionPopover from "./MentionPopover.svelte";
 	import MentionChip from "./MentionChip.svelte";
 	import type { MentionItem } from "./MentionPopover.svelte";
-	import { detectMentionTrigger, insertMentionToken, getSegments, descendIntoFolder } from "$lib/mention-logic";
+	import { detectMentionTrigger, insertMentionToken, commitCommandLiteral, getSegments, descendIntoFolder } from "$lib/mention-logic";
 	import { toDisplay, displayTokenText, applyDisplayEdit, displayPosToWire, wirePosToDisplay } from "$lib/mention-display";
-	import { searchMentions } from "$lib/api";
+	import { searchMentionItems } from "$lib/mention-search";
+	import { createLatestSearch } from "$lib/latest-search";
 	import { store } from "$lib/stores.svelte";
 	import { setComposerDisplay } from "$lib/chat-input-logic";
 
@@ -82,7 +83,13 @@
 	let mentionLoading = $state(false);
 	let popoverRef = $state<MentionPopover | undefined>();
 	let isComposing = $state(false);
-	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	const mentionSearch = createLatestSearch<MentionItem[]>({
+		delayMs: 200,
+		fallback: [],
+		onLoading: (loading) => { mentionLoading = loading; },
+		onResult: (items) => { mentionItems = items; },
+	});
+	onDestroy(mentionSearch.cancel);
 	// Latest trigger query — passed to the popover so it can decide whether
 	// to inject the "use current folder as path" pseudo-entry at the top.
 	let mentionTriggerQuery = $state("");
@@ -97,9 +104,7 @@
 		error = "";
 		value = "";
 		displayValue = "";
-		mentionOpen = false;
-		mentionItems = [];
-		mentionTriggerQuery = "";
+		closeMention();
 		resetHeight();
 		try {
 			await onsubmit(content);
@@ -183,9 +188,7 @@
 
 		if (!trigger) {
 			if (mentionOpen) {
-				mentionOpen = false;
-				mentionItems = [];
-				mentionTriggerQuery = "";
+				closeMention();
 			}
 			return;
 		}
@@ -196,28 +199,11 @@
 		// Debounced search. File searches need the active project so the API
 		// can scope the listing to that project's path; the "global" sentinel
 		// value is passed through as undefined so the API short-circuits to [].
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(async () => {
-			mentionLoading = true;
-			try {
-				const projectId =
-					store.activeProjectId && store.activeProjectId !== "global"
-						? store.activeProjectId
-						: undefined;
-				const results = await searchMentions(trigger.query, trigger.type, projectId);
-				mentionItems = results.map((r) => ({
-					name: r.name,
-					description: r.description,
-					kind: r.kind,
-					source: r.source,
-					fileCount: r.fileCount,
-				}));
-			} catch {
-				mentionItems = [];
-			} finally {
-				mentionLoading = false;
-			}
-		}, 200);
+		const projectId =
+			store.activeProjectId && store.activeProjectId !== "global"
+				? store.activeProjectId
+				: undefined;
+		mentionSearch.schedule(() => searchMentionItems(trigger.query, trigger.type, projectId));
 	}
 
 	function handleMentionSelect(item: MentionItem) {
@@ -242,9 +228,16 @@
 				name: item.name,
 			});
 			setWire(result.text, result.cursor);
-			mentionOpen = false;
-			mentionItems = [];
-			mentionTriggerQuery = "";
+			closeMention();
+			return;
+		}
+
+		// Built-in literal command (e.g. `/goal`): raw text, not a
+		// `/[cmd:name]` token, exactly as the main composer commits it.
+		if (item.insertText) {
+			const result = commitCommandLiteral(value, wireCaret(), item.insertText);
+			setWire(result.text, result.cursor);
+			closeMention();
 			return;
 		}
 
@@ -261,19 +254,19 @@
 			name: item.name,
 		});
 		setWire(result.text, result.cursor);
-		mentionOpen = false;
-		mentionItems = [];
-		mentionTriggerQuery = "";
+		closeMention();
 		if (textarea) {
 			textarea.style.height = "auto";
 			textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
 		}
 	}
 
-	function handleMentionDismiss() {
+	/** Close the mention popover and drop any search still pending for it. */
+	function closeMention() {
 		mentionOpen = false;
 		mentionItems = [];
 		mentionTriggerQuery = "";
+		mentionSearch.cancel();
 	}
 
 	function syncScroll() {
@@ -320,7 +313,7 @@
 			loading={mentionLoading}
 			triggerQuery={mentionTriggerQuery}
 			onselect={handleMentionSelect}
-			ondismiss={handleMentionDismiss}
+			ondismiss={closeMention}
 		/>
 
 		<div class="panel-chat-box">

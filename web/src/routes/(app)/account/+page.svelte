@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
 	import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
 	import MobileCardStack from "$lib/components/MobileCardStack.svelte";
 
@@ -207,8 +206,9 @@
 			const data = await res.json();
 			if (res.ok) {
 				passwordMessage = { type: "success", text: data.message };
-				// Session cleared server-side, redirect to login
-				setTimeout(() => goto("/login"), 1500);
+				currentPassword = "";
+				newPassword = "";
+				confirmPassword = "";
 			} else {
 				passwordMessage = { type: "error", text: data.error || "Failed to change password." };
 			}

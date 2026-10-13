@@ -22,7 +22,7 @@ mock.module("../db/queries/runs", () => ({ updateRun: async (run: { id: string; 
 
 // ── Mocked DB sinks (must precede SUT import) ──────────────────────────
 
-const createdMessages: Array<{ conversationId: string; content: string }> = [];
+const createdMessages: Array<{ id: string; conversationId: string; content: string }> = [];
 
 mock.module("../db/queries/conversations", () => ({
   createMessage: async (conversationId: string, data: { content: string }) => {
@@ -42,7 +42,7 @@ mock.module("../db/connection", () => ({
   getDb: () => chainNoop,
 }));
 
-import { finalizeSuccess } from "../runtime/stream-chat/finalize";
+import { finalizeError, finalizeSuccess } from "../runtime/stream-chat/finalize";
 import { EventBus } from "../runtime/events";
 import type { AgentEvents, AgentRun } from "../types";
 import type { StreamChatHost } from "../runtime/stream-chat/host";
@@ -83,6 +83,7 @@ function makeHost(): { host: StreamChatHost; events: string[] } {
   bus.on("run:complete", () => events.push("run:complete"));
   bus.on("run:status", () => events.push("run:status"));
   bus.on("obs:turn", () => events.push("obs:turn"));
+  bus.on("run:cancel", () => events.push("run:cancel"));
   return { host: { bus, persist: true } as unknown as StreamChatHost, events };
 }
 
@@ -127,5 +128,50 @@ describe("finalizeSuccess — cancelled-run guard (Stop racing a clean completio
     expect(ctx.run.status).toBe("success");
     expect(events).toContain("run:complete");
     expect(createdMessages).toHaveLength(1);
+  });
+});
+
+describe("finalizeError — AbortError (the stream ended by an abort)", () => {
+  const abort = () => new DOMException("The operation was aborted.", "AbortError");
+
+  test("a running run is marked cancelled, keeps its partial turn, and emits run:cancel once", async () => {
+    const ctx = makeCtx("running");
+    ctx.turnText = "half a reply";
+    ctx.lastSavedMessageId = "assistant-turn-1";
+    const { host, events } = makeHost();
+
+    await finalizeError(ctx, host, CONV_ID, { parentMessageId: USER_MSG }, abort());
+
+    expect(ctx.run.status).toBe("cancelled");
+    expect(ctx.run.result).toEqual({
+      success: true,
+      output: { fullText: "streamed reply text", partial: true },
+    });
+    // The in-flight turn is saved, so the transcript shows what streamed.
+    expect(createdMessages).toEqual([{ id: "msg-1", conversationId: CONV_ID, content: "half a reply" }]);
+    expect(events).toEqual(["run:cancel"]);
+  });
+
+  test("nothing streamed in the open turn → no empty assistant bubble", async () => {
+    const ctx = makeCtx("running");
+    const { host, events } = makeHost();
+
+    await finalizeError(ctx, host, CONV_ID, { parentMessageId: USER_MSG }, abort());
+
+    expect(ctx.run.status).toBe("cancelled");
+    expect(createdMessages).toHaveLength(0);
+    expect(events).toEqual(["run:cancel"]);
+  });
+
+  test("a run cancelRun already finished is left alone — no save, no second run:cancel", async () => {
+    const ctx = makeCtx("cancelled");
+    ctx.turnText = "half a reply";
+    const { host, events } = makeHost();
+
+    await finalizeError(ctx, host, CONV_ID, { parentMessageId: USER_MSG }, abort());
+
+    expect(ctx.run.finishedAt).toBe(2_000);
+    expect(createdMessages).toHaveLength(0);
+    expect(events).toEqual([]);
   });
 });

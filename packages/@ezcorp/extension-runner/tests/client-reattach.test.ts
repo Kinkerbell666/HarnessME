@@ -92,3 +92,29 @@ test("a host stops polling when the worker itself is gone rather than retrying f
     expect(seen.filter(entry => entry === "/v4/events")).toHaveLength(1);
   } finally { await stub.stop(); }
 }, 30_000);
+
+test("a refused reply is sent once and does not close the session", async () => {
+  // The runner refuses a reply whose reverse call already timed out. That is a
+  // normal race, not a lost worker: the host must answer each call once and
+  // keep its session, not send a second reply for the same id and close.
+  const seen: string[] = [];
+  let parked: (() => void) | undefined;
+  const stub = await startStub(async path => {
+    seen.push(path);
+    if (path === "/v4/attach") return { status: 200, body: { workerId: "worker" } };
+    if (path === "/v4/reply") return { status: 400, body: { error: { code: "unknown_request", message: "Host reply ID is stale or invalid" } } };
+    if (path !== "/v4/events") return { status: 200, body: { result: "forward" } };
+    if (seen.filter(entry => entry === "/v4/events").length === 1) return { status: 200, body: { events: [{ id: "reverse-1", method: "storage.get", params: {} }] } };
+    await new Promise<void>(resolve => { parked = resolve; });
+    return { status: 200, body: { events: [] } };
+  });
+  try {
+    const client = new RunnerClient({ socketPath: stub.socketPath, token: TOKEN });
+    const execution = await client.attach(startBody("worker"), async () => "late result");
+    const count = (path: string) => seen.filter(entry => entry === path).length;
+    await until(() => count("/v4/events") >= 2 || count("/v4/reply") >= 2);
+
+    expect(count("/v4/reply")).toBe(1);
+    expect(await execution.request("anything", {})).toBe("forward");
+  } finally { parked?.(); await stub.stop(); }
+}, 30_000);

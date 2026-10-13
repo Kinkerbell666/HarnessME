@@ -885,3 +885,120 @@ describe("authorize — ezcorp:extension:install carve-out", () => {
     expect(decision.decision).toBe("prompt");
   });
 });
+
+// ── always-allow lifetime: revocation, expiry, session scope ────────
+//
+// docs/permissions/four-scope-modal.md: a session grant "lives in memory,
+// never on disk", and a revoked or expired grant re-prompts on the next
+// call. The engine must read the live row, not a stale positive cache.
+
+describe("always-allow lifetime — a revoked or expired grant really prompts again", () => {
+  const SHELL_GRANT: ExtensionPermissions = { grantedAt: {}, shell: true };
+  const ctx = { extensionId: HELLO_EXT, userId: HELLO_USER, conversationId: HELLO_CONV };
+  const foreverKey = alwaysAllowSettingKey({
+    extensionId: HELLO_EXT,
+    userId: HELLO_USER,
+    scope: "forever",
+    scopeId: "*",
+    capability: "shell",
+  });
+
+  async function approve(engine: PermissionEngine, scope: "session" | "forever", scopeId: string) {
+    const first = await engine.authorize(ctx, [{ kind: "shell" }]);
+    if (first.decision !== "prompt") throw new Error("expected prompt");
+    await engine.resolvePrompt(first.promptId, true, scope, scopeId);
+    expect((await engine.authorize(ctx, [{ kind: "shell" }])).decision).toBe("allow");
+  }
+
+  test("a forever row revoked in the DB (expiry sweep) prompts on the same engine", async () => {
+    const { upsertSetting } = await import("../db/queries/settings");
+    const { buildAlwaysAllowValue } = await import("../extensions/permissions");
+    const engine = makeEngine({ granted: SHELL_GRANT });
+    await approve(engine, "forever", "*");
+
+    // The sweep's revoke shape: the row stays, `allowed` flips to false.
+    await upsertSetting(foreverKey, buildAlwaysAllowValue(false));
+
+    expect((await engine.authorize(ctx, [{ kind: "shell" }])).decision).toBe("prompt");
+  });
+
+  test("a row past its expiresAt prompts before the sweep runs", async () => {
+    const { upsertSetting } = await import("../db/queries/settings");
+    const { buildAlwaysAllowValue } = await import("../extensions/permissions");
+    const now = Date.now();
+    await upsertSetting(
+      foreverKey,
+      buildAlwaysAllowValue(true, now - 2_000, { ttlOverrideMs: 1_000, expiresAt: now - 1_000 }),
+    );
+    const engine = makeEngine({ granted: SHELL_GRANT });
+    expect((await engine.authorize(ctx, [{ kind: "shell" }])).decision).toBe("prompt");
+  });
+
+  test("a session approval is never written to disk and does not survive a restart", async () => {
+    const engine = makeEngine({ granted: SHELL_GRANT });
+    await approve(engine, "session", `session:${HELLO_USER}`);
+
+    const rows = (await getTestDb().select().from(settings)).filter((r) => r.key.includes(":always_allow:"));
+    expect(rows).toEqual([]);
+
+    const restarted = makeEngine({ granted: SHELL_GRANT });
+    expect((await restarted.authorize(ctx, [{ kind: "shell" }])).decision).toBe("prompt");
+  });
+});
+
+// ── every sensitive capability in one request is gated ──────────────
+//
+// The gate used to check only the FIRST sensitive cap in `needed`. An
+// always-allow row (or the bundled auto-allow) for that one cap then
+// let every later sensitive cap through without consent.
+
+describe("sensitive gate — every sensitive capability in the request is checked", () => {
+  const ctx = { extensionId: HELLO_EXT, userId: HELLO_USER, conversationId: HELLO_CONV };
+
+  test("an always-allowed shell cap does not carry an unapproved fs.write", async () => {
+    const engine = makeEngine({ granted: { grantedAt: {}, shell: true, filesystem: ["/tmp"] } });
+    const first = await engine.authorize(ctx, [{ kind: "shell" }]);
+    if (first.decision !== "prompt") throw new Error("expected prompt");
+    await engine.resolvePrompt(first.promptId, true, "conversation", HELLO_CONV);
+
+    const both = await engine.authorize(ctx, [{ kind: "shell" }, { kind: "fs.write", value: "/tmp/a" }]);
+    expect(both).toMatchObject({ decision: "prompt", sensitive: { kind: "fs.write" } });
+  });
+
+  test("a bundled fs.write auto-allow does not skip the mandatory install prompt", async () => {
+    const engine = makeBundledEngine({
+      grantedAt: {},
+      filesystem: ["/tmp"],
+      custom: { drafts: { kinds: ["extension"] } },
+    });
+    const decision = await engine.authorize(ctx, [
+      { kind: "fs.write", value: "/tmp/a" },
+      { kind: "ezcorp:extension:install" },
+    ]);
+    expect(decision).toMatchObject({ decision: "prompt", sensitive: { kind: "ezcorp:extension:install" } });
+  });
+
+  test("a cap the user approved earlier in this call skips its prompt; the next unapproved cap still prompts", async () => {
+    const engine = makeEngine({ granted: { grantedAt: {}, shell: true, custom: { drafts: { kinds: ["extension"] } } } });
+    const needed = [{ kind: "ezcorp:extension:install" }, { kind: "shell" }] as const;
+    const first = await engine.authorize(ctx, [...needed]);
+    expect(first).toMatchObject({ decision: "prompt", sensitive: { kind: "ezcorp:extension:install" } });
+
+    const second = await engine.authorize({ ...ctx, promptApproved: [{ kind: "ezcorp:extension:install" }] }, [...needed]);
+    expect(second).toMatchObject({ decision: "prompt", sensitive: { kind: "shell" } });
+
+    const third = await engine.authorize(
+      { ...ctx, promptApproved: [{ kind: "ezcorp:extension:install" }, { kind: "shell" }] },
+      [...needed],
+    );
+    expect(third.decision).toBe("allow");
+    // One-shot: the approval lives in that call only, never in the engine.
+    expect(await engine.authorize(ctx, [...needed])).toMatchObject({ decision: "prompt", sensitive: { kind: "ezcorp:extension:install" } });
+  });
+
+  test("a bundled request whose sensitive caps are all auto-allowed still allows", async () => {
+    const engine = makeBundledEngine({ grantedAt: {}, shell: true, filesystem: ["/tmp"] });
+    const decision = await engine.authorize(ctx, [{ kind: "shell" }, { kind: "fs.write", value: "/tmp/a" }]);
+    expect(decision.decision).toBe("allow");
+  });
+});

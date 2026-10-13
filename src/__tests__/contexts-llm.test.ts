@@ -158,4 +158,65 @@ describe("pi lane", () => {
       runContextsCompletion({ target: piTarget, systemPrompt: "s", userPrompt: "u" }, { completeFn }),
     ).rejects.toThrow(/no text/);
   });
+
+  test("passes maxTokens, temperature, and an abort signal to the model call", async () => {
+    let seen: any;
+    const completeFn = async (_m: any, _c: any, opts: any) => {
+      seen = opts;
+      return { stopReason: "stop", content: "ok" };
+    };
+    let cancelled = false;
+    await runContextsCompletion(
+      { target: piTarget, systemPrompt: "s", userPrompt: "u", maxTokens: 4_000, temperature: 0.1 },
+      { completeFn, scheduleTimeout: () => () => { cancelled = true; } },
+    );
+    expect(seen.maxTokens).toBe(4_000);
+    expect(seen.temperature).toBe(0.1);
+    expect(seen.signal).toBeInstanceOf(AbortSignal);
+    expect(seen.signal.aborted).toBe(false);
+    // A call that finished must not leave its timer armed.
+    expect(cancelled).toBe(true);
+  });
+
+  test("a hanging call is aborted when the timeout fires", async () => {
+    let fire: (() => void) | undefined;
+    let armedMs = 0;
+    const scheduleTimeout = (onTimeout: () => void, ms: number) => {
+      fire = onTimeout;
+      armedMs = ms;
+      return () => {};
+    };
+    // Never settles on its own — only the abort signal ends it, the way a
+    // stuck provider stream ends.
+    const completeFn = (_m: any, _c: any, opts: any) =>
+      new Promise((_resolve, reject) => {
+        opts.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      });
+    const pending = runContextsCompletion(
+      { target: piTarget, systemPrompt: "s", userPrompt: "u", timeoutMs: 5_000 },
+      { completeFn, scheduleTimeout },
+    );
+    expect(armedMs).toBe(5_000);
+    fire!();
+    await expect(pending).rejects.toThrow("contexts model call timed out after 5000ms");
+  });
+
+  test("a model-call throw that is not a timeout propagates unchanged", async () => {
+    const completeFn = async () => { throw new Error("credential missing"); };
+    await expect(
+      runContextsCompletion({ target: piTarget, systemPrompt: "s", userPrompt: "u" }, { completeFn }),
+    ).rejects.toThrow("credential missing");
+  });
+
+  test("the timeout defaults to DEFAULT_CONTEXTS_TIMEOUT_MS", async () => {
+    let armedMs = 0;
+    await runContextsCompletion(
+      { target: piTarget, systemPrompt: "s", userPrompt: "u" },
+      {
+        completeFn: async () => ({ stopReason: "stop", content: "ok" }),
+        scheduleTimeout: (_fn, ms) => { armedMs = ms; return () => {}; },
+      },
+    );
+    expect(armedMs).toBe(DEFAULT_CONTEXTS_TIMEOUT_MS);
+  });
 });

@@ -9,21 +9,21 @@ import type { RequestHandler } from "./$types";
 export const GET: RequestHandler = async ({ params, locals }) => {
   const scopeErr = requireScope(locals, "read");
   if (scopeErr) return scopeErr;
-  requireAuth(locals);
+  const user = requireAuth(locals);
   const config = await getAgentConfigByName(params.name);
   if (!config) return errorJson(404, "Agent not found");
 
-  const conversations = await getTestConversations(config.id);
-  return json(conversations);
+  // Agent configs are shared; the query returns only the caller's own rows.
+  return json(await getTestConversations(config.id, user.id));
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   const scopeErr = requireScope(locals, "chat");
   if (scopeErr) return scopeErr;
-  requireAuth(locals);
+  const user = requireAuth(locals);
   const config = await getAgentConfigByName(params.name);
   if (!config) return errorJson(404, "Agent not found");
 
-  const deleted = await deleteTestConversations(config.id);
+  const deleted = await deleteTestConversations(config.id, user.id);
   return json({ deleted });
 };

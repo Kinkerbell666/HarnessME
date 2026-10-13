@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
+	import { reloadOn } from "$lib/reload-on.svelte.js";
 	import { store, refreshWorkflows } from "$lib/stores.svelte.js";
 	import {
 		dryRunWorkflow,
@@ -52,22 +52,29 @@
 	let dryRunReport = $state<WorkflowDryRunReport | null>(null);
 	let dryRunError = $state("");
 
-	onMount(() => {
-		void load();
+	// Save follows a rename with `goto`, which reuses this page: load the
+	// renamed workflow, or the page keeps the old definition and its old
+	// name, and the next Save renames it back.
+	reloadOn(() => workflowName, (name, isStale) => {
+		workflow = null;
+		versions = [];
+		return load(name, isStale);
 	});
 
-	async function load() {
+	async function load(name = workflowName, isStale = () => false) {
 		loading = true;
 		loadError = "";
 		try {
-			const loaded = await fetchWorkflow(workflowName);
+			const loaded = await fetchWorkflow(name);
+			if (isStale()) return;
 			workflow = loaded;
 			yamlText = workflowToYaml(definitionFields(loaded as unknown as Record<string, unknown>));
-			versions = await fetchWorkflowVersions(workflowName);
+			const loadedVersions = await fetchWorkflowVersions(name);
+			if (!isStale()) versions = loadedVersions;
 		} catch (e) {
-			loadError = e instanceof Error ? e.message : "Failed to load workflow";
+			if (!isStale()) loadError = e instanceof Error ? e.message : "Failed to load workflow";
 		} finally {
-			loading = false;
+			if (!isStale()) loading = false;
 		}
 	}
 

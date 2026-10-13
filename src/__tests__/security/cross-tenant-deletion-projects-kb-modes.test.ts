@@ -27,8 +27,11 @@
 // attributes every pre-existing project to the first admin. So these tests
 // pin the rule the product actually wanted, not the stop-gap:
 //
-//   PUT / DELETE /api/projects/[id]  →  any MEMBER of that project,
-//                                       or an instance admin.
+//   PUT /api/projects/[id]     →  any MEMBER of that project,
+//                                 or an instance admin.
+//   DELETE /api/projects/[id]  →  an OWNER of that project, or an
+//                                 instance admin (a delete cascades to
+//                                 every member's conversations).
 //
 // The admin cases below are unchanged and still pass — the override
 // survived — but the "even the member who created it cannot delete it" case
@@ -280,11 +283,12 @@ describe("source: projects mutating routes are membership-gated", () => {
     const handlers = src.slice(src.indexOf("export const GET"));
     expect(handlers.indexOf("export const GET")).toBe(0);
     expect(handlers).not.toMatch(/user\.role\s*===\s*"admin"/);
-    // BOTH mutating verbs must invoke it. Counting the call sites makes a
-    // fix applied to only one verb fail here. GET is excluded on purpose
-    // (reads stay instance-global), so the expected count is exactly 2.
-    const callSites = src.match(/checkProjectRole\(locals, params\.id, "member"\)/g) ?? [];
-    expect(callSites.length).toBe(2);
+    // BOTH mutating verbs must invoke it: PUT at `member`, DELETE at
+    // `owner` (deleting a project also deletes other members'
+    // conversations). GET is excluded on purpose (reads stay
+    // instance-global).
+    expect(src.match(/checkProjectRole\(locals, params\.id, "member"\)/g) ?? []).toHaveLength(1);
+    expect(src.match(/checkProjectRole\(locals, params\.id, "owner"\)/g) ?? []).toHaveLength(1);
     // …and the denial must be RETURNED, never thrown: SvelteKit surfaces a
     // thrown Response from a handler as a 500, which is how an intended
     // 403 becomes an unintended 500.
@@ -430,6 +434,23 @@ describe("ATTACK: DELETE /api/projects/[id] — cross-tenant project destruction
     // membership row at all". B belongs to proj-2 and is still refused
     // proj-1, so the projectId is actually compared.
     membershipStore.set("proj-2:user-b", { role: "owner" });
+    const res = await call(
+      projectDelete as any,
+      createMockEvent({
+        method: "DELETE",
+        url: "http://localhost/api/projects/proj-1",
+        params: { id: "proj-1" },
+        user: USER_B as any,
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(projectStore.has("proj-1")).toBe(true);
+  });
+
+  test("a plain member of the project cannot delete it — 403", async () => {
+    // Deleting a project cascades to every member's conversations, so it
+    // needs the owner role, not just a membership row.
+    membershipStore.set("proj-1:user-b", { role: "member" });
     const res = await call(
       projectDelete as any,
       createMockEvent({

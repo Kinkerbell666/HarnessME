@@ -137,7 +137,7 @@ describe("factory product API schema", () => {
   });
 
   test("rejects unknown fields, caller tenancy, missing headers, and unsafe revisions", () => {
-    const create = requests()[0]!;
+    const create = requests()[0] as Extract<FactoryApiRequest, { kind: "draft.create" }>;
     expect(code(validateFactoryApiRequest({ ...create, tenantId: "attacker" }))).toBe("API_REQUEST_SCHEMA");
     expect(code(validateFactoryApiRequest({ ...create, body: { ...create.body, projectId: "attacker" } }))).toBe("API_REQUEST_SCHEMA");
     expect(code(validateFactoryApiRequest({ ...create, path: { ...create.path, unknown: true } }))).toBe("API_REQUEST_SCHEMA");
@@ -167,9 +167,10 @@ describe("factory product API schema", () => {
   });
 
   test("hashes the canonical mutation payload and rejects changed key reuse", () => {
-    const update = requests()[1]!;
+    const update = requests()[1] as Extract<FactoryApiRequest, { kind: "draft.update" }>;
     expect(validateFactoryApiPayloadDigest(update)).toEqual({ ok: true });
-    expect(factoryApiMutationPayload(update)).toEqual({
+    const payload: unknown = factoryApiMutationPayload(update);
+    expect(payload).toEqual({
       schemaVersion: update.schemaVersion,
       kind: update.kind,
       path: update.path,
@@ -204,6 +205,7 @@ describe("factory product API schema", () => {
     expect(code(validateFactoryApiRequest({ ...create, body: { source: largeDefinition } }))).toBe("API_DEFINITION_BYTES");
     expect(code(validateFactoryApiRequest({ ...start, body: { ...start.body, factoryVersion: "bad\nversion" } }))).toBe("API_VERSION");
     const repair = requests()[15] as Extract<FactoryApiRequest, { kind: "run.control" }>;
+    if (repair.body.action !== "repair") throw new Error("repair fixture");
     expect(code(validateFactoryApiRequest({ ...repair, body: { action: "repair", parameters: repair.body.parameters } }))).toBe("API_REQUEST_SCHEMA");
     expect(code(validateFactoryApiRequest({ ...repair, body: { action: "repair", nodeId: "bad\nnode", parameters: repair.body.parameters } }))).toBe("API_CONTROL_NODE");
     expect(code(validateFactoryApiRequest({ ...repair, body: { action: "repair", nodeId: repair.body.nodeId, parameters: { value: { kind: "inline", value: "x".repeat(FACTORY_LIMITS.maxInlineValueBytes + 1) } } } }))).toBe("API_PARAMETER_BYTES");

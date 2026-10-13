@@ -1,4 +1,5 @@
 import { test, expect, captureEvidence } from "./fixtures/test-base.js";
+import { clickInAppLink } from "./fixtures/client-nav.js";
 
 /**
  * E2E coverage for the /commands authoring UI. Walks the full user
@@ -187,6 +188,36 @@ test.describe("/commands authoring UI", () => {
 		const cards = page.locator('[data-testid="command-card"]');
 		await expect(cards).toHaveCount(1);
 		await expect(cards.first().getByRole("heading")).toHaveText("/myreview");
+	});
+
+	test("moving from one command's editor to another loads the second command @evidence", async ({
+		page,
+		mockApi,
+	}, testInfo) => {
+		await mockApi({
+			userCommands: [
+				{ name: "review", body: "Review: $ARGUMENTS" },
+				{ name: "explain", body: "Explain: $ARGUMENTS" },
+			],
+		});
+		await page.goto("/commands/review");
+		await expect(page.getByTestId("command-form-body")).toHaveValue("Review: $ARGUMENTS");
+
+		// Same route, new param: SvelteKit reuses the page, which must load
+		// the new command rather than keep editing the old one.
+		await clickInAppLink(page, "/commands/explain");
+		await expect(page).toHaveURL("/commands/explain");
+		await expect(page.getByRole("heading", { name: "Edit /explain" })).toBeVisible();
+		await expect(page.getByTestId("command-form-name")).toHaveValue("explain");
+		await expect(page.getByTestId("command-form-body")).toHaveValue("Explain: $ARGUMENTS");
+		await captureEvidence(page, testInfo, "command-editor-second-command");
+	});
+
+	test("opening a command that does not exist shows the load error", async ({ page, mockApi }) => {
+		await mockApi({ userCommands: [{ name: "review", body: "Review: $ARGUMENTS" }] });
+		await page.goto("/commands/missing");
+		await expect(page.getByTestId("commands-edit-load-error")).toBeVisible();
+		await expect(page.getByTestId("command-form-body")).toHaveCount(0);
 	});
 
 	test("delete-with-confirm removes the row from /commands list page", async ({

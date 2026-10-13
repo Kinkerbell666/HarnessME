@@ -164,6 +164,22 @@ describe("rehydrateUserMessageContent", () => {
     expect(out).toBe("look");
   });
 
+  test("switch to a text-only model drops only the image — a text attachment on the same message survives", async () => {
+    const [image] = (await loadPastAttachments([{ id: msgWithImgId, role: "user", content: "x" }]))
+      .byMessage.get(msgWithImgId)!;
+    const notes = await writeAttachment({
+      projectRoot: tmpRoot, conversationId: convId, messageId: msgWithImgId,
+      filename: "notes.md", mimeType: "text/markdown", bytes: new TextEncoder().encode("budget is 40k"),
+    });
+    const atts = [image!, { id: "att-notes", filename: "notes.md", mimeType: "text/markdown", storagePath: notes.storagePath }];
+
+    const out = await rehydrateUserMessageContent("look", atts, textOnly);
+
+    const parts = out as Array<{ type: string; text?: string }>;
+    expect(parts.some((p) => p.type === "image")).toBe(false);
+    expect(parts.map((p) => p.text ?? "").join("\n")).toContain("budget is 40k");
+  });
+
   test("two images on one message → both rebuilt as ImageContent parts", async () => {
     const atts = (await loadPastAttachments([{ id: msgWithTwoImgsId, role: "user", content: "x" }]))
       .byMessage.get(msgWithTwoImgsId)!;

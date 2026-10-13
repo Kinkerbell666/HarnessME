@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { evaluateExpression } from "./expressions";
-import type { Expression, ExpressionContext } from "./types";
+import type { Expression, ExpressionContext, JsonValue } from "./types";
 
 const context: ExpressionContext = {
   inputs: Object.assign(Object.create(null), { constructor: { nested: ["a", "b"] }, count: 2 }),
@@ -12,7 +12,7 @@ const literal = (value: never): Expression => ({ kind: "literal", value });
 
 describe("bounded expressions", () => {
   test("evaluates every supported operator", () => {
-    const cases: [Expression, unknown][] = [
+    const cases: [Expression, JsonValue][] = [
       [{ kind: "ref", root: "input", name: "constructor", path: ["nested", 1] }, "b"],
       [{ kind: "exists", value: { kind: "ref", root: "input", name: "missing" } }, false],
       [{ kind: "eq", left: literal({ a: 1 } as never), right: literal({ a: 1 } as never) }, true],

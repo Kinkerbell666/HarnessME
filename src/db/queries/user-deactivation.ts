@@ -3,6 +3,7 @@ import { getDb } from "../connection";
 import type { DbTransaction } from "../connection";
 import { agentConfigs, users } from "../schema";
 import { insertAuditEntry } from "./audit-log";
+import { revokeAllUserSessions } from "./sessions";
 
 /**
  * Atomically deactivate a user and transfer their agents to the acting
@@ -53,6 +54,10 @@ export async function deactivateUserAndTransferAgents(
       .set({ status: "inactive" })
       .where(eq(users.id, targetUserId))
       .returning();
+
+    // The session cookie path never re-reads users.status, so an open browser
+    // keeps access until its session row is gone.
+    await revokeAllUserSessions(targetUserId, { tx });
 
     return updated.length > 0;
   });

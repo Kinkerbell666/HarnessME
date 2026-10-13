@@ -16,6 +16,7 @@ const {
   getUserCount,
   markUserOnboarded,
 } = await import("../db/queries/users");
+const { createSession, listSessionsByUser } = await import("../db/queries/sessions");
 
 describe("users queries", () => {
   beforeEach(async () => await setupTestDb());
@@ -166,6 +167,31 @@ describe("users queries", () => {
     expect(ok).toBe(true);
     const updated = await getUserById(u.id);
     expect(updated!.passwordHash).toBe("new-hash");
+  });
+
+  test("updateUserPassword revokes every session of that user only", async () => {
+    const u = await createUser({ email: "p2@test.com", passwordHash: "old", name: "Pass" });
+    const other = await createUser({ email: "p3@test.com", passwordHash: "old", name: "Other" });
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    await createSession({ userId: u.id, tokenHash: "pw-a", expiresAt });
+    await createSession({ userId: u.id, tokenHash: "pw-b", expiresAt });
+    const kept = await createSession({ userId: other.id, tokenHash: "pw-other", expiresAt });
+
+    expect(await updateUserPassword(u.id, "new-hash")).toBe(true);
+
+    expect(await listSessionsByUser(u.id)).toEqual([]);
+    expect((await listSessionsByUser(other.id)).map((s) => s.id)).toEqual([kept.id]);
+  });
+
+  test("updateUserPassword keeps the caller's session and revokes the others", async () => {
+    const u = await createUser({ email: "p4@test.com", passwordHash: "old", name: "Pass" });
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    const current = await createSession({ userId: u.id, tokenHash: "pw-current", expiresAt });
+    await createSession({ userId: u.id, tokenHash: "pw-stolen", expiresAt });
+
+    expect(await updateUserPassword(u.id, "new-hash", { keepSessionId: current.id })).toBe(true);
+
+    expect((await listSessionsByUser(u.id)).map((s) => s.id)).toEqual([current.id]);
   });
 
   test("updateUserPassword returns false for missing user", async () => {

@@ -14,7 +14,7 @@ const passwordSchema = z.object({
   newPassword: passwordFieldSchema,
 });
 
-export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
+export const PUT: RequestHandler = async ({ request, locals }) => {
   try {
     const scopeErr = requireScope(locals, "admin");
     if (scopeErr) return scopeErr;
@@ -33,18 +33,11 @@ export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
     }
 
     const newHash = await hashPassword(newPassword);
-    await updateUserPassword(authUser.id, newHash);
+    // Keep this tab's session; every other session of the user is revoked.
+    await updateUserPassword(authUser.id, newHash, { keepSessionId: locals.sessionId });
     await insertAuditEntry(authUser.id, "auth:password_changed");
 
-    // Clear session to force re-login
-    cookies.set("ezcorp_session", "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 0,
-    });
-
-    return json({ success: true, message: "Password changed. Please log in again." });
+    return json({ success: true, message: "Password changed. Other sessions were signed out." });
   } catch (e) {
     if (e instanceof Response) return e;
     throw e;

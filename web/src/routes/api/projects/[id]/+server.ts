@@ -22,11 +22,14 @@ import type { RequestHandler } from "./$types";
  * `project_members` (`src/db/schema.ts`) is now that model, so the rule is
  * the one the product actually wanted:
  *
- *   | caller                      | GET | PUT / DELETE |
- *   |-----------------------------|-----|--------------|
- *   | instance admin              | yes | yes          |
- *   | project member (any role)   | yes | yes          |
- *   | authenticated non-member    | yes | **no**       |
+ *   | caller                      | GET | PUT | DELETE |
+ *   |-----------------------------|-----|-----|--------|
+ *   | instance admin              | yes | yes | yes    |
+ *   | project owner               | yes | yes | yes    |
+ *   | project member              | yes | yes | **no** |
+ *   | authenticated non-member    | yes | **no** | **no** |
+ *
+ * DELETE needs `owner` because it cascades to every member's conversations.
  *
  * `createProject` stamps its creator as an `owner`, so the case #82 broke —
  * a member renaming the project they just made — is the FIRST case this
@@ -99,7 +102,8 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   const scopeErr = requireScope(locals, "write");
   if (scopeErr) return scopeErr;
-  const gate = await checkProjectRole(locals, params.id, "member");
+  // Owner, not member: deleting a project deletes every member's conversations.
+  const gate = await checkProjectRole(locals, params.id, "owner");
   if (gate instanceof Response) return gate;
   if (await projectRequiresSandbox(params.id)) return errorJson(409, "Dispose the sandbox before deleting its project.");
   const deleted = await projectQueries.deleteProject(params.id);

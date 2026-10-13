@@ -174,6 +174,33 @@ describe("loadHistory — capability-event filter", () => {
     expect(blob).toBe("go");
   });
 
+  test("an extension row stays out of history even when it is not excluded", async () => {
+    // append-message stamps extension rows `excluded: true`, but the
+    // owner can toggle that flag off (PATCH .../messages/[mid]). The row
+    // must still never reach the LLM as a fake user turn.
+    const conv = await createConversation(projectId, { userId });
+    const u1 = await createMessage(conv.id, { role: "user", content: "read it aloud" });
+    const ext = await createMessage(conv.id, {
+      role: "extension",
+      content: "tts-player header card",
+      parentMessageId: u1.id,
+    });
+    const u2 = await createMessage(conv.id, {
+      role: "user",
+      content: "thanks",
+      parentMessageId: ext.id,
+    });
+
+    const result = await loadHistory(mkCtx(), conv.id, {
+      parentMessageId: u2.id,
+      projectId,
+    });
+
+    expect(result.history.map((m) => m.role)).toEqual(["user", "user"]);
+    const blob = result.history.map((m) => textOf(m.content)).join("\n");
+    expect(blob).not.toContain("tts-player header card");
+  });
+
   test("mixed ez-action-result + capability-event rows both filtered (orthogonal paths)", async () => {
     // The two filter branches are independent — make sure that adding
     // one didn't regress the other.

@@ -15,6 +15,7 @@ import {
   validateFactoryRunnerRequest,
   validateFactoryRunnerResult,
 } from "./validation";
+import type { Mutable } from "../tests/mutable";
 
 const prefixedDigest = `sha256:${"a".repeat(64)}`;
 const rawDigest = "b".repeat(64);
@@ -25,14 +26,20 @@ function compiled(): CompiledFactory {
   return result.factory;
 }
 
-function clone<T>(value: T): T {
-  return JSON.parse(canonicalizeJson(value as JsonValue)) as T;
+function clone<T>(value: T): Mutable<T> {
+  return JSON.parse(canonicalizeJson(value as JsonValue)) as Mutable<T>;
+}
+
+function pageNode(factory: CompiledFactory, id: string): CompiledFactory["indexes"]["nodeById"][string] {
+  const node = factory.indexes.nodeById[id];
+  if (!node) throw new Error(`page names unknown node ${id}`);
+  return node;
 }
 
 function pages(factory: CompiledFactory): CompiledFactoryPageBytes {
   return Object.fromEntries(factory.pages.map((page) => [
     page.id,
-    new TextEncoder().encode(canonicalizeJson(page.nodeIds.map((id) => factory.indexes.nodeById[id]) as JsonValue)),
+    new TextEncoder().encode(canonicalizeJson(page.nodeIds.map((id) => pageNode(factory, id)) as unknown as JsonValue)),
   ]));
 }
 
@@ -48,14 +55,19 @@ function twoPartitionFactory(): CompiledFactory {
 }
 
 function controlFactory(): CompiledFactory {
-  const definition = clone(referenceDataV1);
+  const definition = referenceDataV1;
   const predecessor = definition.graph.nodes[0]!.id;
-  definition.graph.nodes = [
-    ...definition.graph.nodes,
-    { id: "structural-branch", kind: "branch", condition: { kind: "literal", value: true }, then: { nodes: [], outputs: {} }, else: { nodes: [], outputs: {} } },
-    { id: "structural-join", kind: "join", mode: "all", predecessors: [predecessor] },
-  ];
-  const result = compileFactory(definition);
+  const result = compileFactory({
+    ...definition,
+    graph: {
+      ...definition.graph,
+      nodes: [
+        ...definition.graph.nodes,
+        { id: "structural-branch", kind: "branch", condition: { kind: "literal", value: true }, then: { nodes: [], outputs: {} }, else: { nodes: [], outputs: {} } },
+        { id: "structural-join", kind: "join", mode: "all", predecessors: [predecessor] },
+      ],
+    },
+  });
   if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
   return result.factory;
 }
@@ -64,7 +76,8 @@ function code(result: ReturnType<typeof validateCompiledFactory>): string | unde
   return result.ok ? undefined : result.issues[0]?.code;
 }
 
-function request(): FactoryRunnerRequest {
+/** The literal's own type, so a test can edit any field it sets. */
+function request() {
   return {
     schemaVersion: "factory.runner.request.v1",
     authority: {
@@ -97,10 +110,10 @@ function request(): FactoryRunnerRequest {
     model: { provider: "anthropic", model: "model-v1", configurationDigest: prefixedDigest, configuration: { temperature: 0 }, policyDigest: prefixedDigest, policy: { retries: 1 } },
     tools: [{ name: "read", description: "Read a value", inputSchema: { type: "object", additionalProperties: false }, outputSchema: { type: "string" } }],
     broker: { attemptToken: "signed-attempt-token", audience: "installation-1" },
-  };
+  } satisfies FactoryRunnerRequest;
 }
 
-function result(): FactoryRunnerResult {
+function result() {
   const checkpoint = { artifactId: "checkpoint-1", digest: prefixedDigest, encodedBytes: 512, journalCursor: 5 };
   const usage = { kind: "measured" as const, inputTokens: 10, outputTokens: 20, computeMs: 30, costMicros: "40" };
   return {
@@ -112,7 +125,7 @@ function result(): FactoryRunnerResult {
     output: { artifactId: "result-1", digest: prefixedDigest, encodedBytes: 256 },
     usage,
     workspaceCheckpoint: checkpoint,
-  };
+  } satisfies FactoryRunnerResult;
 }
 
 describe("compiled artifact validation", () => {
@@ -280,8 +293,8 @@ describe("compiled artifact validation", () => {
     invalidDefinition.definition.acceptance.version = "latest";
     expect(code(verifyCompiledFactoryArtifact(invalidDefinition, pages(invalidDefinition)))).toBe("COMPILED_RECOMPILE");
     expect(code(verifyCompiledFactoryArtifact(factory, { ...bytes, extra: new Uint8Array() }))).toBe("COMPILED_PAGE_BYTES");
-    const corrupted = { ...bytes, [factory.pages[0]!.id]: bytes[factory.pages[0]!.id]!.slice() };
-    corrupted[factory.pages[0]!.id]![0] ^= 1;
+    const firstPage = factory.pages[0]!.id;
+    const corrupted = { ...bytes, [firstPage]: bytes[firstPage]!.map((byte, index) => index === 0 ? byte ^ 1 : byte) };
     expect(code(verifyCompiledFactoryArtifact(factory, corrupted))).toBe("COMPILED_PAGE_BYTES");
   });
 });
@@ -330,7 +343,7 @@ describe("runner request canonical identity", () => {
 describe("C02 generated runner wire validation", () => {
   test("accepts canonical requests, artifact resumes, and every terminal result shape", () => {
     expect(validateFactoryRunnerRequest(request())).toEqual({ ok: true });
-    const resumed = clone(request());
+    const resumed: Mutable<FactoryRunnerRequest> = clone(request());
     resumed.input = { kind: "artifact", artifact: { artifactId: "input-1", digest: prefixedDigest, encodedBytes: 4_096 } };
     resumed.checkpoint = { artifactId: "checkpoint-0", digest: prefixedDigest, encodedBytes: 100, journalCursor: -1 };
     expect(validateFactoryRunnerRequest(resumed)).toEqual({ ok: true });
@@ -364,10 +377,10 @@ describe("C02 generated runner wire validation", () => {
     const resources = request();
     resources.resources.maxCostMicros = "01";
     expect(code(validateFactoryRunnerRequest(resources))).toBe("RUNNER_RESOURCES");
-    const artifact = request();
+    const artifact: Mutable<FactoryRunnerRequest> = request();
     artifact.input = { kind: "artifact", artifact: { artifactId: "../local", digest: prefixedDigest, encodedBytes: 1 } };
     expect(code(validateFactoryRunnerRequest(artifact))).toBe("RUNNER_ARTIFACT_ID");
-    const checkpoint = request();
+    const checkpoint: Mutable<FactoryRunnerRequest> = request();
     checkpoint.checkpoint = { artifactId: "checkpoint", digest: prefixedDigest, encodedBytes: 1, journalCursor: -2 };
     expect(code(validateFactoryRunnerRequest(checkpoint))).toBe("RUNNER_CURSOR");
     const operationCursor = request();
@@ -376,7 +389,7 @@ describe("C02 generated runner wire validation", () => {
     const tools = request();
     tools.tools = [tools.tools[0]!, tools.tools[0]!];
     expect(code(validateFactoryRunnerRequest(tools))).toBe("RUNNER_TOOL");
-    const toolSchema = request();
+    const toolSchema: Mutable<FactoryRunnerRequest> = request();
     toolSchema.tools[0]!.inputSchema = { type: "object", properties: {}, required: ["missing"] };
     expect(code(validateFactoryRunnerRequest(toolSchema))).toBe("RUNNER_TOOL_SCHEMA");
   });
@@ -406,7 +419,7 @@ describe("C02 generated runner wire validation", () => {
     operationCursor.operations[0]!.operationId = "run-1:node-1:0:6";
     operationCursor.operations[0]!.workspaceCheckpoint.journalCursor = 6;
     expect(code(validateFactoryRunnerResult(operationCursor))).toBe("RUNNER_OPERATION_CURSOR");
-    const uncertainCursor = result();
+    const uncertainCursor: Mutable<FactoryRunnerResult> = result();
     uncertainCursor.operations = [{ operationId: "run-1:node-1:0:5", operationIndex: 5, kind: "model", requestDigest: rawDigest, state: "uncertain", providerReceiptDigest: rawDigest, usage: { kind: "unknown", reason: "lost", heldCostMicros: "10" } }];
     expect(code(validateFactoryRunnerResult(uncertainCursor))).toBe("RUNNER_OPERATION_CURSOR");
     const usage = result();

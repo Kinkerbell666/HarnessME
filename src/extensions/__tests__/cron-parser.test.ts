@@ -17,6 +17,28 @@ describe("validateCron", () => {
     expect(validateCron("*/4 * * * *")).toEqual({ ok: false, reason: "min-5-min-interval-required" });
   });
 
+  // Trigger and briefing crons rely on validateCron alone, so every form
+  // that fires more often than every 5 minutes must be refused here, not
+  // only the literal `*` and `*/1..4` strings.
+  test("rejects every sub-5-min form, not only the literal patterns", () => {
+    for (const expr of [
+      "0-59 * * * *",
+      "0-59/1 * * * *",
+      "1,2,3 * * * *",
+      "* * * * 1",
+      "* 9 * * *",
+      "0,59 0,23 * * *",
+    ]) {
+      expect(validateCron(expr)).toEqual({ ok: false, reason: "min-5-min-interval-required" });
+    }
+  });
+
+  test("accepts sparse schedules with a gap of 5 minutes or more", () => {
+    for (const expr of ["0,5 * * * *", "2 * * * *", "0 0 29 2 *", "0 0 31 12 *"]) {
+      expect(validateCron(expr).ok).toBe(true);
+    }
+  });
+
   test("rejects @-shorthand expressions", () => {
     const r = validateCron("@hourly");
     expect(r.ok).toBe(false);

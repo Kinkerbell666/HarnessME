@@ -331,15 +331,11 @@ async function handleRegister(
       });
     }
 
-    // 7. Cap — count THIS extension's existing dynamic crons. A
-    //    re-registration of an existing key is an update, not a new row, so
-    //    it must not count against a full envelope (otherwise editing a job
-    //    becomes impossible exactly when the user is at their limit).
-    const existing = await listDynamicCrons(ctx.extensionId);
-    const isUpdate = existing.some((r) => r.key === key);
-    if (!isUpdate && existing.length >= granted.maxCron) {
+    // 7. Cap — see `usedSlotsIfOverCap`.
+    const cronUsed = usedSlotsIfOverCap(await listDynamicCrons(ctx.extensionId), key, granted.maxCron);
+    if (cronUsed !== null) {
       return deny("TRIGGERS_QUOTA_EXCEEDED", "cron trigger quota exceeded", -32103, {
-        kind, key, used: existing.length, cap: granted.maxCron,
+        kind, key, used: cronUsed, cap: granted.maxCron,
       });
     }
 
@@ -381,11 +377,10 @@ async function handleRegister(
     });
   }
 
-  const existing = await listDynamicWebhooks(ctx.extensionName);
-  const isUpdate = existing.some((r) => r.key === key);
-  if (!isUpdate && existing.length >= granted.maxWebhooks) {
+  const hookUsed = usedSlotsIfOverCap(await listDynamicWebhooks(ctx.extensionName), key, granted.maxWebhooks);
+  if (hookUsed !== null) {
     return deny("TRIGGERS_QUOTA_EXCEEDED", "webhook trigger quota exceeded", -32103, {
-      kind, key, used: existing.length, cap: granted.maxWebhooks,
+      kind, key, used: hookUsed, cap: granted.maxWebhooks,
     });
   }
 
@@ -520,6 +515,24 @@ async function handleList(
     success: true, after: { count: triggers.length },
   });
   return rpcResult(req.id, { v: 1, triggers });
+}
+
+/**
+ * Per-kind cap over the rows that can fire: `enabled` ones. A row the
+ * orphan sweep or a revoke soft-disabled holds no slot. Re-registering an
+ * enabled key is an update and always passes (otherwise editing a job is
+ * impossible exactly at the limit, or after the cap was narrowed); reviving
+ * a disabled key re-enables it, so it needs a free slot like a new key.
+ * Returns the used slot count when the register must be refused, else null.
+ */
+function usedSlotsIfOverCap(
+  rows: ReadonlyArray<{ key: string | null; enabled: boolean }>,
+  key: string,
+  cap: number,
+): number | null {
+  if (rows.some((r) => r.key === key && r.enabled)) return null;
+  const used = rows.filter((r) => r.enabled).length;
+  return used >= cap ? used : null;
 }
 
 /** The `audit_log` half of the trail — the destination that can also hold

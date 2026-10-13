@@ -1,5 +1,5 @@
-import { eq, and, or, sql, lt, gt, desc } from "drizzle-orm";
-import { getDb } from "../connection";
+import { eq, and, or, sql, lt, gt, desc, ne } from "drizzle-orm";
+import { getDb, type DbTransaction } from "../connection";
 import { sessions, users } from "../schema";
 import type { Session } from "../schema";
 
@@ -55,18 +55,25 @@ export async function getSessionByTokenHash(tokenHash: string): Promise<Session 
  * Lookup that also reports whether the match came via the rotation-grace
  * `previous_token_hash` column. Hooks use this to suppress a re-rotation
  * when another concurrent request just rotated the row.
+ *
+ * Only a session of an ACTIVE user matches. The hook reads "no match" as a
+ * revoked session, so a deactivated user is refused in this same query
+ * rather than by a second per-request user read.
  */
 export async function lookupSessionByTokenHash(tokenHash: string): Promise<SessionLookup | null> {
   const rows = await getDb()
     .select()
     .from(sessions)
     .where(
-      or(
-        eq(sessions.tokenHash, tokenHash),
-        and(
-          eq(sessions.previousTokenHash, tokenHash),
-          gt(sessions.previousTokenExpiresAt, sql`NOW()`),
+      and(
+        or(
+          eq(sessions.tokenHash, tokenHash),
+          and(
+            eq(sessions.previousTokenHash, tokenHash),
+            gt(sessions.previousTokenExpiresAt, sql`NOW()`),
+          ),
         ),
+        sql`EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${sessions.userId} AND ${users.status} = 'active')`,
       ),
     );
   const row = rows[0];
@@ -82,10 +89,21 @@ export async function revokeSession(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function revokeAllUserSessions(userId: string): Promise<number> {
-  const rows = await getDb()
+/**
+ * Revoke every session of a user. `keepSessionId` spares the caller's own
+ * session (self-service password change); `tx` lets the revocation commit
+ * with the account change that requires it.
+ */
+export async function revokeAllUserSessions(
+  userId: string,
+  opts: { keepSessionId?: string; tx?: DbTransaction } = {},
+): Promise<number> {
+  const rows = await (opts.tx ?? getDb())
     .delete(sessions)
-    .where(eq(sessions.userId, userId))
+    .where(and(
+      eq(sessions.userId, userId),
+      opts.keepSessionId ? ne(sessions.id, opts.keepSessionId) : undefined,
+    ))
     .returning({ id: sessions.id });
   return rows.length;
 }

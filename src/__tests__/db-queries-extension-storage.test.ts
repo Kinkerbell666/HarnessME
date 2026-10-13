@@ -117,6 +117,21 @@ describe("extension-storage queries", () => {
     expect(matched.map((k) => k.key)).toEqual(["100%"]);
   });
 
+  test("listStorageKeys treats a backslash in the prefix literally", async () => {
+    await setStorageValue(EXT, "global", null, "a\\b", "x", false, 1);
+    await setStorageValue(EXT, "global", null, "a%", "x", false, 1);
+    const matched = await listStorageKeys(EXT, "global", null, "a\\");
+    expect(matched.map((k) => k.key)).toEqual(["a\\b"]);
+  });
+
+  test("listStorageKeys skips expired rows, like getStorageValue", async () => {
+    await setStorageValue(EXT, "global", null, "live", "x", false, 1);
+    await setStorageValue(EXT, "global", null, "later", "x", false, 1, new Date(Date.now() + 60_000));
+    await setStorageValue(EXT, "global", null, "gone", "x", false, 1, new Date(Date.now() - 1000));
+    const keys = await listStorageKeys(EXT, "global", null);
+    expect(keys.map((k) => k.key).sort()).toEqual(["later", "live"]);
+  });
+
   test("getStorageUsage sums sizes and ignores expired rows", async () => {
     await setStorageValue(EXT, "global", null, "a", "x", false, 100);
     await setStorageValue(EXT, "global", null, "b", "x", false, 250);

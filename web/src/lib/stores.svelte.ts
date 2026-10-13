@@ -29,6 +29,7 @@ import {
 } from "./sub-agent-routing.js";
 import { readTeamPanel, writeTeamPanel } from "./panel-persistence.js";
 import type { PendingApprovalNotice } from "./workflow-approvals-logic.js";
+import type { SensitiveCapabilityKind } from "$server/extensions/capability-types";
 import {
 	applyAssignmentUpdate as reduceAssignmentUpdate,
 	applyHydratedSnapshot as reduceHydratedSnapshot,
@@ -76,7 +77,7 @@ export interface ToolCallState {
 	 *  (session/conversation/project/forever) for `shell` and `fs.write`
 	 *  ops on extensions. Built-in tool gates (read/write/execute) leave
 	 *  this undefined and use the legacy two-button modal. */
-	capabilityKind?: 'shell' | 'fs.write';
+	capabilityKind?: SensitiveCapabilityKind;
 	capabilityValue?: string;
 }
 
@@ -958,379 +959,382 @@ export function initStores() {
 	const client = createWSClient();
 	_wsManualRetry = client.manualRetry;
 
-	const unsub = client.subscribe((event: WSEvent) => {
-		switch (event.type) {
-			case "ws:connected":
-				store.connected = true;
-				store.wsReconnectCount++;
-				return;
+	// One handler per runtime event, looked up by `event.type`. Each was a
+	// `case` of a single switch; `return` here is that case's `break`.
 
-			case "ws:disconnected":
-				store.connected = false;
-				return;
+	function onWsConnected(): void {
+		store.connected = true;
+		store.wsReconnectCount++;
+	}
 
-			case "run:start": {
-				const { run } = event.data as { run: Run };
-				const idx = store.runs.findIndex((r) => r.id === run.id);
-				if (idx >= 0) {
-					store.runs[idx] = run;
-				} else {
-					store.runs = [run, ...store.runs];
-				}
-				break;
+	function onWsDisconnected(): void {
+		store.connected = false;
+	}
+
+	function onRunStart(event: WSEvent): void {
+		const { run } = event.data as { run: Run };
+		const idx = store.runs.findIndex((r) => r.id === run.id);
+		if (idx >= 0) {
+			store.runs[idx] = run;
+		} else {
+			store.runs = [run, ...store.runs];
+		}
+	}
+
+	function onRunLog(event: WSEvent): void {
+		const { runId, log } = event.data as { runId: string; log: unknown };
+		store.runs = store.runs.map((r) => {
+			if (r.id === runId) {
+				return { ...r, logs: [...r.logs, log as Run["logs"][number]] };
 			}
+			return r;
+		});
+	}
 
-			case "run:log": {
-				const { runId, log } = event.data as { runId: string; log: unknown };
-				store.runs = store.runs.map((r) => {
-					if (r.id === runId) {
-						return { ...r, logs: [...r.logs, log as Run["logs"][number]] };
-					}
-					return r;
+	function onRunStatus(event: WSEvent): void {
+		const { runId, status } = event.data as { runId: string; status: string };
+		store.streamingStatus = { ...store.streamingStatus, [runId]: status };
+		if (status === "memory_unavailable") {
+			store.memoryUnavailableRunId = runId;
+		} else if (store.memoryUnavailableRunId !== null) {
+			// Recovery: a non-memory_unavailable status clears the flag
+			store.memoryUnavailableRunId = null;
+		}
+	}
+
+	function onRunToken(event: WSEvent): void {
+		const { runId, token, kind } = event.data as { runId: string; token: string; kind?: string };
+		if (kind === "thinking") {
+			bufferThinkingToken(runId, token);
+		} else {
+			bufferToken(runId, token);
+		}
+	}
+
+	function onRunUsage(event: WSEvent): void {
+		const { runId, usage } = event.data as {
+			runId: string;
+			usage: { inputTokens: number; outputTokens: number };
+		};
+		store.streamingUsage = { ...store.streamingUsage, [runId]: usage };
+	}
+
+	function onRunTurnTextReset(event: WSEvent): void {
+		const { runId } = event.data as { runId: string };
+		// Reset streaming text and thinking buffers — next turn's tokens start from empty
+		store.streamingMessages = { ...store.streamingMessages, [runId]: "" };
+		store.streamingThinking = { ...store.streamingThinking, [runId]: "" };
+		// Clear streaming tool calls — they're now persisted in DB
+		store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: [] };
+		// DON'T reset streamingAgentCalls — agents persist across turns
+		// (they were spawned in turn 1, synthesized in turn 2)
+		// Reset content block builder for next turn, but re-inject agent refs
+		const resetBuilder = blockBuilders.get(runId);
+		if (resetBuilder) {
+			resetBuilder.reset();
+			// Re-inject agent_ref blocks for agents spawned in previous turns
+			const existingAgents = store.streamingAgentCalls[runId] ?? [];
+			for (let i = 0; i < existingAgents.length; i++) {
+				resetBuilder.pushAgentRef();
+			}
+			store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: resetBuilder.snapshot() };
+		} else {
+			store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: [] };
+		}
+	}
+
+	function onRunTurnSaved(event: WSEvent): void {
+		const { runId, conversationId, messageId, parentMessageId, content, thinkingContent, final } = event.data as {
+			runId: string; conversationId: string; messageId: string; parentMessageId: string | null; content: string; thinkingContent?: string; final: boolean;
+		};
+		console.info("[kokoro-tts-flow][store] run:turn_saved received", {
+			runId, conversationId, messageId, parentMessageId, final, isExtension: runId.startsWith("ext:"),
+		});
+		// Dispatch DOM event for chat page to handle message list update
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("ez:turn_saved", {
+				detail: { runId, conversationId, messageId, parentMessageId, content, thinkingContent, final },
+			}));
+		}
+	}
+
+	function onRunFinished(event: WSEvent): void {
+		const { run: updated } = event.data as { run: Run };
+		const conversationId = store.streamingRunToConversation[updated.id];
+		store.runs = store.runs.map((r) => (r.id === updated.id ? updated : r));
+		// Mark any still-running agent pills as cancelled/error before cleanup
+		const pendingAgents = store.streamingAgentCalls[updated.id];
+		if (pendingAgents?.some(a => a.status === "running")) {
+			const finalStatus = event.type === "run:complete" ? "complete" as const : "error" as const;
+			store.streamingAgentCalls = {
+				...store.streamingAgentCalls,
+				[updated.id]: pendingAgents.map(a => a.status === "running"
+					? { ...a, status: finalStatus, resultPreview: event.type === "run:error" ? "Cancelled — parent run failed" : undefined }
+					: a),
+			};
+		}
+		// Clean up streaming state for completed runs
+		if (conversationId !== undefined) {
+			stopStreaming(updated.id);
+		} else {
+			// Run completed before startStreaming was called — track it
+			store.completedBeforeStream = new Set([...store.completedBeforeStream, updated.id]);
+		}
+		// Toast notifications for completion/error (not cancel)
+		if (event.type === "run:complete") {
+			const viewingConv = conversationId && typeof window !== "undefined"
+				&& window.location.pathname.includes(conversationId);
+			if (!viewingConv) {
+				if (conversationId) unreadStore.markUnread(conversationId, updated.projectId ?? null);
+				addToast({
+					type: "success",
+					message: "Run completed",
+					action: { label: "View", onclick: () => { window.location.href = `/runs/${updated.id}`; } },
 				});
-				break;
 			}
+		} else if (event.type === "run:error") {
+			addToast({
+				type: "error",
+				// biome-ignore lint/suspicious/noExplicitAny: the run-update payload arrives over the websocket and only SOME run states carry `error`; the union has no discriminant for it here.
+				message: `Run failed: ${(updated as any).error || "Unknown error"}`,
+				action: { label: "View", onclick: () => { window.location.href = `/runs/${updated.id}`; } },
+			});
+		}
+	}
 
-			case "run:status": {
-				const { runId, status } = event.data as { runId: string; status: string };
-				store.streamingStatus = { ...store.streamingStatus, [runId]: status };
-				if (status === "memory_unavailable") {
-					store.memoryUnavailableRunId = runId;
-				} else if (store.memoryUnavailableRunId !== null) {
-					// Recovery: a non-memory_unavailable status clears the flag
-					store.memoryUnavailableRunId = null;
-				}
-				break;
-			}
+	function onWorkflowStart(event: WSEvent): void {
+		const { workflowRun } = event.data as { workflowRun: WorkflowRun };
+		store.workflowRuns = [workflowRun, ...store.workflowRuns];
+	}
 
-			case "run:token": {
-				const { runId, token, kind } = event.data as { runId: string; token: string; kind?: string };
-				if (kind === "thinking") {
-					bufferThinkingToken(runId, token);
-				} else {
-					bufferToken(runId, token);
-				}
-				break;
-			}
+	function onWorkflowProgress(event: WSEvent): void {
+		const { workflowRun } = event.data as { workflowRun: WorkflowRun };
+		store.workflowRuns = store.workflowRuns.map((r) => (r.id === workflowRun.id ? workflowRun : r));
+	}
 
-			case "run:usage": {
-				const { runId, usage } = event.data as {
-					runId: string;
-					usage: { inputTokens: number; outputTokens: number };
+	function onWorkflowApprovalRequest(event: WSEvent): void {
+		// The server filter already scoped this to the run's owner and
+		// drops it outright when the run has none, so anything that
+		// arrives here is this user's to answer.
+		registerPendingApproval(event.data as unknown as PendingApprovalNotice);
+	}
+
+	function onToolStart(event: WSEvent): void {
+		const { conversationId, toolName, input, timestamp, extensionId, source, invocationId, cardType, cardLayout, category } = event.data as {
+			conversationId: string; toolName: string; input: unknown; timestamp: number; extensionId?: string; source?: string; invocationId?: string; cardType?: string; cardLayout?: string; category?: string;
+		};
+		const safeLayout = cardLayout === 'dock' ? 'dock' as const : cardLayout === 'inline' ? 'inline' as const : undefined;
+		if (source === 'inline' && invocationId) {
+			inlineToolStore.updateFromEvent(invocationId, 'tool:start', { timestamp, ...(cardType ? { cardType } : {}), ...(safeLayout ? { cardLayout: safeLayout } : {}) });
+			return;
+		}
+		// Live Diff Summary panel: upsert non-inline tool calls into the
+		// inline store keyed by invocationId. This is the push path that
+		// replaces the previous DOM-event + full-refetch hack — when a
+		// sub-agent edits a file, its tool:complete arrives here directly
+		// and the panel updates within the same tick.
+		if (invocationId) {
+			inlineToolStore.upsertStreaming({
+				id: invocationId,
+				conversationId,
+				extensionName: extensionId ?? 'builtin',
+				toolName,
+				input: (input ?? {}) as Record<string, unknown>,
+				status: 'running',
+				startedAt: timestamp,
+				...(cardType ? { cardType } : {}),
+				...(safeLayout ? { cardLayout: safeLayout } : {}),
+			});
+		}
+		// Find runId from conversationId
+		const runId = Object.entries(store.streamingRunToConversation)
+			.find(([, cId]) => cId === conversationId)?.[0];
+		if (runId) {
+			const existing = store.streamingToolCalls[runId] ?? [];
+			const entry: ToolCallState = { ...(invocationId ? { id: invocationId } : {}), toolName, status: 'running', input, startedAt: timestamp, extensionId, cardType, cardLayout: safeLayout, category };
+			// Dedup by id (symmetric with the resume guard in
+			// stream-resume.svelte.ts): the resume/active-run path may have
+			// already injected a synthetic card for this tool call
+			// (pendingAskUser / pendingPermissions) before the live
+			// tool:start arrives — typically on a WS reconnect while an
+			// ask_user_question gate is open. A blind append would render
+			// the same question card twice. When the id is already present
+			// this is a no-op (and we skip the paired tool_ref push below).
+			const { calls, added } = appendStreamingToolCall(existing, entry);
+			if (added) {
+				// Flush any buffered tokens BEFORE inserting tool_ref to preserve text/tool ordering
+				flushTokensForRun(runId);
+				store.streamingToolCalls = {
+					...store.streamingToolCalls,
+					[runId]: calls,
 				};
-				store.streamingUsage = { ...store.streamingUsage, [runId]: usage };
-				break;
-			}
-
-			case "run:turn_text_reset": {
-				const { runId } = event.data as { runId: string };
-				// Reset streaming text and thinking buffers — next turn's tokens start from empty
-				store.streamingMessages = { ...store.streamingMessages, [runId]: "" };
-				store.streamingThinking = { ...store.streamingThinking, [runId]: "" };
-				// Clear streaming tool calls — they're now persisted in DB
-				store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: [] };
-				// DON'T reset streamingAgentCalls — agents persist across turns
-				// (they were spawned in turn 1, synthesized in turn 2)
-				// Reset content block builder for next turn, but re-inject agent refs
-				const resetBuilder = blockBuilders.get(runId);
-				if (resetBuilder) {
-					resetBuilder.reset();
-					// Re-inject agent_ref blocks for agents spawned in previous turns
-					const existingAgents = store.streamingAgentCalls[runId] ?? [];
-					for (let i = 0; i < existingAgents.length; i++) {
-						resetBuilder.pushAgentRef();
-					}
-					store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: resetBuilder.snapshot() };
-				} else {
-					store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: [] };
-				}
-				break;
-			}
-
-			case "run:turn_saved": {
-				const { runId, conversationId, messageId, parentMessageId, content, thinkingContent, final } = event.data as {
-					runId: string; conversationId: string; messageId: string; parentMessageId: string | null; content: string; thinkingContent?: string; final: boolean;
-				};
-				console.info("[kokoro-tts-flow][store] run:turn_saved received", {
-					runId, conversationId, messageId, parentMessageId, final, isExtension: runId.startsWith("ext:"),
-				});
-				// Dispatch DOM event for chat page to handle message list update
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("ez:turn_saved", {
-						detail: { runId, conversationId, messageId, parentMessageId, content, thinkingContent, final },
-					}));
-				}
-				break;
-			}
-
-			case "run:complete":
-			case "run:error":
-			case "run:cancel": {
-				const { run: updated } = event.data as { run: Run };
-				const conversationId = store.streamingRunToConversation[updated.id];
-				store.runs = store.runs.map((r) => (r.id === updated.id ? updated : r));
-				// Mark any still-running agent pills as cancelled/error before cleanup
-				const pendingAgents = store.streamingAgentCalls[updated.id];
-				if (pendingAgents?.some(a => a.status === "running")) {
-					const finalStatus = event.type === "run:complete" ? "complete" as const : "error" as const;
-					store.streamingAgentCalls = {
-						...store.streamingAgentCalls,
-						[updated.id]: pendingAgents.map(a => a.status === "running"
-							? { ...a, status: finalStatus, resultPreview: event.type === "run:error" ? "Cancelled — parent run failed" : undefined }
-							: a),
+				// Insert tool_ref into content blocks
+				const tcBuilder = blockBuilders.get(runId);
+				if (tcBuilder) {
+					tcBuilder.pushToolRef();
+					store.streamingContentBlocks = {
+						...store.streamingContentBlocks,
+						[runId]: tcBuilder.snapshot(),
 					};
 				}
-				// Clean up streaming state for completed runs
-				if (conversationId !== undefined) {
-					stopStreaming(updated.id);
+			}
+		}
+	}
+
+	function onToolComplete(event: WSEvent): void {
+		const { conversationId, toolName, output, duration, success: completeSuccess, source: completeSource, invocationId: completeInvId, cardType: completeCardType, cardLayout: completeCardLayout } = event.data as {
+			conversationId: string; toolName: string; output: unknown; duration: number; success?: boolean; source?: string; invocationId?: string; cardType?: string; cardLayout?: string;
+		};
+		const safeCompleteLayout = completeCardLayout === 'dock' ? 'dock' as const : completeCardLayout === 'inline' ? 'inline' as const : undefined;
+		if (completeSource === 'inline' && completeInvId) {
+			if (completeSuccess === false) {
+				inlineToolStore.updateFromEvent(completeInvId, 'tool:error', { error: output, duration });
+			} else {
+				inlineToolStore.updateFromEvent(completeInvId, 'tool:complete', { output, duration, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) });
+			}
+			return;
+		}
+		// Live Diff Summary panel: finalize the streaming entry in the
+		// inline store. Matches the tool:start upsert above. `input`
+		// is intentionally omitted so the entry's original input from
+		// tool:start is preserved — the panel's diff aggregator keys
+		// off `input.file_path` / `input.path`.
+		if (completeInvId) {
+			const extracted = extractToolOutput(output);
+			const outputText = typeof extracted === 'string' ? extracted : JSON.stringify(extracted);
+			const existingStreaming = inlineToolStore.getById(completeInvId);
+			inlineToolStore.upsertStreaming({
+				id: completeInvId,
+				conversationId,
+				extensionName: existingStreaming?.extensionName ?? 'builtin',
+				toolName,
+				status: completeSuccess === false ? 'error' : 'complete',
+				output: outputText,
+				duration,
+				...(completeCardType ? { cardType: completeCardType } : {}),
+				...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}),
+			});
+		}
+		const runId = Object.entries(store.streamingRunToConversation)
+			.find(([, cId]) => cId === conversationId)?.[0];
+		if (runId) {
+			const calls = store.streamingToolCalls[runId] ?? [];
+			// Find the latest running call with matching toolName
+			const idx = calls.findLastIndex((tc) => tc.toolName === toolName && tc.status === 'running');
+			if (idx >= 0) {
+				const updated = [...calls];
+				const extractedOutput = extractToolOutput(output);
+				if (completeSuccess === false) {
+					const errText = typeof extractedOutput === 'string' ? extractedOutput : JSON.stringify(extractedOutput);
+					updated[idx] = { ...updated[idx]!, status: 'error', error: errText, output: extractedOutput, duration, permissionPending: false, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) };
 				} else {
-					// Run completed before startStreaming was called — track it
-					store.completedBeforeStream = new Set([...store.completedBeforeStream, updated.id]);
+					updated[idx] = { ...updated[idx]!, status: 'complete', output: extractedOutput, duration, permissionPending: false, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) };
 				}
-				// Toast notifications for completion/error (not cancel)
-				if (event.type === "run:complete") {
-					const viewingConv = conversationId && typeof window !== "undefined"
-						&& window.location.pathname.includes(conversationId);
-					if (!viewingConv) {
-						if (conversationId) unreadStore.markUnread(conversationId, updated.projectId ?? null);
-						addToast({
-							type: "success",
-							message: "Run completed",
-							action: { label: "View", onclick: () => { window.location.href = `/runs/${updated.id}`; } },
-						});
-					}
-				} else if (event.type === "run:error") {
-					addToast({
-						type: "error",
-						// biome-ignore lint/suspicious/noExplicitAny: the run-update payload arrives over the websocket and only SOME run states carry `error`; the union has no discriminant for it here.
-						message: `Run failed: ${(updated as any).error || "Unknown error"}`,
-						action: { label: "View", onclick: () => { window.location.href = `/runs/${updated.id}`; } },
-					});
-				}
-				break;
+				store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
 			}
+		}
+	}
 
-			case "workflow:start": {
-				const { workflowRun } = event.data as { workflowRun: WorkflowRun };
-				store.workflowRuns = [workflowRun, ...store.workflowRuns];
-				break;
+	function onToolError(event: WSEvent): void {
+		const { conversationId, toolName, error: toolError, duration, source: errorSource, invocationId: errorInvId, cardType: errorCardType, cardLayout: errorCardLayout } = event.data as {
+			conversationId: string; toolName: string; error: string; duration: number; source?: string; invocationId?: string; cardType?: string; cardLayout?: string;
+		};
+		const safeErrorLayout = errorCardLayout === 'dock' ? 'dock' as const : errorCardLayout === 'inline' ? 'inline' as const : undefined;
+		if (errorSource === 'inline' && errorInvId) {
+			inlineToolStore.updateFromEvent(errorInvId, 'tool:error', { error: toolError, duration, ...(errorCardType ? { cardType: errorCardType } : {}), ...(safeErrorLayout ? { cardLayout: safeErrorLayout } : {}) });
+			return;
+		}
+		// Live Diff Summary panel: mark the streaming entry as errored.
+		// `input` omitted on purpose (see tool:complete above).
+		if (errorInvId) {
+			const existingStreaming = inlineToolStore.getById(errorInvId);
+			inlineToolStore.upsertStreaming({
+				id: errorInvId,
+				conversationId,
+				extensionName: existingStreaming?.extensionName ?? 'builtin',
+				toolName,
+				status: 'error',
+				error: toolError,
+				duration,
+				...(errorCardType ? { cardType: errorCardType } : {}),
+				...(safeErrorLayout ? { cardLayout: safeErrorLayout } : {}),
+			});
+		}
+		const runId = Object.entries(store.streamingRunToConversation)
+			.find(([, cId]) => cId === conversationId)?.[0];
+		if (runId) {
+			const calls = store.streamingToolCalls[runId] ?? [];
+			const idx = calls.findLastIndex((tc) => tc.toolName === toolName && tc.status === 'running');
+			if (idx >= 0) {
+				const updated = [...calls];
+				updated[idx] = { ...updated[idx]!, status: 'error', error: toolError, duration };
+				store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
 			}
+		}
+		addToast({ type: "warning", message: `Tool "${toolName}" failed` });
+	}
 
-			case "workflow:step":
-			case "workflow:complete":
-			case "workflow:error": {
-				const { workflowRun } = event.data as { workflowRun: WorkflowRun };
-				store.workflowRuns = store.workflowRuns.map((r) => (r.id === workflowRun.id ? workflowRun : r));
-				break;
-			}
-
-			case "workflow:approval_request": {
-				// The server filter already scoped this to the run's owner and
-				// drops it outright when the run has none, so anything that
-				// arrives here is this user's to answer.
-				registerPendingApproval(event.data as unknown as PendingApprovalNotice);
-				break;
-			}
-
-			case "tool:start": {
-				const { conversationId, toolName, input, timestamp, extensionId, source, invocationId, cardType, cardLayout, category } = event.data as {
-					conversationId: string; toolName: string; input: unknown; timestamp: number; extensionId?: string; source?: string; invocationId?: string; cardType?: string; cardLayout?: string; category?: string;
-				};
-				const safeLayout = cardLayout === 'dock' ? 'dock' as const : cardLayout === 'inline' ? 'inline' as const : undefined;
-				if (source === 'inline' && invocationId) {
-					inlineToolStore.updateFromEvent(invocationId, 'tool:start', { timestamp, ...(cardType ? { cardType } : {}), ...(safeLayout ? { cardLayout: safeLayout } : {}) });
-					break;
-				}
-				// Live Diff Summary panel: upsert non-inline tool calls into the
-				// inline store keyed by invocationId. This is the push path that
-				// replaces the previous DOM-event + full-refetch hack — when a
-				// sub-agent edits a file, its tool:complete arrives here directly
-				// and the panel updates within the same tick.
-				if (invocationId) {
-					inlineToolStore.upsertStreaming({
-						id: invocationId,
-						conversationId,
-						extensionName: extensionId ?? 'builtin',
-						toolName,
-						input: (input ?? {}) as Record<string, unknown>,
-						status: 'running',
-						startedAt: timestamp,
-						...(cardType ? { cardType } : {}),
-						...(safeLayout ? { cardLayout: safeLayout } : {}),
-					});
-				}
-				// Find runId from conversationId
-				const runId = Object.entries(store.streamingRunToConversation)
-					.find(([, cId]) => cId === conversationId)?.[0];
-				if (runId) {
-					const existing = store.streamingToolCalls[runId] ?? [];
-					const entry: ToolCallState = { ...(invocationId ? { id: invocationId } : {}), toolName, status: 'running', input, startedAt: timestamp, extensionId, cardType, cardLayout: safeLayout, category };
-					// Dedup by id (symmetric with the resume guard in
-					// stream-resume.svelte.ts): the resume/active-run path may have
-					// already injected a synthetic card for this tool call
-					// (pendingAskUser / pendingPermissions) before the live
-					// tool:start arrives — typically on a WS reconnect while an
-					// ask_user_question gate is open. A blind append would render
-					// the same question card twice. When the id is already present
-					// this is a no-op (and we skip the paired tool_ref push below).
-					const { calls, added } = appendStreamingToolCall(existing, entry);
-					if (added) {
-						// Flush any buffered tokens BEFORE inserting tool_ref to preserve text/tool ordering
-						flushTokensForRun(runId);
-						store.streamingToolCalls = {
-							...store.streamingToolCalls,
-							[runId]: calls,
-						};
-						// Insert tool_ref into content blocks
-						const tcBuilder = blockBuilders.get(runId);
-						if (tcBuilder) {
-							tcBuilder.pushToolRef();
-							store.streamingContentBlocks = {
-								...store.streamingContentBlocks,
-								[runId]: tcBuilder.snapshot(),
-							};
-						}
-					}
-				}
-				break;
-			}
-
-			case "tool:complete": {
-				const { conversationId, toolName, output, duration, success: completeSuccess, source: completeSource, invocationId: completeInvId, cardType: completeCardType, cardLayout: completeCardLayout } = event.data as {
-					conversationId: string; toolName: string; output: unknown; duration: number; success?: boolean; source?: string; invocationId?: string; cardType?: string; cardLayout?: string;
-				};
-				const safeCompleteLayout = completeCardLayout === 'dock' ? 'dock' as const : completeCardLayout === 'inline' ? 'inline' as const : undefined;
-				if (completeSource === 'inline' && completeInvId) {
-					if (completeSuccess === false) {
-						inlineToolStore.updateFromEvent(completeInvId, 'tool:error', { error: output, duration });
-					} else {
-						inlineToolStore.updateFromEvent(completeInvId, 'tool:complete', { output, duration, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) });
-					}
-					break;
-				}
-				// Live Diff Summary panel: finalize the streaming entry in the
-				// inline store. Matches the tool:start upsert above. `input`
-				// is intentionally omitted so the entry's original input from
-				// tool:start is preserved — the panel's diff aggregator keys
-				// off `input.file_path` / `input.path`.
-				if (completeInvId) {
-					const extracted = extractToolOutput(output);
-					const outputText = typeof extracted === 'string' ? extracted : JSON.stringify(extracted);
-					const existingStreaming = inlineToolStore.getById(completeInvId);
-					inlineToolStore.upsertStreaming({
-						id: completeInvId,
-						conversationId,
-						extensionName: existingStreaming?.extensionName ?? 'builtin',
-						toolName,
-						status: completeSuccess === false ? 'error' : 'complete',
-						output: outputText,
-						duration,
-						...(completeCardType ? { cardType: completeCardType } : {}),
-						...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}),
-					});
-				}
-				const runId = Object.entries(store.streamingRunToConversation)
-					.find(([, cId]) => cId === conversationId)?.[0];
-				if (runId) {
-					const calls = store.streamingToolCalls[runId] ?? [];
-					// Find the latest running call with matching toolName
-					const idx = calls.findLastIndex((tc) => tc.toolName === toolName && tc.status === 'running');
-					if (idx >= 0) {
-						const updated = [...calls];
-						const extractedOutput = extractToolOutput(output);
-						if (completeSuccess === false) {
-							const errText = typeof extractedOutput === 'string' ? extractedOutput : JSON.stringify(extractedOutput);
-							updated[idx] = { ...updated[idx]!, status: 'error', error: errText, output: extractedOutput, duration, permissionPending: false, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) };
-						} else {
-							updated[idx] = { ...updated[idx]!, status: 'complete', output: extractedOutput, duration, permissionPending: false, ...(completeCardType ? { cardType: completeCardType } : {}), ...(safeCompleteLayout ? { cardLayout: safeCompleteLayout } : {}) };
-						}
-						store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
-					}
-				}
-				break;
-			}
-
-			case "tool:error": {
-				const { conversationId, toolName, error: toolError, duration, source: errorSource, invocationId: errorInvId, cardType: errorCardType, cardLayout: errorCardLayout } = event.data as {
-					conversationId: string; toolName: string; error: string; duration: number; source?: string; invocationId?: string; cardType?: string; cardLayout?: string;
-				};
-				const safeErrorLayout = errorCardLayout === 'dock' ? 'dock' as const : errorCardLayout === 'inline' ? 'inline' as const : undefined;
-				if (errorSource === 'inline' && errorInvId) {
-					inlineToolStore.updateFromEvent(errorInvId, 'tool:error', { error: toolError, duration, ...(errorCardType ? { cardType: errorCardType } : {}), ...(safeErrorLayout ? { cardLayout: safeErrorLayout } : {}) });
-					break;
-				}
-				// Live Diff Summary panel: mark the streaming entry as errored.
-				// `input` omitted on purpose (see tool:complete above).
-				if (errorInvId) {
-					const existingStreaming = inlineToolStore.getById(errorInvId);
-					inlineToolStore.upsertStreaming({
-						id: errorInvId,
-						conversationId,
-						extensionName: existingStreaming?.extensionName ?? 'builtin',
-						toolName,
-						status: 'error',
-						error: toolError,
-						duration,
-						...(errorCardType ? { cardType: errorCardType } : {}),
-						...(safeErrorLayout ? { cardLayout: safeErrorLayout } : {}),
-					});
-				}
-				const runId = Object.entries(store.streamingRunToConversation)
-					.find(([, cId]) => cId === conversationId)?.[0];
-				if (runId) {
-					const calls = store.streamingToolCalls[runId] ?? [];
-					const idx = calls.findLastIndex((tc) => tc.toolName === toolName && tc.status === 'running');
-					if (idx >= 0) {
-						const updated = [...calls];
-						updated[idx] = { ...updated[idx]!, status: 'error', error: toolError, duration };
-						store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
-					}
-				}
-				addToast({ type: "warning", message: `Tool "${toolName}" failed` });
-				break;
-			}
-
-			case "tool:permission_request": {
-				const {
-					conversationId,
-					toolCallId,
-					toolName: permToolName,
-					input: permInput,
+	function onToolPermissionRequest(event: WSEvent): void {
+		const {
+			conversationId,
+			toolCallId,
+			toolName: permToolName,
+			input: permInput,
+			cardType: permCardType,
+			cardLayout: permCardLayout,
+			category: permCategory,
+			// Phase 6: extension-scoped fields. When `extensionId` is
+			// set, the modal renders the four-scope chooser and uses
+			// `capabilityKind`/`capabilityValue` to describe the
+			// requested operation. Built-in tool gates leave them
+			// undefined and use the legacy two-button modal.
+			extensionId: permExtensionId,
+			capabilityKind: permCapabilityKind,
+			capabilityValue: permCapabilityValue,
+		} = event.data as {
+			conversationId: string;
+			toolCallId: string;
+			toolName: string;
+			input: unknown;
+			cardType?: string;
+			cardLayout?: string;
+			category?: string;
+			extensionId?: string;
+			capabilityKind?: SensitiveCapabilityKind;
+			capabilityValue?: string;
+		};
+		const safePermLayout = permCardLayout === 'dock' ? 'dock' as const : permCardLayout === 'inline' ? 'inline' as const : undefined;
+		// Resolve root run — handles both root conversations and sub-agent conversations
+		const runId = resolveRunForConversation(conversationId);
+		if (runId) {
+			const calls = store.streamingToolCalls[runId] ?? [];
+			// Find existing tool call or create one
+			const idx = calls.findLastIndex((tc) => tc.toolName === permToolName && tc.status === 'running');
+			if (idx >= 0) {
+				const updated = [...calls];
+				updated[idx] = {
+					...updated[idx]!,
+					id: toolCallId,
+					permissionPending: true,
 					cardType: permCardType,
-					cardLayout: permCardLayout,
+					cardLayout: safePermLayout,
 					category: permCategory,
-					// Phase 6: extension-scoped fields. When `extensionId` is
-					// set, the modal renders the four-scope chooser and uses
-					// `capabilityKind`/`capabilityValue` to describe the
-					// requested operation. Built-in tool gates leave them
-					// undefined and use the legacy two-button modal.
 					extensionId: permExtensionId,
 					capabilityKind: permCapabilityKind,
 					capabilityValue: permCapabilityValue,
-				} = event.data as {
-					conversationId: string;
-					toolCallId: string;
-					toolName: string;
-					input: unknown;
-					cardType?: string;
-					cardLayout?: string;
-					category?: string;
-					extensionId?: string;
-					capabilityKind?: 'shell' | 'fs.write';
-					capabilityValue?: string;
 				};
-				const safePermLayout = permCardLayout === 'dock' ? 'dock' as const : permCardLayout === 'inline' ? 'inline' as const : undefined;
-				// Resolve root run — handles both root conversations and sub-agent conversations
-				const runId = resolveRunForConversation(conversationId);
-				if (runId) {
-					const calls = store.streamingToolCalls[runId] ?? [];
-					// Find existing tool call or create one
-					const idx = calls.findLastIndex((tc) => tc.toolName === permToolName && tc.status === 'running');
-					if (idx >= 0) {
-						const updated = [...calls];
-						updated[idx] = {
-							...updated[idx]!,
+				store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
+			} else {
+				store.streamingToolCalls = {
+					...store.streamingToolCalls,
+					[runId]: [
+						...calls,
+						{
 							id: toolCallId,
+							toolName: permToolName,
+							status: 'running',
+							input: permInput,
+							startedAt: Date.now(),
 							permissionPending: true,
 							cardType: permCardType,
 							cardLayout: safePermLayout,
@@ -1338,283 +1342,287 @@ export function initStores() {
 							extensionId: permExtensionId,
 							capabilityKind: permCapabilityKind,
 							capabilityValue: permCapabilityValue,
-						};
-						store.streamingToolCalls = { ...store.streamingToolCalls, [runId]: updated };
-					} else {
-						store.streamingToolCalls = {
-							...store.streamingToolCalls,
-							[runId]: [
-								...calls,
-								{
-									id: toolCallId,
-									toolName: permToolName,
-									status: 'running',
-									input: permInput,
-									startedAt: Date.now(),
-									permissionPending: true,
-									cardType: permCardType,
-									cardLayout: safePermLayout,
-									category: permCategory,
-									extensionId: permExtensionId,
-									capabilityKind: permCapabilityKind,
-									capabilityValue: permCapabilityValue,
-								},
-							],
-						};
-					}
-				} else {
-					// No root run maps to this conversation. This is the normal
-					// case for an EXTENSION-initiated privileged tool call (e.g.
-					// ez-code-factory's init_gate hitting fs.write/shell): the
-					// prompt fires on a conversation the streaming layer never
-					// registered a run for, so there's no chat-inline card slot.
-					// Render the prompt on the global fallback tray instead —
-					// otherwise the backend gate (which DOES work) would hang
-					// forever with no UI to approve it. Fail-closed: we only add
-					// a render surface; the approve/deny decision still goes
-					// through the same POST /api/tool-calls/:id/permission gate.
-					// browser-side store: keep console.* — server-side $server/logger writes to
-					// process.stderr, which doesn't exist in the browser bundle.
-					console.warn("[permission] No active run for conversation", conversationId, "— routing tool", permToolName, "to the fallback permission tray");
-					registerPendingPermission({
-						id: toolCallId,
-						toolName: permToolName,
-						status: 'running',
-						input: permInput,
-						startedAt: Date.now(),
-						permissionPending: true,
-						cardType: permCardType,
-						cardLayout: safePermLayout,
-						category: permCategory,
-						extensionId: permExtensionId,
-						capabilityKind: permCapabilityKind,
-						capabilityValue: permCapabilityValue,
-					});
-				}
-				break;
-			}
-
-			// ── Multi-Agent Orchestration Events ──
-
-			case "agent:spawn": {
-				const { runId, subConversationId, agentName, agentConfigId, task, agentRunId } = event.data as {
-					runId: string; subConversationId: string; agentName: string; agentConfigId: string; task: string; agentRunId: string;
+						},
+					],
 				};
-				// Register sub-conversation → root run mapping so events fired by
-				// the sub-agent (tool permissions etc.) reach the UI. Nested
-				// spawns inherit the root via agentRunToRootRun, handled by
-				// the pure routing module.
-				applyRoutingState(routingRegisterSpawn(routingSnapshot(), { runId, agentRunId, subConversationId }));
-				// Flush buffered tokens to preserve text/agent ordering
-				flushTokensForRun(runId);
-				const existing = store.streamingAgentCalls[runId] ?? [];
-				// Deduplicate: if this agent already has a pill (persistent sub-conversation), update it
-				const existingIdx = existing.findIndex(a => a.subConversationId === subConversationId);
-				if (existingIdx >= 0) {
-					const updated = [...existing];
-					updated[existingIdx] = { ...updated[existingIdx]!, status: 'running', statusText: undefined, resultPreview: undefined, task, agentRunId, startedAt: Date.now() };
-					store.streamingAgentCalls = { ...store.streamingAgentCalls, [runId]: updated };
-					break;
-				}
-				store.streamingAgentCalls = {
-					...store.streamingAgentCalls,
-					[runId]: [...existing, { subConversationId, agentName, agentConfigId, task, status: 'running', agentRunId, startedAt: Date.now() }],
-				};
-				// Insert agent_ref into content blocks (only for new agents, not re-invocations)
-				const agentBuilder = blockBuilders.get(runId);
-				if (agentBuilder) {
-					agentBuilder.pushAgentRef();
-					store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: agentBuilder.snapshot() };
-				}
-				break;
 			}
-
-			case "agent:status": {
-				const { runId, subConversationId, status: agentStatus } = event.data as {
-					runId: string; subConversationId: string; status: string;
-				};
-				const agents = store.streamingAgentCalls[runId];
-				if (agents) {
-					store.streamingAgentCalls = {
-						...store.streamingAgentCalls,
-						[runId]: agents.map(a => a.subConversationId === subConversationId ? { ...a, statusText: agentStatus } : a),
-					};
-				}
-				break;
-			}
-
-			case "agent:complete": {
-				const { subConversationId, agentName: completeAgentName, success: agentSuccess, resultPreview, agentRunId: completeAgentRunId } = event.data as {
-					runId: string; subConversationId: string; agentName: string; success: boolean; resultPreview: string; agentRunId?: string; parentConversationId?: string;
-				};
-				// Resolve the chip by its stable `subConversationId`, scanning every
-				// run bucket — NOT just `streamingAgentCalls[runId]`. The terminal
-				// `agent:complete` now fires for tool-spawned / background agents
-				// too, and for one that auto-continued (auto-continue / autonomous /
-				// schema-retry cycle) the terminal `runId` is the LAST cycle's run
-				// id, which differs from the initial spawn run id that keyed the
-				// chip. Keying strictly on `runId` would leave such an agent stuck
-				// "running"; matching on `subConversationId` (constant across all
-				// cycles) resolves it to complete/error.
-				let matchedAgentCall = false;
-				const nextAgentCalls: Record<string, AgentCallState[]> = {};
-				for (const [bucketRunId, calls] of Object.entries(store.streamingAgentCalls)) {
-					nextAgentCalls[bucketRunId] = calls.map(a => {
-						if (a.subConversationId !== subConversationId) return a;
-						matchedAgentCall = true;
-						return { ...a, status: agentSuccess ? 'complete' as const : 'error' as const, resultPreview };
-					});
-				}
-				if (matchedAgentCall) {
-					store.streamingAgentCalls = nextAgentCalls;
-				}
-				// Top-level signal for sub-agent failures. The red AgentChip is easy to miss;
-				// a toast makes sure users notice even if the panel is collapsed or the failing
-				// chip is buried among others.
-				if (!agentSuccess) {
-					addToast({
-						type: "error",
-						message: `Agent "${completeAgentName}" failed: ${resultPreview ?? "Unknown error"}`,
-					});
-				}
-				// NOTE: live updates to the parent's Diff Summary panel are now
-				// driven directly from tool:complete events (see above). No
-				// DOM custom event / refetch hack is needed here — by the time
-				// this agent:complete fires, every sub-agent tool call has
-				// already arrived on the bus and been upserted into the inline
-				// tool store.
-				// Notify the chat page so it can re-hydrate sub-conversation data
-				const parentConvId = (event.data as Record<string, unknown>).parentConversationId as string | undefined;
-				if (parentConvId && typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("ez:agent_complete", {
-						detail: { parentConversationId: parentConvId, subConversationId },
-					}));
-				}
-				// Clean up sub-conversation → root run mappings via the pure routing module
-				applyRoutingState(routingUnregisterSpawn(routingSnapshot(), { subConversationId, agentRunId: completeAgentRunId }));
-				break;
-			}
-
-			case "task:snapshot": {
-				commitTaskState(
-					reduceLiveSnapshot(readTaskState(), event.data as unknown as TaskSnapshot),
-				);
-				break;
-			}
-
-			case "task:assignment_update": {
-				commitTaskState(
-					reduceAssignmentUpdate(
-						readTaskState(),
-						event.data as unknown as Parameters<typeof reduceAssignmentUpdate>[1],
-						new Date().toISOString(),
-					),
-				);
-				break;
-			}
-
-			case "ez:client-tool": {
-				// Forward Ez client-side tool invocations (`fill_form` /
-				// `navigate_to`) to whatever surface is listening — today
-				// that's only EzPanel.svelte. Mirrors the `ez:turn_saved`
-				// pattern: route the bus event into a DOM custom event so
-				// the panel doesn't need a second EventSource of its own.
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("ez:client-tool", {
-						detail: event.data,
-					}));
-				}
-				break;
-			}
-
-			case "ext:state": {
-				const { extensionId, extensionName, state } = event.data as {
-					extensionId: string; extensionName: string; state: Record<string, unknown>;
-				};
-				if (extensionId) {
-					store.extensionPanelStates = {
-						...store.extensionPanelStates,
-						[extensionId]: { extensionName, state },
-					};
-				}
-				break;
-			}
-
-			case "ext:page-state": {
-				// Extension Pages Hub: content-free invalidation signal.
-				// Re-dispatch as a window CustomEvent so the Hub page
-				// ((app)/hub/[pageId]) can re-pull its render endpoint
-				// without owning a second EventSource — same pattern as
-				// `extensions:installed` below. The payload carries only
-				// {extensionId, extensionName, pageId}; the actual tree is
-				// fetched per-session from the authed render route.
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("ext:page-state", {
-						detail: event.data,
-					}));
-				}
-				break;
-			}
-
-			case "extensions:installed": {
-				// agent-install-ux-polish Phase 2 (D4): re-dispatch the
-				// user-scoped install signal as a DOM CustomEvent so the
-				// Extensions Library page can trigger its existing
-				// cache-bypassing `loadExtensions()` without standing up a
-				// second EventSource. Mirrors the `ez:client-tool` /
-				// `ez:turn_saved` re-dispatch pattern. Server-side
-				// `shouldDeliverEvent` already scoped this to the
-				// installing user's session; the page just needs to know
-				// "refresh now".
-				void refreshQuickstart();
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("extensions:installed", {
-						detail: event.data,
-					}));
-				}
-				break;
-			}
-
-			case "conversation:created": {
-				// Daily Briefing Phase 2 (spec §5.3): a server-initiated
-				// conversation (briefing pipeline today; any future
-				// server-side creator via `source`) landed for THIS user —
-				// the SSE filter is fail-closed per-user, so no ownership
-				// re-check is needed here. Mark it unread (lights the
-				// sidebar dot, project-rail badge, and favicon badge) and
-				// re-dispatch as a window CustomEvent so ConversationList
-				// can refetch the affected project's list without owning a
-				// second EventSource (same pattern as `extensions:installed`).
-				const { conversationId, projectId } = event.data as {
-					conversationId?: string;
-					projectId?: string | null;
-				};
-				if (!conversationId) break;
-				void refreshQuickstart();
-				unreadStore.markUnread(conversationId, projectId ?? null);
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("conversation:created", {
-						detail: event.data,
-					}));
-				}
-				break;
-			}
-
-			case "conversation:tree-changed": {
-				// Sessions P4 rewind/checkpoint: a rewind moved this
-				// conversation's durable leaf. The SSE filter already scoped
-				// delivery to the owner (conversation-scoped, like goal:update),
-				// so re-dispatch as a window CustomEvent — ChatThread guards on
-				// its own conversationId and re-pulls the tree + messages (same
-				// pattern as `conversation:created` / `ext:page-state`).
-				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("conversation:tree-changed", {
-						detail: event.data,
-					}));
-				}
-				break;
-			}
+		} else {
+			// No root run maps to this conversation. This is the normal
+			// case for an EXTENSION-initiated privileged tool call (e.g.
+			// ez-code-factory's init_gate hitting fs.write/shell): the
+			// prompt fires on a conversation the streaming layer never
+			// registered a run for, so there's no chat-inline card slot.
+			// Render the prompt on the global fallback tray instead —
+			// otherwise the backend gate (which DOES work) would hang
+			// forever with no UI to approve it. Fail-closed: we only add
+			// a render surface; the approve/deny decision still goes
+			// through the same POST /api/tool-calls/:id/permission gate.
+			// browser-side store: keep console.* — server-side $server/logger writes to
+			// process.stderr, which doesn't exist in the browser bundle.
+			console.warn("[permission] No active run for conversation", conversationId, "— routing tool", permToolName, "to the fallback permission tray");
+			registerPendingPermission({
+				id: toolCallId,
+				toolName: permToolName,
+				status: 'running',
+				input: permInput,
+				startedAt: Date.now(),
+				permissionPending: true,
+				cardType: permCardType,
+				cardLayout: safePermLayout,
+				category: permCategory,
+				extensionId: permExtensionId,
+				capabilityKind: permCapabilityKind,
+				capabilityValue: permCapabilityValue,
+			});
 		}
+	}
+
+	// ── Multi-Agent Orchestration Events ──
+	function onAgentSpawn(event: WSEvent): void {
+		const { runId, subConversationId, agentName, agentConfigId, task, agentRunId } = event.data as {
+			runId: string; subConversationId: string; agentName: string; agentConfigId: string; task: string; agentRunId: string;
+		};
+		// Register sub-conversation → root run mapping so events fired by
+		// the sub-agent (tool permissions etc.) reach the UI. Nested
+		// spawns inherit the root via agentRunToRootRun, handled by
+		// the pure routing module.
+		applyRoutingState(routingRegisterSpawn(routingSnapshot(), { runId, agentRunId, subConversationId }));
+		// Flush buffered tokens to preserve text/agent ordering
+		flushTokensForRun(runId);
+		const existing = store.streamingAgentCalls[runId] ?? [];
+		// Deduplicate: if this agent already has a pill (persistent sub-conversation), update it
+		const existingIdx = existing.findIndex(a => a.subConversationId === subConversationId);
+		if (existingIdx >= 0) {
+			const updated = [...existing];
+			updated[existingIdx] = { ...updated[existingIdx]!, status: 'running', statusText: undefined, resultPreview: undefined, task, agentRunId, startedAt: Date.now() };
+			store.streamingAgentCalls = { ...store.streamingAgentCalls, [runId]: updated };
+			return;
+		}
+		store.streamingAgentCalls = {
+			...store.streamingAgentCalls,
+			[runId]: [...existing, { subConversationId, agentName, agentConfigId, task, status: 'running', agentRunId, startedAt: Date.now() }],
+		};
+		// Insert agent_ref into content blocks (only for new agents, not re-invocations)
+		const agentBuilder = blockBuilders.get(runId);
+		if (agentBuilder) {
+			agentBuilder.pushAgentRef();
+			store.streamingContentBlocks = { ...store.streamingContentBlocks, [runId]: agentBuilder.snapshot() };
+		}
+	}
+
+	function onAgentStatus(event: WSEvent): void {
+		const { runId, subConversationId, status: agentStatus } = event.data as {
+			runId: string; subConversationId: string; status: string;
+		};
+		const agents = store.streamingAgentCalls[runId];
+		if (agents) {
+			store.streamingAgentCalls = {
+				...store.streamingAgentCalls,
+				[runId]: agents.map(a => a.subConversationId === subConversationId ? { ...a, statusText: agentStatus } : a),
+			};
+		}
+	}
+
+	function onAgentComplete(event: WSEvent): void {
+		const { subConversationId, agentName: completeAgentName, success: agentSuccess, resultPreview, agentRunId: completeAgentRunId } = event.data as {
+			runId: string; subConversationId: string; agentName: string; success: boolean; resultPreview: string; agentRunId?: string; parentConversationId?: string;
+		};
+		// Resolve the chip by its stable `subConversationId`, scanning every
+		// run bucket — NOT just `streamingAgentCalls[runId]`. The terminal
+		// `agent:complete` now fires for tool-spawned / background agents
+		// too, and for one that auto-continued (auto-continue / autonomous /
+		// schema-retry cycle) the terminal `runId` is the LAST cycle's run
+		// id, which differs from the initial spawn run id that keyed the
+		// chip. Keying strictly on `runId` would leave such an agent stuck
+		// "running"; matching on `subConversationId` (constant across all
+		// cycles) resolves it to complete/error.
+		let matchedAgentCall = false;
+		const nextAgentCalls: Record<string, AgentCallState[]> = {};
+		for (const [bucketRunId, calls] of Object.entries(store.streamingAgentCalls)) {
+			nextAgentCalls[bucketRunId] = calls.map(a => {
+				if (a.subConversationId !== subConversationId) return a;
+				matchedAgentCall = true;
+				return { ...a, status: agentSuccess ? 'complete' as const : 'error' as const, resultPreview };
+			});
+		}
+		if (matchedAgentCall) {
+			store.streamingAgentCalls = nextAgentCalls;
+		}
+		// Top-level signal for sub-agent failures. The red AgentChip is easy to miss;
+		// a toast makes sure users notice even if the panel is collapsed or the failing
+		// chip is buried among others.
+		if (!agentSuccess) {
+			addToast({
+				type: "error",
+				message: `Agent "${completeAgentName}" failed: ${resultPreview ?? "Unknown error"}`,
+			});
+		}
+		// NOTE: live updates to the parent's Diff Summary panel are now
+		// driven directly from tool:complete events (see above). No
+		// DOM custom event / refetch hack is needed here — by the time
+		// this agent:complete fires, every sub-agent tool call has
+		// already arrived on the bus and been upserted into the inline
+		// tool store.
+		// Notify the chat page so it can re-hydrate sub-conversation data
+		const parentConvId = (event.data as Record<string, unknown>).parentConversationId as string | undefined;
+		if (parentConvId && typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("ez:agent_complete", {
+				detail: { parentConversationId: parentConvId, subConversationId },
+			}));
+		}
+		// Clean up sub-conversation → root run mappings via the pure routing module
+		applyRoutingState(routingUnregisterSpawn(routingSnapshot(), { subConversationId, agentRunId: completeAgentRunId }));
+	}
+
+	function onTaskSnapshot(event: WSEvent): void {
+		commitTaskState(
+			reduceLiveSnapshot(readTaskState(), event.data as unknown as TaskSnapshot),
+		);
+	}
+
+	function onTaskAssignmentUpdate(event: WSEvent): void {
+		commitTaskState(
+			reduceAssignmentUpdate(
+				readTaskState(),
+				event.data as unknown as Parameters<typeof reduceAssignmentUpdate>[1],
+				new Date().toISOString(),
+			),
+		);
+	}
+
+	function onEzClientTool(event: WSEvent): void {
+		// Forward Ez client-side tool invocations (`fill_form` /
+		// `navigate_to`) to whatever surface is listening — today
+		// that's only EzPanel.svelte. Mirrors the `ez:turn_saved`
+		// pattern: route the bus event into a DOM custom event so
+		// the panel doesn't need a second EventSource of its own.
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("ez:client-tool", {
+				detail: event.data,
+			}));
+		}
+	}
+
+	function onExtState(event: WSEvent): void {
+		const { extensionId, extensionName, state } = event.data as {
+			extensionId: string; extensionName: string; state: Record<string, unknown>;
+		};
+		if (extensionId) {
+			store.extensionPanelStates = {
+				...store.extensionPanelStates,
+				[extensionId]: { extensionName, state },
+			};
+		}
+	}
+
+	function onExtPageState(event: WSEvent): void {
+		// Extension Pages Hub: content-free invalidation signal.
+		// Re-dispatch as a window CustomEvent so the Hub page
+		// ((app)/hub/[pageId]) can re-pull its render endpoint
+		// without owning a second EventSource — same pattern as
+		// `extensions:installed` below. The payload carries only
+		// {extensionId, extensionName, pageId}; the actual tree is
+		// fetched per-session from the authed render route.
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("ext:page-state", {
+				detail: event.data,
+			}));
+		}
+	}
+
+	function onExtensionsInstalled(event: WSEvent): void {
+		// agent-install-ux-polish Phase 2 (D4): re-dispatch the
+		// user-scoped install signal as a DOM CustomEvent so the
+		// Extensions Library page can trigger its existing
+		// cache-bypassing `loadExtensions()` without standing up a
+		// second EventSource. Mirrors the `ez:client-tool` /
+		// `ez:turn_saved` re-dispatch pattern. Server-side
+		// `shouldDeliverEvent` already scoped this to the
+		// installing user's session; the page just needs to know
+		// "refresh now".
+		void refreshQuickstart();
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("extensions:installed", {
+				detail: event.data,
+			}));
+		}
+	}
+
+	function onConversationCreated(event: WSEvent): void {
+		// Daily Briefing Phase 2 (spec §5.3): a server-initiated
+		// conversation (briefing pipeline today; any future
+		// server-side creator via `source`) landed for THIS user —
+		// the SSE filter is fail-closed per-user, so no ownership
+		// re-check is needed here. Mark it unread (lights the
+		// sidebar dot, project-rail badge, and favicon badge) and
+		// re-dispatch as a window CustomEvent so ConversationList
+		// can refetch the affected project's list without owning a
+		// second EventSource (same pattern as `extensions:installed`).
+		const { conversationId, projectId } = event.data as {
+			conversationId?: string;
+			projectId?: string | null;
+		};
+		if (!conversationId) return;
+		void refreshQuickstart();
+		unreadStore.markUnread(conversationId, projectId ?? null);
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("conversation:created", {
+				detail: event.data,
+			}));
+		}
+	}
+
+	function onConversationTreeChanged(event: WSEvent): void {
+		// Sessions P4 rewind/checkpoint: a rewind moved this
+		// conversation's durable leaf. The SSE filter already scoped
+		// delivery to the owner (conversation-scoped, like goal:update),
+		// so re-dispatch as a window CustomEvent — ChatThread guards on
+		// its own conversationId and re-pulls the tree + messages (same
+		// pattern as `conversation:created` / `ext:page-state`).
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new CustomEvent("conversation:tree-changed", {
+				detail: event.data,
+			}));
+		}
+	}
+
+	const wsEventHandlers: Partial<Record<WSEvent["type"], (event: WSEvent) => void>> = {
+		"ws:connected": onWsConnected,
+		"ws:disconnected": onWsDisconnected,
+		"run:start": onRunStart,
+		"run:log": onRunLog,
+		"run:status": onRunStatus,
+		"run:token": onRunToken,
+		"run:usage": onRunUsage,
+		"run:turn_text_reset": onRunTurnTextReset,
+		"run:turn_saved": onRunTurnSaved,
+		"run:complete": onRunFinished,
+		"run:error": onRunFinished,
+		"run:cancel": onRunFinished,
+		"workflow:start": onWorkflowStart,
+		"workflow:step": onWorkflowProgress,
+		"workflow:complete": onWorkflowProgress,
+		"workflow:error": onWorkflowProgress,
+		"workflow:approval_request": onWorkflowApprovalRequest,
+		"tool:start": onToolStart,
+		"tool:complete": onToolComplete,
+		"tool:error": onToolError,
+		"tool:permission_request": onToolPermissionRequest,
+		"agent:spawn": onAgentSpawn,
+		"agent:status": onAgentStatus,
+		"agent:complete": onAgentComplete,
+		"task:snapshot": onTaskSnapshot,
+		"task:assignment_update": onTaskAssignmentUpdate,
+		"ez:client-tool": onEzClientTool,
+		"ext:state": onExtState,
+		"ext:page-state": onExtPageState,
+		"extensions:installed": onExtensionsInstalled,
+		"conversation:created": onConversationCreated,
+		"conversation:tree-changed": onConversationTreeChanged,
+	};
+
+	const unsub = client.subscribe((event: WSEvent) => {
+		wsEventHandlers[event.type]?.(event);
 	});
 
 	return () => {

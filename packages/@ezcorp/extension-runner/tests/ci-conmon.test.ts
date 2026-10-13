@@ -30,8 +30,8 @@ install_extension_runner_conmon
 async function install(overrides: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), "conmon-install-test-"));
   try {
-    const process = Bun.spawn(["bash", "-c", fixture], { env: { ...Bun.env, TEST_HELPER: helper, TEST_ROOT: root, ...overrides }, stdout: "pipe", stderr: "pipe" });
-    const [exitCode, stderr] = await Promise.all([process.exited, new Response(process.stderr).text(), new Response(process.stdout).text()]);
+    const child = Bun.spawn(["bash", "-c", fixture], { env: { ...process.env, TEST_HELPER: helper, TEST_ROOT: root, ...overrides }, stdout: "pipe", stderr: "pipe" });
+    const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text(), new Response(child.stdout).text()]);
     const read = async (name: string) => await Bun.file(join(root, name)).exists() ? Bun.file(join(root, name)).text() : "";
     return { exitCode, stderr, commands: await read("commands"), checksum: await read("checksum"), config: await read("config") };
   } finally { await rm(root, { recursive: true, force: true }); }

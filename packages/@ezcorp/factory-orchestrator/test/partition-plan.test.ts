@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 import { canonicalizeJson, compileFactory, createCompiledExecutionManifest, createCompiledPartitionArtifact } from "@ezcorp/factory-sdk";
 import { loadPartitionKernelPlan } from "../src/partition-plan.ts";
+import { asJson } from "./typing.ts";
 
-const digest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+const digest = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 const runnerDigest = digest("partition-runner");
 const runner = { package: "inert", manifestName: "inert", version: "1", digest: runnerDigest, export: "run" };
 const identity = { tenantId: "tenant", projectId: "project", logicalRunId: "run", interpreterId: "partition-0" };
@@ -39,9 +40,10 @@ function fixture() {
   const artifact = createCompiledPartitionArtifact(factory, "partition-0");
   const partition = factory.partitions[0];
   assert.ok(partition);
+  const manifestJson = canonicalizeJson(asJson(manifest));
   const source = {
     definitionDigest: factory.digest,
-    executionManifest: { objectId: "manifest", digest: digest(canonicalizeJson(manifest)), encodedBytes: Buffer.byteLength(canonicalizeJson(manifest)) },
+    executionManifest: { objectId: "manifest", digest: digest(manifestJson), encodedBytes: Buffer.byteLength(manifestJson) },
     partition: { objectId: "partition", partitionId: "partition-0", digest: partition.digest, encodedBytes: partition.encodedBytes },
   };
   const reader = {

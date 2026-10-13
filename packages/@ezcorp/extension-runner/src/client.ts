@@ -66,12 +66,14 @@ export class RunnerClient implements Runner {
         for (const event of events) {
           if (closed) break;
           if (event.id) {
-            try {
-              const result = await reverseRpc(event.method, event.params);
-              await this.call("reply", { workerId: input.workerId, id: event.id, result });
-            } catch (error) {
-              await this.call("reply", { workerId: input.workerId, id: event.id, error: safeHostError(error).code });
-            }
+            let reply: { result: unknown } | { error: string };
+            try { reply = { result: await reverseRpc(event.method, event.params) }; }
+            catch (error) { reply = { error: safeHostError(error).code }; }
+            // One reply per call. A refused reply (the call already timed out,
+            // or its result broke policy) settles nothing the host can repair,
+            // and the worker answers the caller on its own timeout, so it must
+            // not close a session the worker still runs.
+            await this.call("reply", { workerId: input.workerId, id: event.id, ...reply }).catch(() => {});
           } else for (const listener of listeners) listener(event.method, event.params);
         }
       }

@@ -8,6 +8,7 @@ import {
   addTeamMember,
   removeTeamMember,
 } from "$server/db/queries/teams";
+import { getUserById } from "$server/db/queries/users";
 import { requireScope } from "$lib/server/security/api-keys";
 
 // Boundary validation. POST adds a member, DELETE removes one. Both
@@ -23,6 +24,12 @@ const addMemberSchema = z.object({
 const removeMemberSchema = z.object({
   userId: z.string().optional(),
 }).strict();
+
+/** Is `userId` the team's only owner? A team must keep one. */
+function isLastOwner(members: { userId: string; role: string }[], userId: string): boolean {
+  const owners = members.filter((m) => m.role === "owner");
+  return owners.length === 1 && owners[0]!.userId === userId;
+}
 
 export const GET: RequestHandler = async ({ params, locals }) => {
   const scopeErr = requireScope(locals, "read");
@@ -51,6 +58,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (!["owner", "editor", "viewer"].includes(role)) {
       return errorJson(400, "Invalid role");
     }
+    if (!(await getUserById(userId))) return errorJson(404, "User not found");
+    if (role !== "owner" && isLastOwner(await getTeamMembers(params.id), userId)) {
+      return errorJson(400, "Cannot demote the last owner");
+    }
     const member = await addTeamMember(params.id, userId, role as "owner" | "editor" | "viewer");
     return json({ member }, { status: 201 });
   } catch (e) {
@@ -72,9 +83,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
     if (!userId) return errorJson(400, "userId is required");
 
     // Cannot remove last owner
-    const members = await getTeamMembers(params.id);
-    const owners = members.filter((m) => m.role === "owner");
-    if (owners.length === 1 && owners[0]!.userId === userId) {
+    if (isLastOwner(await getTeamMembers(params.id), userId)) {
       return errorJson(400, "Cannot remove the last owner");
     }
 

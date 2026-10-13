@@ -10,15 +10,12 @@
  *     implementations, not a copy of them written in this file.
  *  2. The routes' own ordering: scope → project exists → role → body.
  *
- * ## The asymmetry these tests pin, stated once
+ * ## The rule these tests pin, stated once
  *
- * A plain `member` may DELETE THE WHOLE PROJECT (`[id]/+server.ts`) but may
- * NOT add a member. That looks backwards until you name the axis: granting
- * authority is the narrower right, not the more destructive one. A member
- * deleting the project destroys one object they already had full control
- * of; a member who could add members could add a confederate, and that
- * compounds. Both halves are asserted below so the shape cannot be
- * "simplified" into consistency by someone who has not read this.
+ * A plain `member` may rename the project but may NOT add a member, and may
+ * not delete the project either (`[id]/+server.ts` needs `owner`, because a
+ * delete cascades to every member's conversations). A member who could add
+ * members could add a confederate, and that compounds.
  */
 import { test, expect, describe, afterAll, beforeEach, mock } from "bun:test";
 import { restoreModuleMocks, webLibModule } from "../helpers/mock-cleanup";
@@ -57,8 +54,8 @@ const projectMembersMock = () => ({
     memberRows
       .filter((r) => r.projectId === projectId)
       .map((r) => ({ ...r, userName: `Name ${r.userId}`, userEmail: `${r.userId}@t.local` })),
-  countProjectMembers: async (projectId: string) =>
-    memberRows.filter((r) => r.projectId === projectId).length,
+  countProjectMembers: async (projectId: string, role?: "owner" | "member") =>
+    memberRows.filter((r) => r.projectId === projectId && (!role || r.role === role)).length,
   upsertProjectMember: async (projectId: string, userId: string, role: "owner" | "member") => {
     const existing = memberRows.find((r) => r.userId === userId && r.projectId === projectId);
     if (existing) {
@@ -203,6 +200,29 @@ describe("POST /api/projects/[id]/members — granting authority is owner-only",
     expect((await jsonFromResponse(res)).role).toBe("owner");
   });
 
+  test("the LAST owner cannot demote themselves — 409, the project keeps an owner", async () => {
+    // A project with members but no owner can grant authority only through
+    // the instance-admin override — the same stranding the last-member rule
+    // refuses.
+    const res = await call(
+      membersPost as any,
+      addEvent(OWNER_USER, { userId: OWNER_USER.id, role: "member" }),
+    );
+    expect(res.status).toBe(409);
+    expect((await jsonFromResponse(res)).error).toContain("at least one owner");
+    expect(memberRows.find((r) => r.userId === OWNER_USER.id)!.role).toBe("owner");
+  });
+
+  test("an owner may step down when another owner remains", async () => {
+    memberRows.find((r) => r.userId === PLAIN_MEMBER.id)!.role = "owner";
+    const res = await call(
+      membersPost as any,
+      addEvent(OWNER_USER, { userId: OWNER_USER.id, role: "member" }),
+    );
+    expect(res.status).toBe(201);
+    expect(memberRows.find((r) => r.userId === OWNER_USER.id)!.role).toBe("member");
+  });
+
   test("a re-add UPDATES the role rather than duplicating the row", async () => {
     const before = memberRows.length;
     const res = await call(
@@ -304,6 +324,13 @@ describe("DELETE /api/projects/[id]/members/[userId]", () => {
     expect(res.status).toBe(409);
     expect((await jsonFromResponse(res)).error).toContain("at least one member");
     expect(memberRows.some((r) => r.projectId === "proj-1")).toBe(true);
+  });
+
+  test("the LAST owner cannot be removed while members remain — 409", async () => {
+    const res = await call(memberDelete as any, removeEvent(ADMIN_USER, OWNER_USER.id));
+    expect(res.status).toBe(409);
+    expect((await jsonFromResponse(res)).error).toContain("at least one owner");
+    expect(memberRows.some((r) => r.userId === OWNER_USER.id)).toBe(true);
   });
 
   test("an admin cannot remove the last member either", async () => {

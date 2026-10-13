@@ -93,6 +93,7 @@ export async function getPermissionMode(
 // ── Permission Gate ─────────────────────────────────────────────────
 
 import type { AlwaysAllowScope } from "../../extensions/permissions";
+import type { SensitiveCapabilityKind } from "../../extensions/capability-types";
 
 /**
  * Phase 6 — extension-scoped permission gate metadata.
@@ -172,11 +173,10 @@ interface ExtensionGateMeta {
   extensionId: string;
   userId: string;
   /**
-   * Sensitive capability that triggered the prompt. The resolver uses
-   * this to derive the legacy `shell|filesystem` operation name when
-   * persisting the always-allow row via `setSensitiveAlwaysAllow`.
+   * Sensitive capability that triggered the prompt. The resolve route
+   * maps it to the sticky re-approval TTL kind.
    */
-  capabilityKind: "shell" | "fs.write";
+  capabilityKind: SensitiveCapabilityKind;
   /**
    * Resolution promise — extension gates resolve to an
    * `ApprovalResolution`, not void. Stored separately from the
@@ -226,7 +226,7 @@ export interface PermissionGateOptions {
  * and the extension gate share ONE implementation — a second copy would be
  * a second thing to keep in sync with that contract.
  *
- * `capabilityKind` is typed `string`, not the `"shell" | "fs.write"` union
+ * `capabilityKind` is typed `string`, not the `SensitiveCapabilityKind` union
  * the extension request carries: `NonInteractiveScope.deniedCapabilityKind`
  * and `NonInteractiveApprovalRequiredError.capabilityKind` are both already
  * `string`, so callers outside the extension path (built-in tools, caller
@@ -362,20 +362,8 @@ export interface ExtensionPermissionRequest {
   userId: string;
   extensionId: string;
   toolName: string;
-  /**
-   * Sensitive cap kind, as the CALLER classified it.
-   *
-   * Caveat worth knowing when this value ends up in a user-facing
-   * message: `SENSITIVE_KINDS` (capability-types.ts) has FOUR members —
-   * `shell`, `fs.write`, `ezcorp:extension:install`,
-   * `ezcorp:extension:modify` — but `executeToolCall` collapses them to
-   * two (`sensitive.kind === "shell" ? "shell" : "fs.write"`) before
-   * calling here, because that is the granularity the always-allow
-   * persistence layer keys on. So an `ezcorp:extension:install` prompt
-   * arrives labelled `fs.write`. This field reports what it was given;
-   * it does not re-derive the PDP's true capability.
-   */
-  capabilityKind: "shell" | "fs.write";
+  /** The sensitive cap the PDP prompted for, exactly as the PDP named it. */
+  capabilityKind: SensitiveCapabilityKind;
   /** Sensitive cap value (e.g. concrete path for fs.write). */
   capabilityValue?: string;
   /**

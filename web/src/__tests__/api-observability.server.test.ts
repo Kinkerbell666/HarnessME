@@ -1,12 +1,15 @@
 /**
  * Server-handler unit tests for /api/observability/+server.ts.
  *
- * Auth + read-scope gated. The observability query is mocked; the test
- * asserts the NaN-safe default (30) and that query values flow through.
+ * Auth + read-scope gated. An admin gets totals across every user; anyone
+ * else gets the same shape for their own conversations only (the query
+ * filters by `userId`). `scope` tells the dashboard which one it got. The
+ * observability query is mocked; the test also asserts the NaN-safe
+ * default (30) and that query values flow through.
  */
 
 import { test, expect, describe, vi, beforeEach } from "vitest";
-import { expectThrownResponse as expectThrown, makeRequestEvent } from "./helpers/server-route-test-utils";
+import { makeRequestEvent } from "./helpers/server-route-test-utils";
 
 vi.mock("$server/db/queries/observability", () => ({
   getGlobalStats: vi.fn(async () => ({ totalRuns: 0 })),
@@ -31,12 +34,29 @@ function makeEvent(opts: {
 }
 
 const authedUser = { user: { id: "u1", email: "u@x", name: "u", role: "user" } };
+const adminUser = { user: { id: "a1", email: "a@x", name: "a", role: "admin" } };
 
 describe("GET /api/observability", () => {
   beforeEach(() => vi.mocked(getGlobalStats).mockReset());
 
-  test("rejects 401 when locals.user is missing", async () => {
-    await expectThrown(() => GET(makeEvent({})), 401);
+  test("returns 401 when locals.user is missing", async () => {
+    const res = await GET(makeEvent({}));
+    expect(res.status).toBe(401);
+    expect(getGlobalStats).not.toHaveBeenCalled();
+  });
+
+  test("an admin gets totals across all users", async () => {
+    vi.mocked(getGlobalStats).mockResolvedValue({ totalRuns: 9 } as any);
+    const res = await GET(makeEvent({ locals: adminUser }));
+    expect(getGlobalStats).toHaveBeenCalledWith({ days: 30 });
+    expect(await res.json()).toEqual({ totalRuns: 9, scope: "all" });
+  });
+
+  test("any other user gets totals for their own conversations only", async () => {
+    vi.mocked(getGlobalStats).mockResolvedValue({ totalRuns: 1 } as any);
+    const res = await GET(makeEvent({ locals: authedUser }));
+    expect(getGlobalStats).toHaveBeenCalledWith({ days: 30, userId: "u1" });
+    expect(await res.json()).toEqual({ totalRuns: 1, scope: "own" });
   });
 
   test("rejects 403 when API-key lacks 'read' scope", async () => {
@@ -48,21 +68,21 @@ describe("GET /api/observability", () => {
 
   test("defaults days to 30 when not supplied", async () => {
     vi.mocked(getGlobalStats).mockResolvedValue({ totalRuns: 5 } as any);
-    await GET(makeEvent({ locals: authedUser }));
+    await GET(makeEvent({ locals: adminUser }));
     expect(getGlobalStats).toHaveBeenCalledWith({ days: 30 });
   });
 
   test("falls back to 30 when days query is NaN", async () => {
     vi.mocked(getGlobalStats).mockResolvedValue({ totalRuns: 5 } as any);
     await GET(
-      makeEvent({ locals: authedUser, query: { days: "notanumber" } }),
+      makeEvent({ locals: adminUser, query: { days: "notanumber" } }),
     );
     expect(getGlobalStats).toHaveBeenCalledWith({ days: 30 });
   });
 
   test("passes parsed days through to getGlobalStats", async () => {
     vi.mocked(getGlobalStats).mockResolvedValue({ totalRuns: 5 } as any);
-    await GET(makeEvent({ locals: authedUser, query: { days: "7" } }));
+    await GET(makeEvent({ locals: adminUser, query: { days: "7" } }));
     expect(getGlobalStats).toHaveBeenCalledWith({ days: 7 });
   });
 

@@ -120,12 +120,14 @@ describe("production factory orchestrator process", () => {
   it("hands the runtime the ordered gateway bound and refuses one below it", async () => {
     const controller = new AbortController();
     const observed = { connections: [] as FactoryTemporalConnection[], workers: [] as FactoryWorkerProcessHandle[], apiKeys: [] as string[], now: 0 };
-    const deps = dependencies([credentials("token")], observed);
+    const base = dependencies([credentials("token")], observed);
     const bounds: Array<number | undefined> = [];
-    const createRuntime = deps.createRuntime;
-    deps.createRuntime = async (runtime, connection, identity) => {
-      bounds.push(runtime.gateway.requestTimeoutMs);
-      return createRuntime(runtime, connection, identity);
+    const deps: FactoryOrchestratorProcessDependencies = {
+      ...base,
+      createRuntime: async (runtime, connection, identity) => {
+        bounds.push(runtime.gateway.requestTimeoutMs);
+        return base.createRuntime(runtime, connection, identity);
+      },
     };
     const ready = async (state: Parameters<FactoryOrchestratorProcessOptions["readiness"]["write"]>[0]) => {
       if (state.lifecycle === "ready") controller.abort(new Error("test complete"));
@@ -143,11 +145,13 @@ describe("production factory orchestrator process", () => {
     const controller = new AbortController();
     const states: string[] = [];
     const observed = { connections: [] as FactoryTemporalConnection[], workers: [] as FactoryWorkerProcessHandle[], apiKeys: [] as string[], now: 0 };
-    const deps = dependencies([credentials("token")], observed);
-    deps.connect = async () => ({
-      workflowService: { describeTaskQueue: async () => ({ pollers: [{ identity: "another-worker" }] }) },
-      withDeadline: async (_deadline, operation) => operation(), setApiKey: async () => {}, close: async () => {},
-    });
+    const deps: FactoryOrchestratorProcessDependencies = {
+      ...dependencies([credentials("token")], observed),
+      connect: async () => ({
+        workflowService: { describeTaskQueue: async () => ({ pollers: [{ identity: "another-worker" }] }) },
+        withDeadline: async (_deadline, operation) => operation(), setApiKey: async () => {}, close: async () => {},
+      }),
+    };
     await assert.rejects(runFactoryOrchestratorProcess(options(controller.signal, async (state) => {
       states.push(state.lifecycle);
       return { schemaVersion: "factory.orchestrator-readiness.v1", installationId: "installation-1", tenantId: "tenant-1", namespace: "tenant-1", taskQueue: "factory-orchestrator", observedAtMs: observed.now, ...state };

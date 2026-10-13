@@ -16,7 +16,8 @@
  * they had just created.
  *
  * `project_members` now exists, so the rule is membership: any MEMBER of the
- * project (plus any instance admin) may mutate it; a non-member may not.
+ * project (plus any instance admin) may rename it, only an OWNER (or admin)
+ * may delete it, and a non-member may do neither.
  *
  * ## The second correction: this spec had stopped testing what it claimed
  *
@@ -133,12 +134,14 @@ test.describe("projects — mutating routes are membership-gated", () => {
     expect(acceptRes.status, await acceptRes.clone().text()).toBe(201);
     const second = ((await acceptRes.json()) as { user: { id: string } }).user;
 
+    // The second user joins as an owner: a project must keep at least one
+    // owner, so the admin (the only owner so far) can leave only after that.
     const addRes = await request.post(`/api/projects/${project.id}/members`, {
-      data: { userId: second.id },
+      data: { userId: second.id, role: "owner" },
     });
     expect(addRes.status(), await addRes.text()).toBe(201);
 
-    // Now removable — the last-member rule only bites at one.
+    // Now removable — the last-member and last-owner rules only bite at one.
     const dropAdmin = await request.delete(`/api/projects/${project.id}/members/${admin.id}`);
     expect(dropAdmin.status(), await dropAdmin.text()).toBe(200);
 

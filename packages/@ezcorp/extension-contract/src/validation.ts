@@ -140,7 +140,8 @@ export function compileValueSchema(value: unknown, maxValueBytes = MAX_FRAME_BYT
       if (visited.has(record.$ref)) throw new ContractError("UNSUPPORTED_SCHEMA", "Recursive schemas are not supported");
       const [group, name] = record.$ref.slice(2).split("/");
       const root = detached as Record<string, Record<string, unknown>>;
-      const target = root[group!]?.[name!];
+      const definitions = Object.hasOwn(root, group!) ? root[group!] : undefined;
+      const target = definitions && Object.hasOwn(definitions, name!) ? definitions[name!] : undefined;
       if (!target) throw new ContractError("INVALID_SCHEMA", "Unknown local reference");
       const next = new Set(visited).add(record.$ref);
       const siblings = Object.fromEntries(Object.entries(record).filter(([key]) => key !== "$ref"));

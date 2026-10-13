@@ -49,7 +49,7 @@ Two distinct surfaces, never conflated:
   - `PUT /api/users/[id]` (dual-gated) sets `status` to `active`/`inactive`. Two protections live here: **no self-deactivation** (`params.id === admin.id` → `400 "Cannot deactivate yourself"`), and **agent-ownership transfer** — deactivating a user reassigns all their `agentConfigs.userId` to the acting admin (so orphaned agents stay operable) and writes a `user:deactivated` audit entry.
 - **Self-service account** (`/api/account/*`) — every authenticated user manages *their own* identity here. These gate on `requireScope(...)` + `requireAuth`, **not** `requireRole`. The scope is split by verb: **reads** gate on `requireScope("read")` (GET profile, GET sessions, login-history) and **writes** on `requireScope("admin")` (PUT profile, PUT password, DELETE sessions). In both cases the scope is only a write/read-gate for API-key principals — cookie sessions are allow-all there by design:
   - `GET/PUT /api/account` — read profile; update name (audit `auth:name_changed`) or email (requires `currentPassword` re-verification; audit `auth:email_changed`).
-  - `PUT /api/account/password` — change password (verifies current, re-hashes, audit `auth:password_changed`, then clears the session cookie to force re-login).
+  - `PUT /api/account/password` — change password (verifies current, re-hashes, audit `auth:password_changed`). Keeps the caller's current session and cookie and revokes all of the user's other sessions.
   - `GET/DELETE /api/account/sessions` — list own sessions (flags `isCurrent` by hashing the cookie token); revoke a session, but **never the current one** (`400` — "use logout instead").
   - `GET /api/account/login-history` — own last 10 `auth:login` audit entries.
 
@@ -82,7 +82,7 @@ The settings nav (`web/src/lib/settings-nav.ts`) marks admin entries `adminOnly:
 | `DELETE /api/marketplace/[id]/delete` | scope + role | Hard-delete a listing. |
 | `GET /api/account` | scope `read` + auth | Read own profile. |
 | `PUT /api/account` | scope `admin` + auth | Update own name / email (email needs current password). |
-| `PUT /api/account/password` | scope `admin` + auth | Change own password (clears session). |
+| `PUT /api/account/password` | scope `admin` + auth | Change own password (keeps this session, revokes the others). |
 | `GET /api/account/sessions` | scope `read` + auth | List own sessions (flags `isCurrent`). |
 | `DELETE /api/account/sessions` | scope `admin` + auth | Revoke own session (not the current one). |
 | `GET /api/account/login-history` | scope `read` + auth | Own last 10 logins. |
@@ -104,7 +104,7 @@ The settings nav (`web/src/lib/settings-nav.ts`) marks admin entries `adminOnly:
 - `web/src/routes/api/users/+server.ts` — admin user list with opt-in pagination + strict numeric parsing.
 - `web/src/routes/api/users/[id]/+server.ts` — activate/deactivate; agent-ownership transfer; no self-deactivation; audit.
 - `web/src/routes/api/account/+server.ts` — self-service profile read/update (email re-verification).
-- `web/src/routes/api/account/password/+server.ts` — self-service password change (clears session).
+- `web/src/routes/api/account/password/+server.ts` — self-service password change (keeps this session, revokes the others).
 - `web/src/routes/api/account/sessions/+server.ts` — self-service session list/revoke (can't revoke current).
 - `web/src/routes/api/account/login-history/+server.ts` — own recent logins.
 - `web/src/routes/(app)/admin/dashboard/+page.svelte` — per-source-independent telemetry dashboard.

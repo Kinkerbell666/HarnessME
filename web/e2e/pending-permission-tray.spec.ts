@@ -167,10 +167,66 @@ test.describe("Fallback pending-permission tray", () => {
 			"PermissionGate category chip",
 		);
 
+		// The extension badge names who is asking; pale blue on a pale tint
+		// made it unreadable on the light theme too.
+		await expectReadable(card.getByTestId("permission-extension-badge"), "PermissionGate extension badge");
+
 		// The card must still READ as a caution surface — legibility achieved
 		// by deleting the tint would be a different bug with a green test.
 		await expectWarningTinted(card, "PermissionGate container");
 
 		await captureEvidence(page, testInfo, "permission-gate-security-note");
+	});
+
+	/**
+	 * An extension install prompt names what it really asks for, and offers
+	 * only a one-time allow: the server never persists install approvals, so
+	 * a lasting scope ("Always allow") would be a promise it does not keep.
+	 */
+	test("an install prompt says what it installs and offers only this one time @evidence", async ({
+		page,
+		mockApi,
+		emitSse,
+	}, testInfo) => {
+		await mockApi({ projects: [proj] });
+		const posts = await installPermissionMock(page);
+
+		await page.goto("/extensions");
+		await page.waitForFunction(() => {
+			const es = (window as unknown as { __fakeEventSources?: unknown[] }).__fakeEventSources;
+			return Array.isArray(es) && es.length > 0;
+		});
+		await emitSse(
+			{
+				type: "tool:permission_request",
+				data: {
+					...PERMISSION_EVENT.data,
+					toolCallId: "prompt-install-e2e",
+					toolName: "ez-extension-builder__install",
+					input: { name: "weather" },
+					extensionId: "ez-extension-builder",
+					capabilityKind: "ezcorp:extension:install",
+				},
+			},
+			"runtime-events",
+		);
+
+		const tray = page.getByTestId("pending-permission-tray");
+		await expect(tray).toBeVisible();
+		await expect(page.getByTestId("permission-extension-description")).toContainText(
+			"Install an extension and let it run with its declared permissions",
+		);
+		await expect(page.getByText("Write to filesystem")).toHaveCount(0);
+		const chooser = page.getByTestId("permission-scope-chooser");
+		await expect(chooser.getByTestId("permission-allow-once")).toHaveText("Allow this time");
+		for (const lasting of ["session", "conversation", "project", "forever"]) {
+			await expect(chooser.getByTestId(`permission-allow-${lasting}`)).toHaveCount(0);
+		}
+		await expect(chooser.getByText("Always allow")).toHaveCount(0);
+		await captureEvidence(page, testInfo, "permission-gate-install-once");
+
+		await chooser.getByTestId("permission-allow-once").click();
+		await expect(tray).toHaveCount(0);
+		expect(posts).toEqual([{ approved: true, scope: "session" }]);
 	});
 });

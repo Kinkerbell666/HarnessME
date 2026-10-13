@@ -8,7 +8,7 @@
 	// Reactive unread tracking — bump revision on store changes so per-project
 	// counts re-evaluate without us having to mirror the whole map into state.
 	let unreadRev = $state(0);
-	unreadStore.subscribe(() => { unreadRev++; });
+	$effect(() => unreadStore.subscribe(() => { unreadRev++; }));
 
 	function unreadFor(projectId: string): number {
 		void unreadRev;

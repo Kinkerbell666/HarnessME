@@ -136,6 +136,20 @@ describe("buildAttachmentHandleResolver", () => {
 		expect(out.paren).toBe(`(${png})`);
 	});
 
+	test("a handle at the end of a sentence or in markdown code resolves — the punctuation is not part of the id", async () => {
+		const uuid = "d92d8c65-fa8f-46f1-9568-04ed62593157";
+		const resolver = buildAttachmentHandleResolver([
+			{ id: uuid, mimeType: "image/png", storagePath: pngPath },
+		]);
+		const png = `data:image/png;base64,${PNG_B64}`;
+		const out = await resolver({
+			caption: `Use the cow from ez-attachment://${uuid}.`,
+			code: `Edit \`ez-attachment://${uuid}\`, then crop it (see ez-attachment://${uuid}); done`,
+		});
+		expect(out.caption).toBe(`Use the cow from ${png}.`);
+		expect(out.code).toBe(`Edit \`${png}\`, then crop it (see ${png}); done`);
+	});
+
 	test("id containing dashes and alphanumerics (UUID shape) resolves correctly", async () => {
 		const uuid = "d92d8c65-fa8f-46f1-9568-04ed62593157";
 		const resolver = buildAttachmentHandleResolver([

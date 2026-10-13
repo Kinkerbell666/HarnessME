@@ -3,7 +3,8 @@ import { compileFactory } from "./compiler";
 import { FACTORY_COMMAND_FAILED_DETAIL_LIMIT, FactoryKernelError, advanceKernel, createKernelState, factoryAdmissionRefusedEvent, factoryCommandFailedEvent } from "./kernel";
 import { referenceCodeV1 } from "./references.js";
 import { FACTORY_LAZY_INPUT_SCHEMA_VERSION } from "./types";
-import type { CompiledFactory, FactoryDefinition, FactoryNode, JsonValue } from "./types";
+import type { CompiledFactory, Effect, FactoryDefinition, FactoryNode, JsonValue } from "./types";
+import { findCommand } from "../tests/kernel-commands";
 
 const digest = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const runner = { package: "inert", manifestName: "inert", version: "1", digest, export: "run" } as const;
@@ -20,18 +21,18 @@ function compiled(nodes: readonly FactoryNode[], _outputs: Record<string, { read
     inputPorts, outputPorts: {}, graph: { nodes: nodes.map(normalize), outputs: {} },
     acceptance: referenceCodeV1.acceptance,
     packages: [{ name: runner.package, version: runner.version, digest }, ...referenceCodeV1.packages],
-    capabilities: [], effects: [...new Set(["none", ...nodes.flatMap((node) => node.effects ?? [])])], bounds: { maxExpandedNodes: 10_000, maxScopeDepth: 16 },
+    capabilities: [], effects: [...new Set<Effect>(["none", ...nodes.flatMap((node) => node.effects ?? [])])], bounds: { maxExpandedNodes: 10_000, maxScopeDepth: 16 },
   };
   const result = compileFactory(definition);
   if (!result.ok) throw new Error(result.diagnostics.map((diagnostic) => diagnostic.code).join(", "));
   return result.factory;
 }
 
-const event = <T extends object>(id: string, values: T): T & { readonly id: string; readonly atMs: number } => ({ id, atMs: 1, ...values });
+const event = <const T extends object>(id: string, values: T): T & { readonly id: string; readonly atMs: number } => ({ id, atMs: 1, ...values });
 
 function activeWork(graph: CompiledFactory, runId: string) {
   const started = advanceKernel(graph, createKernelState(graph, runId, {}, 0), event("start", { kind: "start" }));
-  const admission = started.commands.find((command) => command.kind === "request-admission" && command.nodeId === "work");
+  const admission = findCommand(started.commands, "request-admission", "work");
   if (!admission) throw new Error("work admission was not emitted");
   return advanceKernel(graph, started.nextState, event("admit", {
     kind: "admission-result", nodeId: "work", commandId: admission.id, candidateGeneration: admission.candidateGeneration, granted: true,
@@ -108,10 +109,10 @@ describe("factory kernel", () => {
     const replay = advanceKernel(graph, createKernelState(graph, "run-1", {}, 0), event("replay-start", { kind: "start" }));
     expect(started.commands.map((command) => command.id)).toEqual(replay.commands.map((command) => command.id));
     expect(started.commands.find((command) => command.kind === "start-timer" && command.nodeId === undefined)).toEqual(expect.objectContaining({ kind: "start-timer", deadlineAtMs: 7 * 24 * 60 * 60 * 1_000 }));
-    const admission = started.commands.find((command) => command.kind === "request-admission" && command.nodeId === "first");
+    const admission = findCommand(started.commands, "request-admission", "first");
     expect(admission).toEqual(expect.objectContaining({ kind: "request-admission", nodeId: "first", candidateGeneration: 0, deadlineAtMs: 1_800_001 }));
     const admitted = advanceKernel(graph, started.nextState, event("admit", { kind: "admission-result", nodeId: "first", commandId: admission!.id, candidateGeneration: admission!.candidateGeneration, granted: true }));
-    const dispatch = admitted.commands.find((command) => command.kind === "dispatch-node" && command.nodeId === "first");
+    const dispatch = findCommand(admitted.commands, "dispatch-node", "first");
     const timer = started.commands.find((command) => command.kind === "start-timer" && command.nodeId === "first");
     expect(dispatch).toEqual(expect.objectContaining({ kind: "dispatch-node", nodeId: "first", candidateGeneration: 0, attempt: 1, input: {}, deadlineAtMs: 1_800_001, cancellationEpoch: 0 }));
     expect(timer).toEqual(expect.objectContaining({ kind: "start-timer", nodeId: "first", deadlineAtMs: 1_800_001 }));
@@ -457,15 +458,15 @@ describe("factory kernel", () => {
     const release = {
       id: "publish", kind: "release" as const, dependsOn: ["accept"], adapter: runner,
       acceptedCandidate: { kind: "ref" as const, root: "node" as const, name: "accept", path: ["acceptedCandidate"] },
-      destination: { kind: "literal" as const, value: {} }, effects: ["publish"],
+      destination: { kind: "literal" as const, value: {} }, effects: ["publish" as const],
     };
     const map = {
       id: "map", kind: "map" as const, collection: { kind: "literal" as const, value: ["one"] }, itemSchema: { type: "string" as const },
-      body: { nodes: [work, acceptance, release], outputs: {} }, mode: "all" as const, maxItems: 1, maxConcurrency: 1, effects: ["publish"],
+      body: { nodes: [work, acceptance, release], outputs: {} }, mode: "all" as const, maxItems: 1, maxConcurrency: 1, effects: ["publish" as const],
     };
     const graph = compiled([map, { id: "hold", kind: "task", runner }], {});
     const started = advanceKernel(graph, createKernelState(graph, "protected-release-map", {}, 0), event("start", { kind: "start" }));
-    const admission = started.commands.find((command) => command.kind === "request-admission" && command.nodeId === "map/items/0/work")!;
+    const admission = findCommand(started.commands, "request-admission", "map/items/0/work")!;
     const admitted = advanceKernel(graph, started.nextState, event("admitted", { kind: "admission-result", nodeId: admission.nodeId, commandId: admission.id, candidateGeneration: admission.candidateGeneration, granted: true }));
     const dispatch = admitted.commands.find((command) => command.kind === "dispatch-node")!;
     const worked = advanceKernel(graph, admitted.nextState, event("worked", { kind: "node-result", nodeId: dispatch.nodeId, commandId: dispatch.id, candidateGeneration: dispatch.candidateGeneration, attempt: dispatch.attempt, output: {} }));
@@ -499,7 +500,9 @@ describe("factory kernel", () => {
     expect(Object.keys(started.nextState.nodes)).toEqual(["map"]);
     expect(Object.keys(started.nextState.scopes)).toEqual(["root"]);
     expect(started.nextState.scopes.root?.expandedNodeCount).toBe(10_000);
-    expect(started.nextState.nodes.map?.output?.values).toHaveLength(9_999);
+    const output = started.nextState.nodes.map?.output;
+    if (!output || typeof output !== "object" || Array.isArray(output)) throw new Error("map output is not an object");
+    expect(output.values).toHaveLength(9_999);
   }, 30_000);
 });
 

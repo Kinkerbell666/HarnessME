@@ -51,8 +51,16 @@ export interface ContextsCompletionDeps {
   // threshold on the merged host-pool run.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // biome-ignore lint/suspicious/noExplicitAny: a test seam for pi-ai's `completeLLM`, whose model/context/result types are the provider-generic pi-ai ones (see AnyModel). Must stay ONE line — a multi-line arrow type makes Bun's coverage instrumenter attribute the wrapping lines as uncovered statements and drops this file below its 100% threshold.
-  completeFn?: (piModel: any, context: any, opts?: { conversationId?: string }) => Promise<any>;
+  completeFn?: (piModel: any, context: any, opts?: { conversationId?: string; signal?: AbortSignal; maxTokens?: number; temperature?: number }) => Promise<any>;
+  /** Arm the pi-lane timeout; returns its cancel. Defaults to setTimeout.
+   *  Tests inject a fake so they fire the timeout without waiting. */
+  scheduleTimeout?: (onTimeout: () => void, ms: number) => () => void;
 }
+
+const defaultScheduleTimeout: NonNullable<ContextsCompletionDeps["scheduleTimeout"]> = (onTimeout, ms) => {
+  const timer = setTimeout(onTimeout, ms);
+  return () => clearTimeout(timer);
+};
 
 interface ChatCompletionResponse {
   choices?: Array<{ message?: { content?: string } }>;
@@ -102,15 +110,31 @@ async function runPi(
   target: Extract<ContextsTarget, { kind: "pi" }>,
   req: ContextsCompletionRequest,
   completeFn: NonNullable<ContextsCompletionDeps["completeFn"]>,
+  scheduleTimeout: NonNullable<ContextsCompletionDeps["scheduleTimeout"]>,
 ): Promise<string> {
-  const result = await completeFn(
-    target.piModel,
-    {
-      systemPrompt: req.systemPrompt,
-      messages: [{ role: "user", content: req.userPrompt }],
-    },
-    { conversationId: req.conversationId },
-  );
+  // Same bound as the sidecar lane: a stuck provider must not hold the
+  // request open forever.
+  const timeoutMs = req.timeoutMs ?? DEFAULT_CONTEXTS_TIMEOUT_MS;
+  const controller = new AbortController();
+  const cancelTimeout = scheduleTimeout(() => controller.abort(), timeoutMs);
+  let result: Awaited<ReturnType<typeof completeFn>> | undefined;
+  try {
+    result = await completeFn(
+      target.piModel,
+      {
+        systemPrompt: req.systemPrompt,
+        messages: [{ role: "user", content: req.userPrompt }],
+      },
+      { conversationId: req.conversationId, signal: controller.signal, maxTokens: req.maxTokens, temperature: req.temperature },
+    );
+  } catch (err) {
+    if (!controller.signal.aborted) throw err;
+  } finally {
+    cancelTimeout();
+  }
+  // An abort can surface as a throw (caught above) or, from pi-ai, as a
+  // result field — both mean the timeout fired.
+  if (controller.signal.aborted) throw new Error(`contexts model call timed out after ${timeoutMs}ms`);
   // pi-ai reports provider failures as result fields, not throws.
   if (result?.stopReason === "error") {
     throw new Error(result.errorMessage || "contexts model call failed with no error message");
@@ -145,5 +169,5 @@ export async function runContextsCompletion(
   if (req.target.kind === "sidecar") {
     return runSidecar(req.target, req, deps.fetchFn ?? fetch);
   }
-  return runPi(req.target, req, deps.completeFn ?? defaultCompleteFn);
+  return runPi(req.target, req, deps.completeFn ?? defaultCompleteFn, deps.scheduleTimeout ?? defaultScheduleTimeout);
 }

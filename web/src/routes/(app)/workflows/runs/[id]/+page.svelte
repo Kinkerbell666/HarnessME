@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { reloadOn } from "$lib/reload-on.svelte.js";
 	import { page } from "$app/stores";
 	import { runErrorText, runOutput, statusColor } from "$lib/workflow-run-display";
 	import RunPayload from "$lib/components/workflows/RunPayload.svelte";
@@ -35,11 +35,12 @@
 	// route param is a uuid, which reads as noise in chrome.
 	$effect(() => setBreadcrumbTail(trace?.run.workflowName));
 
-	async function load() {
+	async function load(id = runId, isStale = () => false) {
 		loading = true;
 		loadError = null;
 		try {
-			const res = await fetch(`/api/workflows/runs/${runId}`);
+			const res = await fetch(`/api/workflows/runs/${id}`);
+			if (isStale()) return;
 			if (!res.ok) {
 				// 404 covers both "no such run" and "not yours", deliberately —
 				// the API does not distinguish them and neither does this.
@@ -49,15 +50,23 @@
 						: `Could not load this run (${res.status})`;
 				return;
 			}
-			trace = (await res.json()) as RunTrace;
+			const next = (await res.json()) as RunTrace;
+			if (!isStale()) trace = next;
 		} catch (err) {
-			loadError = err instanceof Error ? err.message : String(err);
+			if (!isStale()) loadError = err instanceof Error ? err.message : String(err);
 		} finally {
-			loading = false;
+			if (!isStale()) loading = false;
 		}
 	}
 
-	onMount(load);
+	// A step can link to another run; the page is reused, so start clean.
+	reloadOn(() => runId, (id, isStale) => {
+		trace = null;
+		expanded = {};
+		iterationsOpen = {};
+		retryOutcome = null;
+		return load(id, isStale);
+	});
 
 	/**
 	 * Continue the run.
@@ -127,7 +136,7 @@
 				{#if isLiveRun(trace.run.status)}
 					<button
 						type="button"
-						onclick={load}
+						onclick={() => load()}
 						class="mt-2 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-text-muted)]"
 						data-testid="trace-refresh">Refresh</button
 					>

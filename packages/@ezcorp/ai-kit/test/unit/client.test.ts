@@ -119,6 +119,28 @@ describe("EzcorpClient — projects + conversations", () => {
   test("sendMessage enforces content length", () => {
     expect(() => client.sendMessage("conv-id", { content: "" })).toThrow();
   });
+
+  test("an id stays inside its own path segment", async () => {
+    // Ids reach these routes from MCP tool input. Interpolated raw, an id with
+    // `/`, `?` or a dot segment steered the bearer-carrying request to a
+    // different route.
+    const paths: string[] = [];
+    const capturing = new EzcorpClient({
+      baseUrl: server.url,
+      fetch: (async (url: URL | string) => {
+        paths.push(new URL(String(url)).pathname);
+        return Response.json({ runId: "r1" });
+      }) as unknown as typeof fetch,
+    });
+    await capturing.sendMessage("x/../../extensions/e1/uninstall?", { content: "hi" });
+    await capturing.startAssignment({ conversationId: "00000000-0000-4000-8000-000000000001", taskId: "t/../..", assignmentId: "a1" });
+    expect(paths).toEqual([
+      "/api/conversations/x%2F..%2F..%2Fextensions%2Fe1%2Funinstall%3F/messages",
+      "/api/conversations/00000000-0000-4000-8000-000000000001/tasks/t%2F..%2F../assignments/a1/start",
+    ]);
+    for (const id of ["", ".", ".."]) expect(() => capturing.getConversation(id)).toThrow("path segment");
+    expect(paths).toHaveLength(2);
+  });
 });
 
 describe("EzcorpClient — fan-out", () => {
@@ -328,5 +350,29 @@ describe("EzcorpClient — SSE streaming", () => {
     await task;
     ac.abort();
     expect(received).toEqual(["run:start", "run:token", "run:complete"]);
+  });
+
+  test("streamEvents cancels the open stream when the consumer stops early", async () => {
+    // The server never closes an SSE stream, so a consumer that breaks out
+    // must close the connection itself; releasing the reader lock alone
+    // leaves the socket open for the life of the process.
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"type":"run:start","data":{"runId":"r1"}}\n\n'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const stubbed = new EzcorpClient({
+      baseUrl: server.url,
+      fetch: (async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } })) as unknown as typeof fetch,
+    });
+    for await (const ev of stubbed.streamEvents()) {
+      expect(ev.type).toBe("run:start");
+      break;
+    }
+    expect(cancelled).toBe(true);
   });
 });

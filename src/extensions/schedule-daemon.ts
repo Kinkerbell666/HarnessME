@@ -40,7 +40,7 @@ import { getDb } from "../db/connection";
 import {
   extensionSchedules, extensionScheduleFires, extensions,
 } from "../db/schema";
-import { eq, and, lte, gte } from "drizzle-orm";
+import { eq, and, lte, gte, inArray } from "drizzle-orm";
 import { parseCron } from "./cron";
 import type { ExtensionRegistry } from "./registry";
 import { insertAuditEntry } from "../db/queries/audit-log";
@@ -86,6 +86,18 @@ const DEFAULT_WAKE_MS = 30_000;
 const DEFAULT_MAX_PER_EXT = 5;
 const DEFAULT_MAX_HOST = 30;
 const AUTO_DISABLE_AFTER = 5; // consecutive errors
+
+/**
+ * Only an enabled extension's rows fire. Disabling an extension disables
+ * its manifest rows but leaves user-created (dynamic) rows as they are, so
+ * re-enabling restores them; this filter keeps them quiet meanwhile.
+ */
+function ofEnabledExtension() {
+  return inArray(
+    extensionSchedules.extensionId,
+    getDb().select({ id: extensions.id }).from(extensions).where(eq(extensions.enabled, true)),
+  );
+}
 const DEFAULT_CATCH_UP_JITTER_MS = 60_000;
 const DEFAULT_LOCKFILE_PATH = ".ezcorp/schedule-daemon.pid";
 const DEFAULT_MAX_RUN_DURATION_MS = 300_000; // 5 min
@@ -296,6 +308,7 @@ export class ScheduleDaemon {
     const due = await db.select().from(extensionSchedules).where(and(
       eq(extensionSchedules.enabled, true),
       lte(extensionSchedules.nextFireAt, now),
+      ofEnabledExtension(),
     )).limit(100);
 
     let claimed = 0;
@@ -877,32 +890,49 @@ export class ScheduleDaemon {
   /** Apply missed-run policies on schedules whose `next_fire_at` is in
    *  the past — the daemon just came up after offline. */
   private async applyMissedRunPolicies(): Promise<void> {
+    // Catch-up fires are an autonomous fire path too. While the kill switch
+    // is engaged, leave the rows due: the first tick after disengage claims
+    // them normally.
+    if (await loopsKillSwitchEngaged()) return;
     const db = getDb();
     const now = this.opts.now();
     const overdue = await db.select().from(extensionSchedules).where(and(
       eq(extensionSchedules.enabled, true),
       lte(extensionSchedules.nextFireAt, now),
+      ofEnabledExtension(),
     ));
     for (const row of overdue) {
       const grant = await this.readGrant(row.extensionId);
       // A dynamic row's own zone; a manifest row's grant zone (unchanged).
       const tz = zoneFor(row, grant);
       try {
-        if (grant.missedRunPolicy === "skip") {
-          // Bump next_fire_at to the next slot from now.
-          const next = parseCron(row.cron, tz).next(now);
-          await db.update(extensionSchedules)
-            .set({ nextFireAt: next, lastFireStatus: "ok", updatedAt: now })
-            .where(eq(extensionSchedules.id, row.id));
-        } else if (grant.missedRunPolicy === "fire-all") {
-          // Enumerate every missed slot back to last_fire_at, capped
-          // at maxRunsPerDay (data-loss invariant — see spec § Open
-          // questions). Each fire is dispatched with `catchUp: true`.
-          // Cap retrieval reduces the count by today's fires already
-          // recorded.
-          const last = row.lastFireAt ?? row.nextFireAt;
+        // Compare-and-swap claim, as in `tick()`: advance next_fire_at only
+        // if it still holds the value read above. Of N instances starting
+        // together on one shared database, exactly one wins the row; the
+        // losers skip it, so a catch-up never fires twice.
+        const next = parseCron(row.cron, tz).next(now);
+        const claimedRows = await db.update(extensionSchedules)
+          .set({
+            nextFireAt: next,
+            updatedAt: now,
+            ...(grant.missedRunPolicy === "skip" ? { lastFireStatus: "ok" } : {}),
+          })
+          .where(and(
+            eq(extensionSchedules.id, row.id),
+            eq(extensionSchedules.nextFireAt, row.nextFireAt),
+          ))
+          .returning({ id: extensionSchedules.id });
+        if (claimedRows.length === 0) continue;
+
+        // "skip" is complete: the claim bumped next_fire_at to the next slot.
+        if (grant.missedRunPolicy === "fire-all") {
+          // Enumerate every missed slot from next_fire_at (the first slot
+          // that never fired), capped at maxRunsPerDay (data-loss
+          // invariant — see spec § Open questions). Each fire is
+          // dispatched with `catchUp: true`. Cap retrieval reduces the
+          // count by today's fires already recorded.
           const dailyUsed = await this.todaysFireCount(row.extensionId);
-          let cursor = parseCron(row.cron, tz).next(last);
+          let cursor = row.nextFireAt;
           let firedAny = false;
           let usedToday = dailyUsed;
           while (cursor.getTime() <= now.getTime() && usedToday < grant.maxRunsPerDay) {
@@ -922,13 +952,14 @@ export class ScheduleDaemon {
             usedToday++;
             cursor = parseCron(row.cron, tz).next(cursor);
           }
-          // Advance schedule.next_fire_at past all enumerated slots.
-          const next = parseCron(row.cron, tz).next(now);
-          await db.update(extensionSchedules)
-            .set({ nextFireAt: next, ...(firedAny ? { lastFireAt: now } : {}), updatedAt: now })
-            .where(eq(extensionSchedules.id, row.id));
-        } else {
-          // "fire-once" (default) — fire ONE catch-up, advance.
+          // next_fire_at already moved past all enumerated slots (claim).
+          if (firedAny) {
+            await db.update(extensionSchedules)
+              .set({ lastFireAt: now })
+              .where(eq(extensionSchedules.id, row.id));
+          }
+        } else if (grant.missedRunPolicy !== "skip") {
+          // "fire-once" (default) — fire ONE catch-up.
           const jitterMs = Math.floor(this.opts.random() * this.opts.catchUpJitterMs);
           const fa = new Date(now.getTime() + jitterMs);
           const [fire] = await db.insert(extensionScheduleFires).values({
@@ -941,9 +972,8 @@ export class ScheduleDaemon {
           this.inFlightHost++;
           this.inFlight.set(row.extensionId, (this.inFlight.get(row.extensionId) ?? 0) + 1);
           await this.dispatchFire(row, fire!.id, fa, true, 0, grant.maxRunDurationMs);
-          const next = parseCron(row.cron, tz).next(now);
           await db.update(extensionSchedules)
-            .set({ nextFireAt: next, lastFireAt: fa, lastFireId: fire!.id, updatedAt: now })
+            .set({ lastFireAt: fa, lastFireId: fire!.id })
             .where(eq(extensionSchedules.id, row.id));
         }
       } catch (err) {

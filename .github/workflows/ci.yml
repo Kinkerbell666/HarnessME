@@ -401,15 +401,17 @@ jobs:
   #
   # Timeout margin (W4H-24): a hosted runner 3 to 6 times slower than usual
   # cancelled shard 3 at the old 10-minute cap (main ci 38404984224; every
-  # logged test passed). Rule: 6x the largest per-shard p95 wall time of the
-  # last 50 ci runs, rounded up to 5 minutes: 6 x 265 s = 26.5 -> 30 minutes.
-  # The two ci-wall-time.sh steps print each phase's wall time and warn above
-  # 2x its median (35 s and 198 s over the same runs), so a slow runner is
-  # named in the log. No retry: a retry would hide the slowness.
+  # logged test passed). The two ci-wall-time.sh steps print each phase's wall
+  # time and warn above 2x its median, so a slow runner is named in the log.
+  # No retry: a retry would hide the slowness.
   # scripts/web-shard-timeout-registration.test.ts holds these numbers.
   test-web-shard:
     name: Web tests shard ${{ matrix.i }}
     runs-on: ubuntu-latest
+    # Rule: >= 6x the largest per-shard p95 wall time of the last 50 ci runs,
+    # rounded up to 5 minutes: 6 x 265 s = 26.5 -> 30 (also >= 3x). The cap is
+    # a hang guard, not a performance budget: a correct result after 18 minutes
+    # beats a cancel plus a human re-run, and the WARN step names a slow runner.
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -432,6 +434,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .node-version
+      # Medians 35 s and 198 s: the 178 successful shard jobs of the last 50 ci
+      # runs (W4H-24 R1; set up job + checkout + setup + setup-node, and Vitest).
       - name: Wall time of checkout and install
         run: bash scripts/ci-wall-time.sh "checkout and install" 35
       - name: Run Vitest shard with V8 coverage

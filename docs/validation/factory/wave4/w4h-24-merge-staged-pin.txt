@@ -1,0 +1,1 @@
+pinned bun 1.4.2 / bunx 1.4.2 from the staged tree; BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING=1

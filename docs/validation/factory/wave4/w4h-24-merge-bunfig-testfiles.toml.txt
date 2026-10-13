@@ -1,0 +1,4 @@
+[test]
+root = "src/__tests__"
+preload = ["./src/__tests__/preload.ts"]
+coverageSkipTestFiles = false

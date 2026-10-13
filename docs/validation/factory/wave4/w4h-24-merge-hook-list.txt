@@ -1,0 +1,3 @@
+scripts/ci-wall-time.test.ts
+scripts/lib/ci-registration.test.ts
+scripts/web-shard-timeout-registration.test.ts

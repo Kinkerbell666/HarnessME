@@ -1,0 +1,8 @@
+runs 50 (all); oldest 2026-10-07T06:45:25Z; newest 2026-10-13T13:35:44Z
+shard 1: n 55 min 153s median 235s p95 258s max 260s
+shard 2: n 55 min 141s median 233s p95 257s max 264s
+shard 3: n 57 min 150s median 236s p95 265s max 273s
+cancelled or at the cap: [(38404984224, 'd3e6871e5', 3, 'cancelled', 619)]
+unreadable after 3 tries: []
+phase medians over 167 successful shard jobs: before Vitest 35s, Vitest step 198s
+rule: 3 x max p95 265s = 795s = 13.2 min -> rounded up to 5 min: 15 min

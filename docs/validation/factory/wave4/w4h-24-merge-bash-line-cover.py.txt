@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""bash-line-cover.py <repo> <base> <merge> <trace file> (integrator-5, W4H-24 binding 2): for every changed *.sh file (diff base..merge), each
+ADDED executable line (not blank, not a comment, not a bare then/else/fi/do/done/esac/;;/{/}/(/) line, not a function definition line, which xtrace never prints) must appear in the bash xtrace
+(PS4 '+i5|<source>|<line>| ', from bash-trace-env.sh). Prints per file: added, executable, executed, missed (with line numbers). Exit 1 on a miss."""
+import re, subprocess, sys, os
+repo, base, merge, trace = sys.argv[1:5]
+git = lambda *a: subprocess.check_output(["git", "-C", repo, *a], text=True)
+hit = {}
+for l in open(trace, errors="replace"):
+    m = re.match(r"^\++i5\|([^|]*)\|(\d+)\| ", l)
+    if m: hit.setdefault(os.path.normpath(m[1]), set()).add(int(m[2]))
+SKIP = re.compile(r"^\s*(#.*)?$|^\s*(then|else|fi|do|done|esac|;;|\{|\}|\(|\))\s*(#.*)?$"
+                  r"|^\s*(function\s+)?[A-Za-z_][\w:-]*\s*\(\)\s*\{?\s*(#.*)?$")  # a function definition line is never traced
+files = [f for f in git("diff", "--name-only", "--diff-filter=AM", base, merge).split() if f.endswith(".sh")]
+bad = 0
+print(f"bash line cover: merge {merge[:9]} vs base {base[:9]}; trace {trace}")
+for f in files:
+    body = git("show", f"{merge}:{f}").split("\n"); added = []
+    for h in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", git("diff", "-U0", base, merge, "--", f), re.M):
+        s, n = int(h[1]), int(h[2] or 1); added += range(s, s + n)
+    exe = [n for n in added if not SKIP.match(body[n - 1])]
+    got = set().union(*[v for k, v in hit.items() if k == f or k.endswith("/" + f)] or [set()]); miss = [n for n in exe if n not in got]
+    bad += len(miss)
+    print(f"{f}: added {len(added)}, executable {len(exe)}, executed {len(exe) - len(miss)}, missed {len(miss)}" + (f" -> {miss}" if miss else ""))
+if not files: print("no changed *.sh file")
+sys.exit(1 if bad else 0)

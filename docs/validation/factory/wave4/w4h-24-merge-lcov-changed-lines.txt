@@ -1,0 +1,3 @@
+per-file lcov proof: merge 8b1aec3f4 vs base 53689bf60; lcov /tmp/factory-platform-evidence/w00/w4h-merge/w4h-24-web-shard-timeout/merged.lcov
+scripts/lib/ci-registration.ts: file 48/48 lines hit; added lines 2, instrumented 0, uncovered 0
+TOTAL instrumented added lines 0, uncovered 0

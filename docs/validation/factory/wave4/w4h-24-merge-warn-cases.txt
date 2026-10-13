@@ -1,0 +1,14 @@
+the timeout is the slowdown margin times the p95 wall time, rounded up to 5 minutes
+the aggregator's timeout still covers its fan-in
+no retry hides the slowness, and the shard set is unchanged
+the clock starts in the first step, before checkout
+checkout and install are reported after setup-node, right before Vitest starts
+Vitest is reported right after it ends, also when it fails or is cancelled
+the workflow's clock step writes the start time to $GITHUB_ENV
+a fast phase prints its wall time and ratio, no WARN, and starts the next phase
+a phase at exactly 2x its median prints no WARN
+a slow phase prints a WARN line and an annotation with the seconds, the median and the ratio, and exits 0
+one second above 2x warns
+a missing start time fails loudly with a WARN, exits 0, and starts the next phase
+a missing $GITHUB_ENV warns and exits 0
+4x warns about the usage and exits 0

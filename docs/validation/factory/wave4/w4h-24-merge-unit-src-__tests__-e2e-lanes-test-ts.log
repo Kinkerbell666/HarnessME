@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+src/__tests__/e2e-lanes.test.ts:
+lane Bun: bun 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bun), bunx 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bunx); Playwright runner bun 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bun)
+lane Bun: bun 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bun), bunx 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bunx); Playwright runner bun 1.4.2 (/tmp/factory-tools/bun-1.4.2/bun-linux-x64/bun)
+
+ 32 pass
+ 0 fail
+ 414 expect() calls
+Ran 32 tests across 1 file. [5.12s]

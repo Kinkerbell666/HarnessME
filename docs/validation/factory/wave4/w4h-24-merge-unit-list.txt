@@ -1,0 +1,17 @@
+./scripts/ci-wall-time.test.ts
+./scripts/lib/ci-registration.test.ts
+./scripts/web-shard-timeout-registration.test.ts
+./scripts/check-factory-lanes.test.ts
+./scripts/check-factory-runners.test.ts
+./scripts/setup-factory-python-base.test.ts
+./src/__tests__/ci-required-aggregation.test.ts
+./src/__tests__/combined-runner-legs.test.ts
+./src/__tests__/coverage-leg-lcov-guard.test.ts
+./src/__tests__/db-migration-postgres.test.ts
+./src/__tests__/e2e-lanes.test.ts
+./src/__tests__/factory-ci-registration.test.ts
+./src/__tests__/mutation-nightly-workflow.test.ts
+./src/__tests__/runtime-version-pins.test.ts
+./src/__tests__/typescript-tsgo-wiring.test.ts
+./src/__tests__/visual-evidence-capture.test.ts
+./src/integrations/github-personal-prs/publisher.test.ts

@@ -1,0 +1,27 @@
+W4H-24 report addendum (after the FREEZE at d224026d8; report.txt sha256 d9eb015eb104094b unchanged; no branch change).
+
+1. The lead's second message (three additions before report.txt) crossed with the report. All three are at the frozen head:
+   (1) ci.yml, next to `timeout-minutes: 30`: the rule (>= 6x the largest per-shard p95 of the last 50 ci runs, 265 s,
+       rounded up to 5 min; also >= 3x), "a hang guard, not a performance budget", "a correct result after 18 minutes beats
+       a cancel plus a human re-run", "the WARN step names a slow runner". Gate file "Fix" says the same. The window: the
+       50 most recent completed ci runs, created 2026-10-07T06:45:25Z (37583282133) to 2026-10-13T13:35:44Z (38406233719),
+       all branches (r1/runs.tsv).
+   (2) The WARN text names the seconds, the median and the ratio:
+       "WARN: checkout and install took 164s, 4.7x its median of 35s (warns above 2x). ..." plus the same ::warning.
+   (3) A test RUNS the script: scripts/ci-wall-time.test.ts (11 cases, bash with a fixed `date`).
+
+2. Bash xtrace binding (addendum-xtrace/): a scratch export of d224026d8 whose script is the committed blob c4d7fc144 with
+   line 1 (the shebang; the tests call `bash <script>`) replaced by an xtrace setup (PS4='+${LINENO}: ', BASH_XTRACEFD to
+   xtrace.txt); lines 2.. are byte-identical to the blob (checked by diff). Both tests: 17 pass, 0 fail (tests.log).
+   Line hits (line:count, hit-lines.txt): 11:10 15:8 16:8 19:10 20:10 21:20 23:19 24:4 25:6 26:1 28:5 29:5 31:5 32:5 33:5
+   34:5 35:2 39:10 40:9 42:1 44:10. Every executable line is hit:
+   - missing start epoch: line 26 (1 hit; exits 0 with a WARN);
+   - the exact 2x boundary: line 34 runs 5 times and line 35 only twice (the 200 s / median 100 case prints no WARN; the
+     201 s case and the 164 s / 35 s case warn);
+   - usage errors: line 24 (4 cases); missing $GITHUB_ENV: line 42.
+
+3. Disclosure (also in report.txt and G6): our install used --ignore-scripts, which skips the postinstall
+   `bun run build:packages` that CI's install runs. Try 1 at 10a1a93d8 therefore had 1485 typecheck errors (all in
+   untouched files: missing @ezcorp/* package types) and the e2e-lanes "mock and real configs partition" red (Playwright
+   listed 0 tests); the same e2e-lanes red reproduced at d3e6871e5. After `bun run build:packages` under the lock: typecheck
+   0 and e2e-lanes 32/32; the final legs at 15efed799 ran with the packages built.

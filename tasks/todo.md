@@ -6108,8 +6108,8 @@ Review: the nightly turned red because a new guard told the truth about five mut
 ## W4H-24 — the web Vitest shard job has a stated timeout margin and names a slow runner (branch `wp/w4h-24-web-shard-timeout` from origin/main d3e6871e5; gates `tasks/factory/w4h-24-GATES.md`)
 
 - [x] R1 measure: last 50 ci runs, every attempt. Shard p95 wall time 257 to 265 s; one cancellation at the 10-minute cap (38404984224, a 3 to 6x slow runner); aggregator 2 to 5 s; orphans p95 73 s (G1).
-- [x] R2 fix: `test-web-shard` timeout 10 -> 30 minutes (6x the p95, rounded up to 5 minutes); `scripts/ci-wall-time.sh` prints checkout-and-install and Vitest wall times and warns above 2x their medians (35 s, 198 s). No retry, threshold, gate or shard change.
-- [x] R2 proof: the registration test is red on the base ci.yml (5 of 15; "Expected 30, Received 10") and green on the new one (15 of 15) (G2, G3).
+- [x] R2 fix (ruled): `test-web-shard` timeout 10 -> 30 minutes (>= 6x the p95, rounded up to 5 minutes; a hang guard, not a performance budget); `scripts/ci-wall-time.sh` prints checkout-and-install and Vitest wall times with their ratio and a WARN line above 2x their medians (35 s, 198 s); it always exits 0. No retry, threshold, gate or shard change.
+- [x] R2 proof: the registration test is red on the base ci.yml (4 of 6; "Expected 30, Received 10") and green on the new one; the script's unit test is red on the first script (10 of 11) and green on the ruled one (G2, G3).
 - [x] Legs: actionlint (no new finding), shellcheck, lint, gate-integrity on both legs, boundaries, lanes, new-file and patch, CRAP, prune scan (G4, G5); typecheck and the guard set under the lock (G6).
 - [ ] R3: one hosted run after validator-8's ACCEPT and the integrator's merge.
 

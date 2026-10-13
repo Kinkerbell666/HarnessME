@@ -6104,3 +6104,13 @@ Review: the hosted red was the Hub page title wait, not the toast: the case gave
 - [x] R4 (validator-8 F1, a false kill from a baseline-broken file): the initial run records its unloadable files with messages for every worker; such a file, or the same message, never kills; and the alone check needs a passing run, because a late bail can cancel it. Pin 19 of 19 (red 5 of 17 on 614dafa9b, 2 of 19 on 54c5e493b); every mutant form red; five targeted runs with 0 resolve-error kills; shard 5/6 exit 0 at 50.22; legs green at 28adbc34d (G10 to G15).
 
 Review: the nightly turned red because a new guard told the truth about five mutants the runner miscounted. The fix counts a load failure as a kill only when the mutant caused it, because about 30 test files per shard never load in the Stryker sandbox at all. That second artifact, and the real merged score of about 56 percent, are leftovers for the maintainers. R4 added what the first fix missed: the kill rule now reads the same run's baseline and asks for positive proof, never the absence of a failure.
+
+## W4H-24 — the web Vitest shard job has a stated timeout margin and names a slow runner (branch `wp/w4h-24-web-shard-timeout` from origin/main d3e6871e5; gates `tasks/factory/w4h-24-GATES.md`)
+
+- [x] R1 measure: last 50 ci runs, every attempt. Shard p95 wall time 257 to 265 s; one cancellation at the 10-minute cap (38404984224, a 3 to 6x slow runner); aggregator 2 to 5 s; orphans p95 73 s (G1).
+- [x] R2 fix (ruled): `test-web-shard` timeout 10 -> 30 minutes (>= 6x the p95, rounded up to 5 minutes; a hang guard, not a performance budget); `scripts/ci-wall-time.sh` prints checkout-and-install and Vitest wall times with their ratio and a WARN line above 2x their medians (35 s, 198 s); it always exits 0. No retry, threshold, gate or shard change.
+- [x] R2 proof: the registration test is red on the base ci.yml (4 of 6; "Expected 30, Received 10") and green on the new one; the script's unit test is red on the first script (10 of 11) and green on the ruled one (G2, G3).
+- [x] Legs: actionlint (no new finding), shellcheck, lint, gate-integrity on both legs, boundaries, lanes, new-file and patch, CRAP, prune scan (G4, G5); typecheck and the guard set under the lock (G6).
+- [ ] R3: one hosted run after validator-8's ACCEPT and the integrator's merge.
+
+Review: the shard did not hang and no test was slow; the runner was. The old cap left a 2.5x margin; the new one leaves 6x, and the log now says when a runner is slow instead of leaving a silent cancel.

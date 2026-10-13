@@ -1,0 +1,57 @@
+W4H-24 report: the web Vitest shard job has a stated timeout margin and names a slow runner.
+Owner: w4h-24. Branch wp/w4h-24-web-shard-timeout (worktree /home/dev/work/EZCorp/EZHarness/.worktrees/w4h-24; deviation
+accepted by the lead), from origin/main d3e6871e5. No merge, no rebase, nothing pushed.
+HEAD: d224026d8f21a3894f0a0e1c788dd9d62bc7e77b. origin/main at the report: d3e6871e5 (unchanged).
+
+COMMITS since d3e6871e5 (author and committer: archy, noreply address)
+- 10a1a93d8 ci(web): give the Vitest shard job a stated timeout margin and log slow phases   (hook: 2 suites mapped, green)
+- 287395312 docs(factory): W4H-24 gates and task record                                      (hook: none maps)
+- 15efed799 ci(web): ci-wall-time.sh names the ratio, always exits 0, and has its own unit test (hook: 11/11 and 6/6)
+- d224026d8 docs(factory): W4H-24 gates and task record after the timeout ruling               (hook: none maps)
+
+R1 (accepted): last 50 completed ci runs, every attempt (60 executions per job), jobs API, runner label ubuntu-latest only.
+Wall s, success, min / median / p95 / max: shard 1 153/235/259/260; shard 2 141/233/257/264; shard 3 150/236/265/273;
+aggregator "Web tests (vitest)" 2/3/4/5; "Web tests (bun-leg orphans)" 40/54/73/86. Cancellations at the cap: 1
+(38404984224 a1, shard 3, 619 s). Phases (n = 178): pre-Vitest median 35 s, Vitest step median 198 s. Green PR 337 shard 3:
+Duration 160.31 s (environment 39%, import 20%). r1/r1-table.txt, r1/analyze.ts, r1/jobs/.
+
+R2 (as ruled)
+- test-web-shard timeout-minutes 10 -> 30. Rule: >= 6x the largest per-shard p95 (265 s), rounded up to 5 min (1590 s =
+  26.5 -> 30; also >= 3x). A hang guard, not a performance budget; ci.yml says so next to the value. Aggregator 3 and
+  orphans 15 unchanged. No retry, threshold, coverage gate, shard count or test selection change.
+- scripts/ci-wall-time.sh <label> <median-s>: the first step writes WALL_TIME_START to $GITHUB_ENV; one step after
+  setup-node (median 35) and one after Vitest (median 198, if: always() && steps.vitest.outcome != 'skipped') print the
+  phase wall time and ratio; above 2x a "WARN:" line and a ::warning annotation name the seconds, the median and the ratio.
+  Always exit 0; a missing start, median or $GITHUB_ENV is a WARN.
+
+RED-FIRST (tree exports with 15efed799's files; red-first/)
+- Registration test scripts/web-shard-timeout-registration.test.ts: base ci.yml 4 of 6 fail ("Expected: 30 Received: 10"
+  and the 3 step-shape cases), new ci.yml 6 of 6 pass (registration-on-base-ci.log, registration-on-new-ci.log).
+- Unit test scripts/ci-wall-time.test.ts: 10a1a93d8 script 10 of 11 fail, ruled script 11 of 11 pass
+  (unit-test-on-10a1a93d8-script.log, unit-test-on-new-script.log). The 10a1a93d8 pair: at-head-ci-old.log / -new.log.
+
+LEGS at 15efed799 (legs-final/; the docs-only d224026d8 changes tasks/ only)
+- gate-integrity PASS, 0 findings, both legs (default base and BASE_REF=origin/main, both d3e6871e5), also rerun at
+  d224026d8 (head-d224026d8-gate-integrity-*.log). Main leg = 0 findings; the timeout change is not flagged.
+- lint 0 (biome, 6182 files). Typecheck 0 errors (tc_run in the lock, tc-gate.log). shellcheck clean.
+- actionlint 1.7.12: the same 3 findings as the base ci.yml (unknown self-hosted labels factory-gpu, factory-real at
+  lines 195/224/262; not in the changed job; no actionlint config in the repo).
+- Guard set (w00/guard-suites.sh): 42 files, 522 pass, 0 fail. All 21 test files that read ci.yml, one process each: pass.
+- boundaries, check-boundaries, lanes clean; new-file PASS (vacuous); patch PASS and CRAP 0 over 30 with a focused lcov of
+  the two tests (no repo lcov locally; the plain patch/CRAP legs fail only on the missing coverage/lcov.info); prune clean.
+- Local environment note: install with --ignore-scripts skips build:packages, so try 1 at 10a1a93d8 had 1485 typecheck
+  errors and the e2e-lanes listing red (same red at d3e6871e5). After `bun run build:packages`: typecheck 0, e2e-lanes 32/32.
+
+R3: one hosted run on the branch after validator-8's ACCEPT and the integrator's merge (not the owner's step).
+Gate file: tasks/factory/w4h-24-GATES.md G1 to G6 done, G7 = R3. Lesson: pending-lesson.md (sha256 07bf6a111f482ec9), not
+tasks/lessons.md. Leftover candidate: an actionlint config for the self-hosted labels (outside this brief).
+
+FILE SHAS (git blob at d224026d8)
+e883b1a9f7aebbe464d1e25c0e90db64532bce12 .github/workflows/ci.yml
+c4d7fc144ba5830ae3da2de6075e0d0bc020a75c scripts/ci-wall-time.sh
+7a19e51a19e748ac2d56fa68ce92f3ef24406448 scripts/ci-wall-time.test.ts
+a15ddacd994355dfdf9550f913e8cbdc687ae1c5 scripts/lib/ci-registration.ts
+b0385d13f24342cef3a056f73c98562e9be374a3 scripts/web-shard-timeout-registration.test.ts
+b1c07df1969eddff9dec8acce7149f986e06d434 tasks/factory/w4h-24-GATES.md
+c72d42113b0e95c27650a5d2061bced30a20c80b tasks/todo.md
+FREEZE at d224026d8: no further change to the branch or the evidence after this file.

@@ -5618,6 +5618,9 @@ order, error code or message. The existing suites cover every changed line, so n
 - [x] Post-merge main syncs (W-SYNC-4 and W-SYNC-5): origin/main 6eb1bbb33 (the PR 318 merge) merged at 94b17348f (0 files, ancestry only; main leg 0
       findings under the new binding; receipts 25a22ac3f); origin/main 6ffd88784 (Pi 0.99.2 #333 and the four web bumps #335) merged at f430182c8
       (the 4 manifest and lock files equal main's blobs; root and web frozen installs; hold status 0: lockfiles byte-identical after the installs, Pi 0.99.2 installed, 9 manifest and Pi suites, typecheck and svelte-check 0, deps-audit clean, the whole web vitest pool 7952/7952, guard 516/0, main leg 0 findings; receipts bfce8cd5d).
+- [x] Post-merge main sync (W-SYNC-6): origin/main d3e6871e5 (the PR 337 merge) merged at 687d511ea (0 files, ancestry only; light hold 0;
+      main leg 0 findings; receipts 53689bf60).
+
 
 ## Wave 4 close (2026-10-01): follow-ups and standing user items
 
@@ -5937,6 +5940,15 @@ wrong; the leg built to prove it disproved it, and the change it motivated was r
       refused (validator-8 F1 at 614dafa9b: a false kill from a $server import that resolved only some of the time; REJECT e0cfd62aaf81a86d);
       a 19-case pin test; shards 3/6 and 5/6 green with 0 zero-test survivors and 0 resolution-reason kills: validator-8
       REJECT e0cfd62aaf81a86d at 614dafa9b then ACCEPT 1aebc9e9b61cdefa at 308d362e3 (R4: 54c5e493b initial-run seeding + message rule, 28adbc34d positive alone-run proof); merge fdf8ac512 / receipts 888f39653. Lands in the follow-up PR after the two main syncs.
+- [x] W4H-24 (post-merge: main ci 38404984224 on d3e6871e5 lost "Web tests shard 3" at its 10-minute cap on a uniformly 5.7x slower hosted
+      runner — 87 of 213 files in 7 min 22 s, setup 2 min 49 s vs 51 s, no hang, no OOM; the same tree ran the shard in 160 s three times):
+      test-web-shard's timeout-minutes is 30 under the stated rule "≥ 6x the p95 shard wall time of the last 50 ci runs (265 s), rounded up to
+      5 min", with the hang-guard reasoning in a comment next to the value; scripts/ci-wall-time.sh prints the checkout-and-install and the
+      vitest wall times and emits a WARN plus a ::warning above 2x their medians (35 s and 198 s), before vitest and after it with if: always(),
+      exit 0 on every path; the aggregator (3) and the orphans job (15) unchanged; no retry. Registration test 4/6 red on the base ci.yml → 6/6;
+      scripts/ci-wall-time.test.ts 10/11 red on the first script → 11/11; every executable line of the script traced by its test; actionlint
+      0 new findings: validator-8 ACCEPT 12a62aba62e97209 at d224026d8 (9 mutants red; 16 probe paths exit 0); merge 8b1aec3f4 /
+      receipts a53f93a49. Lands in the second follow-up PR.
 
 ## Leftover after wave 4i — 2026-10-05
 
@@ -6023,6 +6035,17 @@ Added after wave4i-2 (coordinator, 2026-10-06…08; details in w00/wave4h/leftov
       cancelled file is registered with no result), named from Vitest's code and not reproduced on demand. Decide: point the sandbox alias at the
       copied source, or exclude the 22 files with the reason. Until then the runner patch never counts a kill from a file the initial run could not
       load, needs a passing alone run as proof, and WARNs the list; shard-check.py binds "0 kills with a resolution reason".
+- [ ] ci-wall-time.sh: a start epoch in the future prints a garbled ratio ("-39.-9x"); an unwritable GITHUB_ENV prints bash's error without
+      a WARN. Both paths still exit 0 (validator-8 N1, N2 on W4H-24). Clamp the ratio and WARN on the write failure, with two pin cases.
+- [ ] actionlint reports three "unknown label" findings for the self-hosted runner labels (factory-real, factory-gpu) in other jobs at every
+      commit; add an actionlint config that declares the labels, so the 0-new-findings check becomes a 0-findings check (W4H-24).
+- [ ] Two bash line-coverage tracers exist (integrator-5/bash-line-cover.py and validator-8/bash-line-cover.py, both xtrace through BASH_ENV
+      with the function-header rule); fold one into w00/ as the shared tool with its self-test, and use it in every hold that changes a shell
+      script (W4H-24).
+- [ ] Docker Hub anonymous pulls from the hosted runners fail intermittently (429 on 2026-10-09, 502 on 2026-10-12) on the pinned oven/bun
+      images (Dockerfile.test, Dockerfile.dev, the extension-runner guest image); decide: a login step with DOCKERHUB_USERNAME and
+      DOCKERHUB_TOKEN secrets (W4H-19 brief ready), or a mirror under ghcr.io/ezcorp-org. Until then a failed-jobs re-run is the recovery.
+
 
 ## W4H-11 — bundled bootstrap deadline on the hosted 4-CPU runner (branch `wp/w4h-11-bootstrap-deadline` from integ/w00 1bc5f63c7; gates `tasks/factory/w4h-11-GATES.md`)
 
@@ -6104,3 +6127,13 @@ Review: the hosted red was the Hub page title wait, not the toast: the case gave
 - [x] R4 (validator-8 F1, a false kill from a baseline-broken file): the initial run records its unloadable files with messages for every worker; such a file, or the same message, never kills; and the alone check needs a passing run, because a late bail can cancel it. Pin 19 of 19 (red 5 of 17 on 614dafa9b, 2 of 19 on 54c5e493b); every mutant form red; five targeted runs with 0 resolve-error kills; shard 5/6 exit 0 at 50.22; legs green at 28adbc34d (G10 to G15).
 
 Review: the nightly turned red because a new guard told the truth about five mutants the runner miscounted. The fix counts a load failure as a kill only when the mutant caused it, because about 30 test files per shard never load in the Stryker sandbox at all. That second artifact, and the real merged score of about 56 percent, are leftovers for the maintainers. R4 added what the first fix missed: the kill rule now reads the same run's baseline and asks for positive proof, never the absence of a failure.
+
+## W4H-24 — the web Vitest shard job has a stated timeout margin and names a slow runner (branch `wp/w4h-24-web-shard-timeout` from origin/main d3e6871e5; gates `tasks/factory/w4h-24-GATES.md`)
+
+- [x] R1 measure: last 50 ci runs, every attempt. Shard p95 wall time 257 to 265 s; one cancellation at the 10-minute cap (38404984224, a 3 to 6x slow runner); aggregator 2 to 5 s; orphans p95 73 s (G1).
+- [x] R2 fix (ruled): `test-web-shard` timeout 10 -> 30 minutes (>= 6x the p95, rounded up to 5 minutes; a hang guard, not a performance budget); `scripts/ci-wall-time.sh` prints checkout-and-install and Vitest wall times with their ratio and a WARN line above 2x their medians (35 s, 198 s); it always exits 0. No retry, threshold, gate or shard change.
+- [x] R2 proof: the registration test is red on the base ci.yml (4 of 6; "Expected 30, Received 10") and green on the new one; the script's unit test is red on the first script (10 of 11) and green on the ruled one (G2, G3).
+- [x] Legs: actionlint (no new finding), shellcheck, lint, gate-integrity on both legs, boundaries, lanes, new-file and patch, CRAP, prune scan (G4, G5); typecheck and the guard set under the lock (G6).
+- [ ] R3: one hosted run after validator-8's ACCEPT and the integrator's merge.
+
+Review: the shard did not hang and no test was slow; the runner was. The old cap left a 2.5x margin; the new one leaves 6x, and the log now says when a runner is slow instead of leaving a silent cancel.

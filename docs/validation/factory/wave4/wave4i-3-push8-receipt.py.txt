@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+# wave4i-3 push8 receipt: the push7 receipts pushed to PR 337 (integrator-5, the coordinator's word 2026-10-12). Hashes from the files.
+import hashlib, json
+W = '/tmp/factory-platform-evidence/w00'; P = W + '/wave4i-3/push8'
+h = lambda p: hashlib.sha256(open(p, 'rb').read()).hexdigest()[:16]
+x = {
+ "push": "feat/factory-platform-followup-1 fast-forwarded f0cde0407 -> 044253aa392d00b7eec3adefbf8f818e06a9edae (the push7 receipts; 50 files, all under docs/validation/factory/wave4/) and pushed ONCE from the integ worktree (lock-free tc_run GREEN at 18.3 GiB, lowest 14.8; pre-push hook biome, typecheck, svelte-check 620 files 0 errors; exit 0 at 23:27:13Z 2026-10-12; no -u; the shared config unchanged at c405ccfcdad7afa7).",
+ "steps": {
+  "1 pre-checks": "pre-checks.log 23:26:06Z: integ clean on integ/w00 044253aa3; archy; fetch rc 0; origin/main 6ffd88784 (not moved) and origin/feat/factory-platform-followup-1 f0cde0407 both ancestors of 044253aa3; delta 50 files, 0 outside docs/validation/factory/wave4/; config c405ccfcdad7afa7; disk 198G, MemAvailable 18.4 GiB, SwapFree 8.3 GiB",
+  "2 ff": "push.sh refuses unless the branch is at f0cde0407 locally and remotely and f0cde0407 is an ancestor of 044253aa3; then git branch -f (a fast-forward)",
+  "3 installs": "frozen_installs in the integ worktree exit 0, no changes (root, web, gate-integrity deps; --ignore-scripts)",
+  "4 push": "push.sh " + h(P + '/push.sh') + " through w00/tc-gate.sh " + h(W + '/tc-gate.sh') + "; local = remote = 044253aa3",
+  "5 PR": "pr-337.json: OPEN, draft, head 044253aa3, MERGEABLE, BLOCKED, no labels",
+  "6 hosted": "ci 38322209985 (23:27:18Z - 23:57:37Z) and deps-audit 38322209969 (success); no nightly dispatch (docs-only)."},
+ "result": "58 jobs, one attempt: red 1 = the token precheck (A). vs 38312417583 attempt 2: same 57, no new red; vs 37138524741: 20 -> 1. Gate integrity GREEN with no label (0 findings). Per-file coverage gate PASSED (2234 files; new-file; patch 0 files; 98.09%).",
+ "tooling": {"push.sh": h(P + '/push.sh'), "installs.sh": h(P + '/installs.sh'), "w00/tc-gate.sh": h(W + '/tc-gate.sh'), "w00/wave4i-2/hosted-compare.py": h(W + '/wave4i-2/hosted-compare.py'),
+             "integrator-5/log-excerpt.sh": h('/tmp/factory-platform-evidence/integrator-5/log-excerpt.sh'), "integrator-5/poll-ci.sh": h('/tmp/factory-platform-evidence/integrator-5/poll-ci.sh')},
+ "hostEvents": ["none in the push window (23:26 - 23:58Z 2026-10-12)"],
+ "receiptsBy": "integrator-5"}
+json.dump(x, open(P + '/receipts/wave4i-3-push8.json', 'w'), indent=2); print('ok')

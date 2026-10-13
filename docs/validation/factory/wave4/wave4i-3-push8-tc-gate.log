@@ -1,0 +1,2 @@
+tc-gate 2026-10-12T23:26:18Z push GREEN: MemAvailable=18.3GiB >= 16GiB (in-lock=0); start
+tc-gate 2026-10-12T23:27:13Z push END: exit=0; MemAvailable before 18.3GiB, lowest during 14.8GiB, after 18.2GiB

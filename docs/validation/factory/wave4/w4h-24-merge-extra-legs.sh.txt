@@ -1,0 +1,18 @@
+# W4H-24 (integrator-5; lead's prep order 2026-10-13): .github/workflows/ci.yml, the test-web-shard timeout with a stated margin rule and a
+# wall-time WARN step, plus the registration tests. A CI-wiring package: the TARGETED hold (lead's lesson: never a skipped one). No full combined
+# run (lead's ruling). Merge gates BIND vs the first parent (ci.yml and the tests are outside SOURCE_GLOBS: new-file and patch vacuous).
+# unit.txt (one lcov leg each): the hook-mapped registration tests + every test that reads .github/workflows/ci.yml and is not in the guard set.
+N=/tmp/factory-platform-evidence/w00/w4h-merge/w4h-24-web-shard-timeout
+tc_leg typecheck-all bun run typecheck
+# ci.yml changed: actionlint 1.7.7 without the labels config at the first parent and the merge (BINDING: 0 new findings); the labelled run
+# (0 errors) is hold-w4f.sh's standard actionlint leg for a workflow change.
+NOTEST=1 leg actionlint-compare bash /tmp/factory-platform-evidence/w00/w4h-merge/w4h-15-coverage-artifact-names/actionlint-compare.sh "$M"
+# The new value as the job reads it (BINDING): test-web-shard's timeout-minutes at the merge, printed with the first parent's, so the receipt
+# names the change; the margin rule itself is the owner's registration test's to pin.
+NOTEST=1 leg web-shard-timeout bash -c 'for r in "$0^1" "$0"; do printf "%s test-web-shard timeout-minutes: " "$r"; git show "$r:.github/workflows/ci.yml" | awk "/^  test-web-shard:/{f=1;next} f&&/^  [a-z]/{exit} f&&/timeout-minutes:/{print \$2; exit}"; done' "$M"
+# BINDING 1 (lead 2026-10-13): the merged timeout against the owner's rule (>= 3 x p95, rounded up to 5 min), the arithmetic printed;
+# r1-p95-seconds.txt is filled at the re-prep from the owner's R1 table (report.txt). Below the rule = red (STOP).
+NOTEST=1 leg web-shard-timeout-rule bash $N/timeout-rule.sh "$M" $N/r1-p95-seconds.txt
+# BINDING 2 (lead): the owner's red-first cases for the WARN step and the timeout (warn-cases.txt, filled at the re-prep) each PASS in the
+# unit legs' logs; the per-file lcov of the changed test lines is printed by lcov-changed-lines.py after the hold.
+NOTEST=1 leg warn-and-timeout-cases bash $N/case-check.sh "$M" $N

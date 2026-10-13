@@ -1,0 +1,6 @@
+bun test v1.4.2 (744846f84)
+
+ 44 pass
+ 0 fail
+ 149 expect() calls
+Ran 44 tests across 1 file. [1324.00ms]

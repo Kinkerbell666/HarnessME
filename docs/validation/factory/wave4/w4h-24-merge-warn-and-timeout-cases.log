@@ -1,0 +1,21 @@
+scripts/ci-wall-time.test.ts: Ran 11 tests across 1 file. [509.00ms]
+scripts/lib/ci-registration.test.ts: Ran 16 tests across 1 file. [458.00ms]
+scripts/web-shard-timeout-registration.test.ts: Ran 6 tests across 1 file. [450.00ms]
+CASE PASS: the timeout is the slowdown margin times the p95 wall time, rounded up to 5 minutes
+CASE PASS: the aggregator's timeout still covers its fan-in
+CASE PASS: no retry hides the slowness, and the shard set is unchanged
+CASE PASS: the clock starts in the first step, before checkout
+CASE PASS: checkout and install are reported after setup-node, right before Vitest starts
+CASE PASS: Vitest is reported right after it ends, also when it fails or is cancelled
+CASE PASS: the workflow's clock step writes the start time to $GITHUB_ENV
+CASE PASS: a fast phase prints its wall time and ratio, no WARN, and starts the next phase
+CASE PASS: a phase at exactly 2x its median prints no WARN
+CASE PASS: a slow phase prints a WARN line and an annotation with the seconds, the median and the ratio, and exits 0
+CASE PASS: one second above 2x warns
+CASE PASS: a missing start time fails loudly with a WARN, exits 0, and starts the next phase
+CASE PASS: a missing $GITHUB_ENV warns and exits 0
+CASE PASS: 4x warns about the usage and exits 0
+scripts/ci-wall-time.test.ts: file 72/72 lines hit; added lines 90, instrumented 72, uncovered 0
+scripts/web-shard-timeout-registration.test.ts: file 50/50 lines hit; added lines 76, instrumented 50, uncovered 0
+bash line cover: merge 8b1aec3f4 vs base 53689bf60; trace /tmp/factory-platform-evidence/w00/w4h-merge/w4h-24-web-shard-timeout/case-check/bash-trace.txt
+scripts/ci-wall-time.sh: added 44, executable 21, executed 21, missed 0

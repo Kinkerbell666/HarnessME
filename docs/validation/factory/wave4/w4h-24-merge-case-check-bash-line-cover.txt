@@ -1,0 +1,2 @@
+bash line cover: merge 8b1aec3f4 vs base 53689bf60; trace /tmp/factory-platform-evidence/w00/w4h-merge/w4h-24-web-shard-timeout/case-check/bash-trace.txt
+scripts/ci-wall-time.sh: added 44, executable 21, executed 21, missed 0

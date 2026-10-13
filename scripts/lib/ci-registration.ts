@@ -57,9 +57,9 @@ export function ghExpr(expression: string): string {
   return `\${{ ${expression} }}`;
 }
 
-export interface WorkflowStep { readonly uses?: string; readonly run?: string; readonly name?: string; readonly shell?: string; readonly env?: Readonly<Record<string, string>>; readonly with?: Readonly<Record<string, string | number | boolean>> }
+export interface WorkflowStep { readonly id?: string; readonly if?: string; readonly uses?: string; readonly run?: string; readonly name?: string; readonly shell?: string; readonly "continue-on-error"?: boolean | string; readonly env?: Readonly<Record<string, string>>; readonly with?: Readonly<Record<string, string | number | boolean>> }
 /** A job runs steps, or calls a reusable workflow (`uses: ./.github/workflows/<file>`). */
-export interface WorkflowJob { readonly name?: string; readonly uses?: string; readonly steps?: readonly WorkflowStep[] }
+export interface WorkflowJob { readonly name?: string; readonly uses?: string; readonly "timeout-minutes"?: number; readonly needs?: string | readonly string[]; readonly strategy?: { readonly matrix?: Readonly<Record<string, unknown>> }; readonly steps?: readonly WorkflowStep[] }
 export interface Workflow { readonly file: string; readonly text: string; readonly jobs: Record<string, WorkflowJob> }
 
 /** Every workflow file in `dir`, sorted by name, with its text and its parsed jobs. */

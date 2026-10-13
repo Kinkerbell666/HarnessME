@@ -1,0 +1,5 @@
+resource-gate 2026-10-13T13:28:01Z w-sync-d3e-commit outside-lock disk=197G memAvailable=18GiB swapFreeKiB=7887328/17173956 floors disk>=104G swap>=2621440KiB mem>=12GiB
+gated-flock w-sync-d3e-commit: gate green outside the lock, queue for the lock (try 1) 2026-10-13T13:28:01Z
+resource-gate 2026-10-13T13:28:01Z commit-start disk=197G memAvailable=18GiB swapFreeKiB=7887328/17173956 floors disk>=100G swap>=2097152KiB mem>=12GiB
+commit.sh exit=0 2026-10-13T13:30:23Z
+gated-flock w-sync-d3e-commit: command exit 0 2026-10-13T13:30:23Z

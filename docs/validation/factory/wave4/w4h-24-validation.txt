@@ -1,0 +1,46 @@
+ACCEPT wp/w4h-24-web-shard-timeout at d224026d8
+W4H-24 verdict (the web Vitest shard job's timeout margin and wall-time logging), validator-8 (lane validator-8), 2026-10-13T14:5xZ
+
+VERDICT: ACCEPT wp/w4h-24-web-shard-timeout at d224026d8. Every leg of the accepted plan and the ruling (timeout-minutes 30 under
+">= 6x p95, rounded up to 5 min") passes. Two cosmetic notes on the script, non-blocking (N1, N2).
+Commits on base d3e6871e5 (archy noreply, 4 of 4): 10a1a93d8 (timeout + steps), 287395312 (docs), 15efed799 (script names the ratio,
+always exits 0, its own test), d224026d8 (gate file and todo). Owner report sha256 d9eb015eb104094b; pending-lesson.md 07bf6a111f482ec9.
+Every hold ran on a git-archive snapshot outside the evidence dir, removed after.
+
+1. Scope: changed .github/workflows/ci.yml, scripts/ci-wall-time.sh, scripts/ci-wall-time.test.ts, scripts/web-shard-timeout-registration.test.ts,
+   scripts/lib/ci-registration.ts (type-only: interface fields id, if, continue-on-error, timeout-minutes, needs, strategy), the gate
+   file and todo. Parsed ci.yml at base and head: the ONLY job whose timeout-minutes changed is test-web-shard (10 -> 30); the aggregator
+   "Web tests (vitest)" keeps timeout 3 and needs [test-web-shard]; the shard matrix i [1,2,3] and fail-fast false are unchanged; every
+   other job's timeout (the orphans job's 15 included) is unchanged. No retry, no continue-on-error, no threshold or gate change.
+   Identity 4/4; prune clean; config baseline.
+2. The measurement reproduced (validator-8/web-shard-times.py, gh api jobs of every attempt, 3 retries per call), at validation time:
+   window = the last 50 completed ci.yml runs, all branches, 2026-10-07T06:45Z to 2026-10-13T13:35Z (unchanged since my first run):
+   shard 1 n55 median 235 s p95 258 s max 260 s; shard 2 n55 233 / 257 / 264; shard 3 n57 236 / 265 / 273; one cancel at the cap
+   (38404984224 shard 3, 619 s). Main only (2026-09-20 to 2026-10-13): p95 285 / 281 / 292 s, max 348 s. The owner's R1 (p95 265 s, 60
+   executions per job, one cancel) is reproduced. The phase medians in ci.yml's comment are reproduced exactly on the all-branches
+   window: before Vitest 35 s and the Vitest step 198 s (167 successful shard jobs with a Vitest step; main only 33 s / 196 s).
+3. The arithmetic, both windows: all branches 6 x 265 s = 1590 s = 26.5 min -> 30; main only 6 x 292 s = 1752 s = 29.2 min -> 30. 30 holds
+   for both; 25 would not (1500 s < 1590 and < 1752). 30 min is also >= 3x either p95. The incident runner (5.71x by the median ratio)
+   projects to about 18-21 min for shard 3, under 30.
+4. Red-first: web-shard-timeout-registration.test.ts green 6/6 at head, red 4/6 by assertion with the base ci.yml; ci-wall-time.test.ts
+   green 11/11 at head, red 10/11 with the 10a1a93d8 script (both equal to the owner's counts). None VOID.
+5. Mutants, each RED by assertion: ci.yml — m1 timeout back to 10; m2 timeout 25 (below the rule); m3 the Vitest wall-time step's
+   if: always() dropped; m4 the start-clock step removed. Script — m5 the 2x factor made 3x; m6 the slow WARN made to fail the job (exit 1);
+   m7 a bad argument made to exit 1; m8 the ::warning annotation dropped; m9 the next phase's start not written.
+6. The script exits 0 on every path (my own probe set, independent of the owner's test, `date` fixed per case): no arguments; label only;
+   a median that is not a number, 0 or empty; a missing or garbled start; exactly 2x (200 of 100: no WARN), 2x-1 (no WARN), 2x+1 (WARN);
+   zero and huge elapsed; a start in the future; $GITHUB_ENV unset (WARN) or unwritable; a caller under `set -e` continues after it.
+   Every missing input gives a WARN line plus a ::warning annotation and exit 0.
+   Line coverage: every executable line of scripts/ci-wall-time.sh is traced by its own test — 16 of 16 (validator-8/bash-line-cover.py:
+   xtrace through BASH_ENV and a bash wrapper first on PATH, since the test passes bash an explicit environment; self-tested both ways).
+   (My first count reported line 14 missed: the `warn() {` header, which bash never traces; the tool now skips definition headers,
+   self-tested on a never-called one-line function, and the re-run reads 16/16.)
+7. actionlint 1.7.7 with the labels config: 0 findings at base and at head (the owner's 3 self-hosted-label findings are from a run without
+   the labels config). gate-integrity: the main leg at d224026d8 against origin/main d3e6871e52a1e393b418cd7534d67630b43535e3 = "Gate
+   integrity PASSED", 0 findings; the base leg vs d3e6871e5 PASSED. Lint 0; boundaries 0; gitleaks 0. Typecheck and svelte-check 0
+   in-lock at 17.6 GiB, pinned Node. Guard set 522 pass 0 fail.
+NOTES (non-blocking, cosmetic, for the leftover list):
+- N1: a start time in the future (a clock that steps back) prints a garbled ratio, "-39.-9x" (integer % on a negative); exit 0, no WARN.
+- N2: an unwritable $GITHUB_ENV prints bash's own write error but no WARN line or annotation; exit 0. The unset case does WARN.
+Evidence: /tmp/factory-platform-evidence/validator-8/ w4h-24/ (times-*.txt), w4h-24-light/, w4h-24-heavy/; ci-wall-time-probes.sh,
+bash-line-cover.py, web-shard-times.py; hold-w4h-24-{light,heavy}.sh.

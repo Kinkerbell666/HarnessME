@@ -1,0 +1,24 @@
+Checked 3 files in 4ms. No fixes applied.
+── Tests (staged) ─────────────────────────────────
+  bun: scripts/ci-wall-time.test.ts
+bun test v1.4.2 (744846f84)
+
+ 11 pass
+ 0 fail
+ 23 expect() calls
+Ran 11 tests across 1 file. [380.00ms]
+  bun: scripts/lib/ci-registration.test.ts
+bun test v1.4.2 (744846f84)
+
+ 16 pass
+ 0 fail
+ 28 expect() calls
+Ran 16 tests across 1 file. [348.00ms]
+  bun: scripts/web-shard-timeout-registration.test.ts
+bun test v1.4.2 (744846f84)
+
+ 6 pass
+ 0 fail
+ 14 expect() calls
+Ran 6 tests across 1 file. [354.00ms]
+[detached HEAD 8b1aec3f4] merge: wp/w4h-24-web-shard-timeout d224026d8 into integ/w00 (the web vitest shard timeout has a stated margin and a wall-time WARN)

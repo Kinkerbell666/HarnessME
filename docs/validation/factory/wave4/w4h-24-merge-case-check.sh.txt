@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# case-check.sh <merge sha> <merge folder> (integrator-5, W4H-24 binding 2, lead 2026-10-13): the hook-mapped ROOT registration tests cover the
+# WARN step as well as the timeout. Each hook-mapped *.test.ts outside web/ runs once more with bunfig-testfiles.toml (the repo's [test]
+# settings + coverageSkipTestFiles = false, so the test file's own lines get an lcov record) and a junit report. BINDING: every case named in
+# <folder>/warn-cases.txt (the owner's red-first cases) is a <testcase> without <failure> (a line '<n>x <substring>' needs n passing
+# cases with that substring and none failing: a test.each table); then the changed lines of those test files are
+# measured against that lcov (lcov-changed-lines.py, base = the merge's first parent): every instrumented changed line covered.
+# v2 (the coordinator's ruling 2026-10-13: scripts/ci-wall-time.sh and its bash-level test): a hook-mapped *.test.sh runs with bash; every
+# run has BASH_ENV=bash-trace-env.sh, so each bash the tests start traces file:line; bash-line-cover.py then BINDS every executable ADDED
+# line of each changed *.sh file to the trace.
+set -u
+M=${1:?merge} N=${2:?folder}; O=$N/case-check; mkdir -p "$O"; st=0
+L=$(ls "$N"/hook-mapped-*.txt | grep -v staged | head -1)
+grep -E '\.test\.(ts|sh)$' "$L" | grep -v '^web/' > "$O/files.txt" || true
+export BASH_ENV=$N/bash-trace-env.sh BASH_LINE_TRACE=$O/bash-trace.txt; : > "$BASH_LINE_TRACE"
+# A test may start bash with a CLEAN env (PATH kept): a `bash` wrapper first on PATH re-exports the trace variables and runs the real bash.
+REALBASH=$(command -v bash); mkdir -p "$O/bashwrap"
+printf '#!%s\nexport BASH_ENV=%q BASH_LINE_TRACE=%q\nexec %q "$@"\n' "$REALBASH" "$BASH_ENV" "$BASH_LINE_TRACE" "$REALBASH" > "$O/bashwrap/bash"; chmod 755 "$O/bashwrap/bash"
+export PATH="$O/bashwrap:$PATH"
+[ -s "$O/files.txt" ] || { echo "no hook-mapped root test file in $L"; exit 1; }
+while read -r f; do n=$(echo "$f" | tr '/.' '--')
+  case "$f" in
+    *.test.sh) bash "./$f" > "$O/$n.log" 2>&1 || { echo "RED: $f"; st=1; } ;;
+    *) bun --config="$N/bunfig-testfiles.toml" test --timeout 120000 --coverage --coverage-reporter=lcov --coverage-dir="$O/cov-$n" --reporter=junit --reporter-outfile="$O/$n.junit.xml" "./$f" > "$O/$n.log" 2>&1 || { echo "RED: $f"; st=1; } ;;
+  esac
+  echo "$f: $(tail -1 "$O/$n.log")"; done < "$O/files.txt"
+while IFS= read -r c; do [ -z "$c" ] && continue
+  if python3 -I -c 'import sys,glob,xml.etree.ElementTree as ET
+import re
+c=sys.argv[1]; m=re.match(r"^(\d+)x (.+)$", c); need, c = (int(m[1]), m[2]) if m else (1, c); n=0; bad=0
+for f in glob.glob(sys.argv[2]+"/*.junit.xml"):
+    for t in ET.parse(f).iter("testcase"):
+        if c in (t.get("name") or ""):
+            if t.find("failure") is None and t.find("skipped") is None: n+=1
+            else: bad+=1
+sys.exit(0 if n >= need and bad == 0 else 1)' "$c" "$O"; then echo "CASE PASS: $c"; else echo "CASE MISSING or not passed: $c"; st=1; fi
+done < "$N/warn-cases.txt"
+cat "$O"/cov-*/lcov.info > "$O/testfiles.lcov" 2>/dev/null || : > "$O/testfiles.lcov"
+python3 -I /tmp/factory-platform-evidence/w00/w4h-merge/w4h-11-bootstrap-deadline/lcov-changed-lines.py "$PWD" "$(git rev-parse "$M^1")" "$M" "$O/testfiles.lcov" --include-tests | tee "$O/changed-lines.txt" | grep -F -f "$O/files.txt"
+grep -qE 'uncovered [1-9]' "$O/changed-lines.txt" && { echo "changed test lines NOT all covered"; st=1; }
+unset BASH_ENV; PATH=${PATH#"$O/bashwrap:"}
+python3 -I $N/bash-line-cover.py "$PWD" "$(git rev-parse "$M^1")" "$M" "$BASH_LINE_TRACE" > "$O/bash-line-cover.txt"; b=$?; cat "$O/bash-line-cover.txt"
+[ $b -eq 0 ] || { echo "changed bash lines NOT all executed"; st=1; }
+exit $st

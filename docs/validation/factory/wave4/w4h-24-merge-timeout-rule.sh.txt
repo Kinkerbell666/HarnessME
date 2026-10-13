@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# timeout-rule.sh <merge sha> <r1-p95-seconds.txt> [factor=6] (integrator-5, W4H-24 binding 1; the coordinator's ruling 2026-10-13: >= 6 x the p95
+# shard wall time, rounded UP to 5 minutes; p95 265 s -> 30 min). The input's line 1 = p95 seconds, line 2 = its source.
+# Also prints, for the receipt, the aggregator's and the bun-leg orphans job's timeouts at the first parent and the merge: they must be UNCHANGED.
+# Test seam: CI_YML_AT_MERGE=<file> reads that file instead of the merge's ci.yml (self-test only).
+set -u
+M=${1:?merge} F=${2:?p95 file} K=${3:-6}
+p95=$(head -1 "$F"); src=$(sed -n 2p "$F")
+yml() { if [ "$1" = "$M" ] && [ -n "${CI_YML_AT_MERGE:-}" ]; then cat "$CI_YML_AT_MERGE"; else git show "$1:.github/workflows/ci.yml"; fi; }
+tmo() { awk -v j="  $2:" 'index($0,j)==1 && length($0)==length(j){f=1;next} f&&/^  [a-z]/{exit} f&&/timeout-minutes:/{print $2; exit}' <(yml "$1"); }
+v=$(tmo "$M" test-web-shard)
+need=$(( ( (K * p95 + 299) / 300 ) * 5 ))
+echo "p95 ${p95} s (source: ${src}); ${K} x p95 = $((K * p95)) s; rounded up to 5 min: ${need} min; merged test-web-shard timeout-minutes: ${v:-none}"
+st=0; if [ -n "$v" ] && [ "$v" -ge "$need" ]; then echo "rule MET"; else echo "rule NOT met: STOP"; st=1; fi
+for j in test-web web-bun-tests; do a=$(tmo "$M^1" $j); b=$(tmo "$M" $j); echo "$j timeout-minutes: first parent ${a:-none}, merge ${b:-none}"; [ "$a" = "$b" ] || { echo "$j CHANGED: STOP"; st=1; }; done
+exit $st

@@ -1,0 +1,5 @@
+merge: origin/main d3e6871e5 into integ/w00 (W-SYNC: the PR 337 merge)
+
+main merged PR 337 at d3e6871e5 (parents 6ffd88784 + 044253aa3); its tree equals 044253aa3, which integ/w00 already
+contains, so this merge changes no file: it records main in the integ history. The hook maps 0. The origin/main gate leg must
+read 0 findings.

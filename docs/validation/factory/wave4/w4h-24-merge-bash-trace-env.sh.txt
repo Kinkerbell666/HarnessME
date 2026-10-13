@@ -1,0 +1,2 @@
+# BASH_ENV file (integrator-5, W4H-24 binding 2): every non-interactive bash a test starts appends an xtrace with file:line to $BASH_LINE_TRACE.
+if [ -n "${BASH_LINE_TRACE:-}" ]; then exec {__i5_fd}>>"$BASH_LINE_TRACE"; BASH_XTRACEFD=$__i5_fd; PS4='+i5|${BASH_SOURCE[0]}|${LINENO}| '; set -x; fi

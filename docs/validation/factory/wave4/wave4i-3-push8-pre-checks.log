@@ -1,0 +1,15 @@
+pre-checks 2026-10-12T23:26:06Z (integrator-5, push-checklist step 1, push8: the push7 receipts to feat/factory-platform-followup-1)
+status --porcelain lines: 0
+branch: integ/w00
+ident: archy <281643943+EZArchy@users.noreply.github.com>
+fetch rc=0
+origin/main: 6ffd887848d5d1215d80f3c88db140eee296c42e
+integ/w00:   044253aa392d00b7eec3adefbf8f818e06a9edae
+origin/feat/factory-platform-followup-1: f0cde0407281bb7561b1f7a3221647e1d996d791
+local feat/factory-platform-followup-1: f0cde0407281bb7561b1f7a3221647e1d996d791
+origin/feat/factory-platform-followup-1 ancestor of 044253aa392d00b7eec3adefbf8f818e06a9edae: rc=0
+origin/main ancestor of 044253aa392d00b7eec3adefbf8f818e06a9edae: rc=0
+delta files: 0 outside docs/validation/factory/wave4/, 50 total
+config: c405ccfcdad7afa7 = accepted baseline
+config-check rc=0
+resources: disk 198G MemAvailable: 18.4 GiB SwapFree: 8.3 GiB 

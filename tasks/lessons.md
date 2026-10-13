@@ -2131,6 +2131,24 @@ smokes under the lock, detached-job wake-ups) are not repeated.
 - Owner: an intermittent false result (1 of 9 runs) is a correctness bug, not noise. Fix it by construction and prove it with a pin case that fails
   on the old code; never accept "it did not happen again in five runs" as the fix (W4H-23 F1).
 
+#### Owner, validator, integrator and coordinator of W4H-24 and the PR 337 round (pending-lesson.md files, 2026-10-12 to 2026-10-13; condensed)
+- Owner: size a job timeout from the slowdown you must survive, not from a fixed multiple alone; replay the incident's numbers before you
+  choose the value (3x the p95 = 15 min would still have cancelled run 38404984224 on a 5.7x slower runner; the ruled 6x = 30 min holds).
+- Owner: make a slow runner visible in the log before the slow phase starts; a wall-time line that warns above 2x the median at the end of
+  install names the cause even when the job is cancelled later. A cancel alone reads like a hang.
+- Owner: `bun install --ignore-scripts` skips `build:packages`, so workspace packages have no dist/; a browser-building test then lists 0
+  Playwright tests and typecheck reports hundreds of errors. Run `bun run build:packages` before you call such a red a defect; CI's install runs it.
+- Validator: the same hash error twice in one day means the rule needs a mechanism, not intent: a hash never goes into a message in the same
+  batch as the command that computes it — compute, read the output, then send.
+- Validator and integrator: a bash line-coverage tool built on xtrace must not count function definition headers (`name() {`) as executable;
+  bash never traces them. A test that starts bash with a clean environment drops BASH_ENV, so the trace settings travel in a wrapper first on PATH.
+- Coordinator: a job cap is a hang guard, not a performance budget; a correct result after 18 minutes beats a cancel plus a human re-run. The
+  performance signal is the WARN step, never the cap.
+- Coordinator: teammate reports reach the coordinator only when its turn ends; four re-sends of the same report are noise. One report per
+  milestone, and the coordinator reads the state from disk and git in between.
+- Coordinator: Docker Hub answers 502 as well as 429 to the hosted runners' anonymous pulls (class D); the three jobs behind the pull fail
+  closed as cascades (B). The root fix is a login step or a mirror, a maintainer decision; a re-run of the failed jobs is the recovery.
+
 #### Owners (from w4h-5/pending-lesson.md)
 - Read the inbox before each report and before each new leg of work; when an order changes the plan (a split, a hold, a start word), stop
   and follow it.

@@ -1,0 +1,323 @@
+excerpt of web-shard3.raw (1033 lines, 101985 bytes, sha256 2c7752798fb3336e66bb21a605e8f5bc38e7e03da54685c655cfc716fe11139d): the first 120 and the last 200 lines, ANSI and timestamps stripped; the full log stays in the evidence dir
+----- first 120 -----
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {f0297b15-7511-4bf1-b525-591f0391d57e}
+Region: southcentralus
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Complete job name: Web tests shard 3
+##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+with:
+  repository: ezcorp-org/EZHarness
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-depth: 1
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+env:
+  BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+  BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+##[endgroup]
+Syncing repository: ezcorp-org/EZHarness
+##[group]Getting Git version info
+Working directory is '/home/runner/work/EZHarness/EZHarness'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/82cac035-88d9-4c7e-a3f7-034343ffe0ea' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Deleting the contents of '/home/runner/work/EZHarness/EZHarness'
+##[group]Determining repository object format
+##[endgroup]
+##[group]Initializing the repository
+[command]/usr/bin/git init /home/runner/work/EZHarness/EZHarness
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /home/runner/work/EZHarness/EZHarness/.git/
+[command]/usr/bin/git remote add origin https://github.com/ezcorp-org/EZHarness
+##[endgroup]
+##[group]Disabling automatic garbage collection
+[command]/usr/bin/git config --local gc.auto 0
+##[endgroup]
+##[group]Setting up auth
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+[command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+[command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path /home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+##[endgroup]
+##[group]Fetching the repository
+[command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d3e6871e52a1e393b418cd7534d67630b43535e3:refs/remotes/origin/main
+From https://github.com/ezcorp-org/EZHarness
+ * [new ref]         d3e6871e52a1e393b418cd7534d67630b43535e3 -> origin/main
+[command]/usr/bin/git branch --list --remote origin/main
+  origin/main
+[command]/usr/bin/git rev-parse refs/remotes/origin/main
+d3e6871e52a1e393b418cd7534d67630b43535e3
+##[endgroup]
+##[group]Determining the checkout info
+##[endgroup]
+[command]/usr/bin/git sparse-checkout disable
+[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+##[group]Checking out the ref
+[command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Updating files:   8% (1357/15211)
+Updating files:   9% (1369/15211)
+----- last 200 -----
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.retries}` (src/lib/components/WorkflowStepForm.svelte:218:65) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.modelText}` (src/lib/components/WorkflowStepForm.svelte:231:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > agent kind (loop on): loop fields render and retries is hidden
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.agent}` (src/lib/components/WorkflowStepForm.svelte:90:40) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:checked={step.loopEnabled}` (src/lib/components/WorkflowStepForm.svelte:184:27) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.maxIterations}` (src/lib/components/WorkflowStepForm.svelte:191:70) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.onExhausted}` (src/lib/components/WorkflowStepForm.svelte:195:40) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.untilText}` (src/lib/components/WorkflowStepForm.svelte:205:6) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.modelText}` (src/lib/components/WorkflowStepForm.svelte:231:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > transform kind: output pairs add/remove, loop present, input mapping hidden
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={pair.key}` (src/lib/components/WorkflowStepForm.svelte:154:58) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={pair.value}` (src/lib/components/WorkflowStepForm.svelte:157:58) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:checked={step.loopEnabled}` (src/lib/components/WorkflowStepForm.svelte:184:27) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > gate kind: condition editor only — no input/output/loop/retries
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.conditionText}` (src/lib/components/WorkflowStepForm.svelte:170:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > tool kind: a tool field and the input-mapping editor, no loop and no model
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.tool}` (src/lib/components/WorkflowStepForm.svelte:101:39) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > agent kind exposes the model-override field and binds it
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.agent}` (src/lib/components/WorkflowStepForm.svelte:90:40) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:checked={step.loopEnabled}` (src/lib/components/WorkflowStepForm.svelte:184:27) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.retries}` (src/lib/components/WorkflowStepForm.svelte:218:65) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.modelText}` (src/lib/components/WorkflowStepForm.svelte:231:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > transform kind still offers a loop, gate kind does not
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:checked={step.loopEnabled}` (src/lib/components/WorkflowStepForm.svelte:184:27) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.conditionText}` (src/lib/components/WorkflowStepForm.svelte:170:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+stderr | src/lib/components/WorkflowStepForm.component.test.ts > WorkflowStepForm > the kind select offers all four step kinds
+[svelte] binding_property_non_reactive
+`bind:value={step.kind}` (src/lib/components/WorkflowStepForm.svelte:80:38) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.agent}` (src/lib/components/WorkflowStepForm.svelte:90:40) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:checked={step.loopEnabled}` (src/lib/components/WorkflowStepForm.svelte:184:27) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.retries}` (src/lib/components/WorkflowStepForm.svelte:218:65) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+[svelte] binding_property_non_reactive
+`bind:value={step.modelText}` (src/lib/components/WorkflowStepForm.svelte:231:4) is binding to a non-reactive property
+https://svelte.dev/e/binding_property_non_reactive
+
+ ✓ src/lib/components/WorkflowStepForm.component.test.ts (10 tests) 892ms
+   ✓ WorkflowStepForm (10)
+     ✓ agent kind (loop off): agent select, input pairs add/remove, depends-on, remove 484ms
+ ✓ src/__tests__/api-conversations.server.test.ts (14 tests) 152ms
+ ✓ src/__tests__/delegation-consent-handoff.unit.test.ts (9 tests) 61ms
+ ✓ src/__tests__/workflow-route-ladder.server.test.ts (55 tests) 94ms
+ ✓ src/lib/components/__tests__/KnowledgeBaseTab.sharing.component.test.ts (9 tests) 2442ms
+   ✓ sharing affordances are rendered from the server's answer (3)
+     ✓ a file you may share offers Share and carries no badge 1128ms
+ ✓ src/routes/(app)/project/[id]/chat/[convId]/__tests__/reconcile-after-stream.server.test.ts (5 tests) 42ms
+ ✓ src/__tests__/api-mentions-search-feature.server.test.ts (9 tests) 116ms
+ ✓ src/__tests__/sse-resume-buffer.unit.test.ts (14 tests) 89ms
+ ✓ src/__tests__/extension-author-page-server-load.server.test.ts (16 tests) 132ms
+ ✓ src/lib/components/__tests__/ChatMessage-ez-action-result.component.test.ts (11 tests) 375ms
+ ✓ src/__tests__/agents-page-fuzzy-search.component.test.ts (5 tests) 1854ms
+   ✓ /agents — Phase 49.2 fuzzy search (5)
+     ✓ empty query shows all agents in default order 533ms
+     ✓ >100 candidates → bridge call carries the full list (worker decision lives in the bridge) 610ms
+     ✓ stale-response guard: out-of-order worker replies don't clobber newer query 343ms
+ ✓ src/lib/components/__tests__/ChatMessage.longPress.component.test.ts (7 tests) 766ms
+   ✓ ChatMessage — mobile long-press → onselectionchange (7)
+     ✓ touch long-press on assistant row fires onselectionchange with shiftKey:true 486ms
+ ✓ src/lib/factory/FactoryRunControls.component.test.ts (7 tests) 3615ms
+   ✓ FactoryRunControls (7)
+     ✓ embedded for one run, it reads that run and shows no run list 1181ms
+     ✓ lists runs, refuses a terminal one, and sends an exact repair at the current revision 480ms
+     ✓ sends a replan only with the exact pinned child revision 420ms
+     ✓ refuses to send a control it cannot build 393ms
+     ✓ names each refusal the server can return 624ms
+ ✓ src/__tests__/inline-tool-store.test.ts (18 tests) 112ms
+ ✓ src/__tests__/api-agents-id-share.server.test.ts (13 tests) 122ms
+ ✓ src/__tests__/api-modes.server.test.ts (14 tests) 141ms
+ ✓ src/lib/components/__tests__/SuggestionPopover.component.test.ts (15 tests) 437ms
+ ✓ src/lib/components/tool-cards/DefaultCard.component.test.ts (14 tests) 1976ms
+   ✓ expansion loads complete output once and retains typed input and duration 1107ms
+ ✓ src/__tests__/api-workflows-claim-versions.server.test.ts (12 tests) 126ms
+ ✓ src/lib/components/ChatThread.restore-leaf.component.test.ts (5 tests) 2381ms
+   ✓ ChatThread reload-restore (Sessions P4 durable leaf) (5)
+     ✓ restores the active branch to the durable currentLeaf (an earlier turn) 1193ms
+     ✓ flag OFF → keeps the latest leaf (no restore) 349ms
+ ✓ src/lib/components/__tests__/ChatMessage.mobileReveal.component.test.ts (8 tests) 771ms
+   ✓ ChatMessage — mobile tap-to-reveal toolbar (8)
+     ✓ coarse-pointer tap on assistant row flips data-toolbar-revealed → true (toolbar reachable) 466ms
+ ✓ src/__tests__/command-palette-projects.component.test.ts (6 tests) 1183ms
+   ✓ CommandPalette — Projects drill-down (6)
+     ✓ Projects → project → action navigates and closes 627ms
+##[error]The operation was canceled.
+Post job cleanup.
+##[start-action display=Cache bun global install cache;id=__99d851e7-1e9c-485b-b14b-cf746815ef70.__actions_cache]
+##[end-action id=__99d851e7-1e9c-485b-b14b-cf746815ef70.__actions_cache;outcome=skipped;conclusion=skipped;duration_ms=0]
+##[start-action display=Run oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6;id=__99d851e7-1e9c-485b-b14b-cf746815ef70.__oven-sh_setup-bun]
+##[end-action id=__99d851e7-1e9c-485b-b14b-cf746815ef70.__oven-sh_setup-bun;outcome=skipped;conclusion=skipped;duration_ms=0]
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/e913173d-c585-4bbc-98e6-aa78b9ff7b6b' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+Removing SSH command configuration
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+/home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-4dce558e\-160a\-40e9\-82ac\-7a4e55573067\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+/home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-4dce558e\-160a\-40e9\-82ac\-7a4e55573067\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-4dce558e\-160a\-40e9\-82ac\-7a4e55573067\.config
+[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config
+[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-4dce558e\-160a\-40e9\-82ac\-7a4e55573067\.config
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/home/runner/work/_temp/git-credentials-4dce558e-160a-40e9-82ac-7a4e55573067.config'
+Cleaning up orphan processes
+Terminate orphan process: pid (2412) (bash)
+Terminate orphan process: pid (2416) (npm exec vitest)
+Terminate orphan process: pid (2428) (sh)
+Terminate orphan process: pid (2429) (MainThread)
+Terminate orphan process: pid (3600) (MainThread)
+Terminate orphan process: pid (3612) (MainThread)

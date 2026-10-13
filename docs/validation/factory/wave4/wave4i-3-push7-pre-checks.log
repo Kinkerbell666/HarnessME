@@ -1,0 +1,16 @@
+pre-checks 2026-10-12T21:42:13Z (integrator-5, push-checklist step 1, the follow-up PR branch feat/factory-platform-followup-1 from integ/w00)
+toplevel: /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration
+status --porcelain lines: 0
+branch: integ/w00
+ident: archy <281643943+EZArchy@users.noreply.github.com>
+core.bare: file:/home/dev/work/EZCorp/EZHarness/.git/config	false file:/home/dev/work/EZCorp/EZHarness/.git/worktrees/w00-integration/config.worktree	false 
+fetch rc=0
+origin/main: 6ffd887848d5d1215d80f3c88db140eee296c42e
+integ/w00:   f0cde0407281bb7561b1f7a3221647e1d996d791
+origin/main ancestor of integ/w00: rc=0
+remote feat/factory-platform-followup-1: 
+local feat/factory-platform-followup-1: none
+config: c405ccfcdad7afa7 = accepted baseline
+config-check rc=0
+commits ahead of origin/main: 13
+resources: disk 198G MemAvailable: 18.5 GiB SwapFree: 8.2 GiB 

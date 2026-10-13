@@ -1,0 +1,9 @@
+bun test v1.4.2 (744846f84)
+$ echo built-a > out.txt
+$ exit 3
+error: script "build" exited with code 3
+
+ 6 pass
+ 0 fail
+ 18 expect() calls
+Ran 6 tests across 1 file. [767.00ms]

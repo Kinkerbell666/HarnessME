@@ -1,0 +1,5 @@
+resource-gate 2026-10-12T16:54:18Z w-sync-6eb-commit outside-lock disk=199G memAvailable=13GiB swapFreeKiB=6875224/17173956 floors disk>=104G swap>=2621440KiB mem>=12GiB
+gated-flock w-sync-6eb-commit: gate green outside the lock, queue for the lock (try 1) 2026-10-12T16:54:18Z
+resource-gate 2026-10-12T17:35:03Z commit-start disk=200G memAvailable=19GiB swapFreeKiB=7067144/17173956 floors disk>=100G swap>=2097152KiB mem>=12GiB
+commit.sh exit=0 2026-10-12T17:37:25Z
+gated-flock w-sync-6eb-commit: command exit 0 2026-10-12T17:37:25Z

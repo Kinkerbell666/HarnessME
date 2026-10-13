@@ -1,0 +1,62 @@
+| Job | 38284174059 | 38312417583 | change |
+| --- | --- | --- | --- |
+| Backend critical (strict pass/fail) | success | success | same |
+| Backend tests | success | success | same |
+| Browser coverage build | success | success | same |
+| Browser route coverage | success | failure | NEW RED |
+| Coverage extras (legs) | success | success | same |
+| Coverage shard 0 | success | success | same |
+| Coverage shard 1 | success | success | same |
+| Coverage shard 10 | success | success | same |
+| Coverage shard 11 | success | success | same |
+| Coverage shard 2 | success | success | same |
+| Coverage shard 3 | success | success | same |
+| Coverage shard 4 | success | success | same |
+| Coverage shard 5 | success | success | same |
+| Coverage shard 6 | success | success | same |
+| Coverage shard 7 | success | success | same |
+| Coverage shard 8 | success | success | same |
+| Coverage shard 9 | success | success | same |
+| Dev image provenance | success | success | same |
+| E2E (mock, no Docker) | success | failure | NEW RED |
+| E2E (real auth + real DB) | success | failure | NEW RED |
+| E2E mock lane | success | success | same |
+| E2E mock product coverage | success | success | same |
+| E2E visual evidence | success | success | same |
+| Extension lifecycle (firefox) | success | success | same |
+| Extension lifecycle (webkit) | success | success | same |
+| Factory Temporal integration | success | success | same |
+| Factory deployment and operations | skipped | skipped | same |
+| Factory isolation | skipped | skipped | same |
+| Factory product and domain E2E | skipped | skipped | same |
+| Factory runner contracts | success | success | same |
+| Factory runner readiness precheck | failure | failure | still red |
+| Factory schema and kernel | success | success | same |
+| Gate integrity | success | success | same |
+| Lint (biome) | success | success | same |
+| Manifest lockfile drift check | success | success | same |
+| Mutation (changed files) | success | success | same |
+| Per-file coverage gate | success | failure | NEW RED |
+| Podman setup (Apple Bash 3.2) | success | success | same |
+| Production candidate image | success | success | same |
+| Production image extension lifecycle | success | success | same |
+| Production proof (content) | success | success | same |
+| Production proof (delivery) | success | success | same |
+| Production proof (namespace) | success | success | same |
+| Production proof (recovery) | success | success | same |
+| Production proof (resources) | success | success | same |
+| Residual integration tests | success | success | same |
+| Sandbox (arm64) | success | success | same |
+| Svelte check | success | success | same |
+| Typecheck | success | success | same |
+| Visual evidence | success | success | same |
+| Web security coverage | success | success | same |
+| Web tests (bun-leg orphans) | success | success | same |
+| Web tests (vitest) | success | success | same |
+| Web tests shard 1 | success | success | same |
+| Web tests shard 2 | success | success | same |
+| Web tests shard 3 | success | success | same |
+| external-postgres / External Postgres (Bun.sql) | success | success | same |
+| external-postgres / Factory assurance and release | success | success | same |
+
+Summary: NEW RED: 4; same: 53; still red: 1. Red jobs: 38284174059 1 -> 38312417583 5.

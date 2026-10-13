@@ -1,0 +1,3 @@
+shard4: files 32, mutants 3627, Killed 2742, NoCoverage 294, RuntimeError 2, Survived 571, Timeout 18
+shard4: score 76.14% (detected 2760 / valid 3625); zero-test survivors 0
+shard4: load-failure kills 0; with an import-resolution reason (FALSE kill) 0

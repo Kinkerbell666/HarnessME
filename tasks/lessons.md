@@ -2095,9 +2095,55 @@ smokes under the lock, detached-job wake-ups) are not repeated.
 - Coordinator: shared tools under /tmp age out. systemd-tmpfiles-clean removed the pinned `bunx` link after 10 days (2026-10-09) and a hold stopped at bun_pin; a 0-byte Bun 1.3.14 binary dates from the same daily window. Keep pinned toolchains and evidence outside /tmp, or exclude them in tmpfiles (root).
 - Coordinator: a CI-wiring-only or tests-only package gets a targeted merge hold, never a skipped one; the receipts name the no-combined-run risk. A package that turns out to change production code puts the real journey leg back into the hold.
 
+#### Validator, integrator and coordinator of the W4H-17…23 round (pending-lesson.md files, 2026-10-09 to 2026-10-12; condensed)
+- Validator: judge a Playwright mutant by its own check (the target test failed on an expect() error and every other test passed); a mutant that only
+  makes Playwright print "1 failed" otherwise reads as SURVIVED (browser-lib.sh spec_red).
+- Validator: a sourced helper never reuses a global name the caller's library owns; arrays in helpers are `local -a`.
+- Validator: TYPECHECK_WAIT_MIN above 0 inside the lock waits while holding the lock; in-lock typecheck legs use 0, and a blocked leg re-runs in its own hold.
+- Validator: check a coverage claim against the fields the converter writes; the browser lcov lists only instrumented DA lines and no LF/LH, so
+  "every DA line hit" is the 100 percent check, never a named line list.
+- Validator: files bind-mounted into a runner container need the source's modes (cp -p; 0755 directories, 0644 configs); cp and mkdir under this umask give 0600/0700.
+- Validator: crap-touched.ts and crap-score.ts load coverage/lcov.info at import; place the lcov first.
+- Validator: before a harness is reused for a new shard, diff it against the harness that last ran THAT shard (a resources-shard copy had dropped the
+  content shard's legacy fetch).
+- Validator: under node --test an unsettled top-level await fails the file at once; a hang needs an open handle as well.
+- Validator: read every kill's recorded reason, not only its status; a "Killed" whose reason the mutant cannot cause (a $server import failure for an
+  options-object mutant) is a false kill (W4H-23 F1).
+- Validator: a command whose output has no bun counts (Stryker, mutation.ts) is a measure or static step, never a test step; the zero-count guard turns it into exit 97.
+- Validator: compute, read, then send a hash; never type one into a message before the command has printed it.
+- Integrator: hosted job logs carry an ISO timestamp per line; strip it before a line-anchored matcher reads the log ("found: (none)" on a red log is a
+  reader error until the stripped log is checked).
+- Integrator: for one finished job of a running run, `gh api --allow-escape-sequences .../jobs/<id>/logs` into a file; `gh run view --log` refuses while the run is in progress.
+- Integrator: `gh secret list` without -R exits 1 on "multiple remotes"; always pass -R and record the rc with the list.
+- Integrator: tracked files under an ignored folder (tasks/) are staged with `git add -u -- <paths>`, never -f.
+- Integrator: a unified diff's sha changes with its header timestamps; report the sha of the result files or of the diff body.
+- Integrator: on the second copy of a per-round script, make the varying value a parameter (--pkg, the run id); one tested script per job.
+- Integrator: a hold's copy step must fail loudly; assert the producer's output name exists (web-security writes lcov_security.info, not lcov.info).
+- Integrator: a frozen install must also re-run when a file under web/patches changes, not only on a manifest or lockfile change; otherwise the hook
+  tests the old installed dependency (W4H-23; commit.sh).
+- Coordinator: a baseline must come from the same run and sandbox that recorded the failure; an alone re-run later in the run is a different environment
+  and a different answer (W4H-23 F1: the initial run's failed-file list seeds the never-kill set).
+- Coordinator: after a feature PR merges, main shares the gate tooling; the "main = the N standing findings" binding becomes "main = 0 findings, any
+  finding = STOP", and the expected list goes empty (kept as .bak).
+- Owner: a baseline you measured is worthless if the decision does not read it. The initial Stryker run listed the 22 test files that cannot load in
+  the sandbox, but the kill rule asked a later, separate run, which a late bail could cancel and leave reading as "loaded". Decide from the baseline
+  of the SAME run, shared with every worker, and require positive evidence (the file ran and passed) before a check may say "clean" (W4H-23 F1).
+- Owner: an intermittent false result (1 of 9 runs) is a correctness bug, not noise. Fix it by construction and prove it with a pin case that fails
+  on the old code; never accept "it did not happen again in five runs" as the fix (W4H-23 F1).
+
 #### Owners (from w4h-5/pending-lesson.md)
 - Read the inbox before each report and before each new leg of work; when an order changes the plan (a split, a hold, a start word), stop
   and follow it.
 - Runner homes and checkout snapshots live outside the evidence dir (/tmp/<pkg>-home-*/) or are removed after each run.
 - A public image you pulled (for example docker.io/pgvector/pgvector:pg15) is not your tag; leave public images in place. Only tags you
   built (localhost/<pkg>-*) are yours to remove by name.
+
+### W4H-23 (2026-10-12)
+- Owner: never edit a shell script while a run executes it. Bash reads a script as it goes, so an edit shifts the bytes the
+  running shell reads next. Copy the script to a new name and change the copy. (I edited my R2 wrapper mid-run and had to
+  restore its original bytes before the shell left its loop.)
+- Owner: a guard that turns a silent artifact into a red can expose a second silent artifact under it. Before counting a new
+  failure kind as a kill, measure its baseline: 30-33 test files per shard already fail to load in the Stryker sandbox, so
+  "a test file failed" must mean "failed WITH the mutant and loaded WITHOUT it".
+- Owner: a green nightly can measure nothing. The mutation nightly was green while 11772 of 18934 mutants ran zero tests;
+  read the per-mutant test counts, not the exit code, before calling a quality gate green.

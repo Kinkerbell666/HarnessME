@@ -1,0 +1,56 @@
+W4H-23 report, R4 — the nightly mutation workflow on main; validator-8 F1 fixed.
+Owner: w4h-23. Branch wp/w4h-23-mutation-related (worktree .worktrees/w4h-23), from 6eb1bbb33. No merge, no rebase.
+HEAD: 308d362e3. The previous report (head 614dafa9b) is kept unchanged as report-614dafa9b.txt (sha256 03cd7c2c04f8d5c3).
+
+COMMITS since 6eb1bbb33 (author and committer: archy, noreply address)
+- ad88e73b3 fix(mutation): let a test file that fails to load kill the mutant that broke it   (hook: 1 suite, 14/14)
+- 614dafa9b docs(factory): W4H-23 gates and task record                                       (hook: none maps)
+- 54c5e493b fix(mutation): a test file the initial run could not load never kills a mutant    (hook: 1 suite, 17/17)
+- 28adbc34d fix(mutation): the alone check needs a passing run, not the absence of a failure   (hook: 1 suite, 19/19)
+- 308d362e3 docs(factory): W4H-23 R4 gates and task record                                     (hook: none maps)
+
+F1 AND THE FIX
+validator-8 saw relative-time.ts:81's ObjectLiteral mutant Killed by the 22 test files the same run's initial test had listed
+as unloadable (`$server` import), with that same message (1 of 9 runs). Fix, by construction:
+- 54c5e493b (the ruled fix): the initial run writes its failed-file list with messages to the sandbox directory
+  (stryker-initial-load-failures.json); every worker reads it. A load failure never kills when the record is missing, when the
+  initial run listed the file, or when its message equals any initial-run failure message.
+- 28adbc34d: the alone check now needs positive proof (the file is reported and passes). "No reported failure" let a
+  cancelled or unreported alone run read as "loads". Likely cause of F1, named from Vitest's code (not reproduced on demand):
+  runFiles clears isCancelling at the start of a run while the previous mutant run's bail cancels asynchronously, and a
+  cancelled file is registered with no result. The sandbox's `$server` alias points to web/.stryker-tmp/src, which does not
+  exist, so that import never resolves in the sandbox.
+
+PROOF (paths relative to /tmp/factory-platform-evidence/w4h-23/)
+- Pin test 19 cases: red 5 of 17 on the 614dafa9b runner, red 2 of 19 on the 54c5e493b runner, green 19 of 19
+  (r4/red-on-614dafa9b-patch.log, r4/red-at-54c5e493b.log, r4/green-positive-evidence.log).
+- Mutant forms of the installed runner, each red (r4/mutants-final.txt): drop the seeding, drop the message rule, a missing
+  record counts as empty, "no failure means clean" -> exactly their own case; record not written, no alone check, extension
+  reverted -> red with their cases.
+- Targeted run x5 at 28adbc34d, default concurrency and timeout, under the lock (r4/heavy.log): every run lists 22 unloadable
+  files; 0 kills with a "Failed to resolve import" reason; 0 zero-test survivors; settings-nav.ts:134 Killed; relative-time.ts:81
+  string mutants Killed by Intl RangeError; ObjectLiteral Survived (230 tests). Same at 54c5e493b (r4/at-54c5e493b/).
+- Shard 5/6 as the workflow runs it at 28adbc34d: exit 0, 0 zero-test survivors, score 50.22, six load kills all with
+  mutant-caused messages (r4/shard5-mutation.json). Shard 3/6 is the integrator's.
+- Legs at 28adbc34d: lint 0; boundaries, lanes, prune clean; gate-integrity PASS vs origin/main (6ffd88784) and vs 6eb1bbb33;
+  new-file and patch PASS (vacuous); CRAP 0 functions; typecheck 0 and svelte-check 0 errors under the tc rule in the lock;
+  guard set 41 files 516 pass 2 skip 0 fail; registration tests pass (legs/final-legs.log, legs/heavy.log).
+- web/stryker.config.json: COMMENT ONLY. Parsed at 6eb1bbb33 and at 308d362e3, the only differing key is "_comment"
+  (blob 20d7dcedb99a -> c8cf0ad73a3c). No threshold, related, thresholds.break or guard change anywhere.
+- Gate file: tasks/factory/w4h-23-GATES.md, G1 to G15 (R4 = G10 to G15).
+- Lesson: pending-lesson.md (sha256 ac99ec9d14ee7571), not tasks/lessons.md.
+
+LEFTOVERS (unchanged scope ruling)
+- B: the 33 no-coverage files; the 22 to 33 sandbox-unloadable test files per run are one named cause.
+- The merged score is about 55 to 56 percent against 80: a maintainer decision.
+- The late-bail cancel race in Vitest is named from code, not reproduced on demand; the kill rule no longer depends on it.
+- e3309906d not run locally (empty Bun 1.3.14 pin folder; accepted).
+
+FILE SHAS (git blob at 308d362e3)
+6b23fccc075d55b98bf19d82d1b2aeae767e7f95 web/patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch
+e72e7bbc739aa927229421bf4508cd3359c3b33f web/src/__tests__/stryker-vitest-runner-patch.unit.test.ts
+c8cf0ad73a3cd63748c698ab142b980a0813de61 web/stryker.config.json
+e559f59f70549754e58a506089ef5b65532aadeb tasks/factory/w4h-23-GATES.md
+67a8a4d22b3ce0ff92b27f1cd78ad8427a6437e5 tasks/todo.md
+a438dcd1f24d77b1c2f6c215134ada3a7399ca28 tasks/lessons.md
+FREEZE at 308d362e3: no further change to the branch or the evidence after this file.

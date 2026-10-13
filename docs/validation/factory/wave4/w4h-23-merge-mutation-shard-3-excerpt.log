@@ -1,0 +1,203 @@
+excerpt of heavy-mutation-shard-3.log (11742 lines, 570935 bytes, sha256 baa178358c40e9519d8f762517d6e410997cabc0bcbf52634af8f34947c8e4cc): the first 80 and the last 120 lines; the full log stays in the evidence dir
+----- first 80 -----
+Mutation: 200 file(s) in scope (579 matched mutateGlobs, 379 not measured by vitest)
+Mutation: shard 3/6 → 33 file(s):
+  web/src/lib/admin-guard.ts
+  web/src/lib/breadcrumb-tail.svelte.ts
+  web/src/lib/chat-scroll-restore.ts
+  web/src/lib/chat/extension-toolbar-action.ts
+  web/src/lib/chat/page-handlers/load-messages.ts
+  web/src/lib/chat/page-handlers/useSelectMode.svelte.ts
+  web/src/lib/combobox-nav.ts
+  web/src/lib/components/attachment-card-logic.ts
+  web/src/lib/components/pull-to-refresh-logic.ts
+  web/src/lib/components/tool-cards/ez-propose-card-logic.ts
+  web/src/lib/components/tool-cards/time-clock-logic.ts
+  web/src/lib/components/ui/format-map.ts
+  web/src/lib/content-blocks.ts
+  web/src/lib/diff-aggregator.ts
+  web/src/lib/extension-tool-options.ts
+  web/src/lib/ez/api.ts
+  web/src/lib/factory/client.ts
+  web/src/lib/factory/run-format.ts
+  web/src/lib/format-duration.ts
+  web/src/lib/highlight-diff.ts
+  web/src/lib/invoke-inline-tool.ts
+  web/src/lib/mention-display.ts
+  web/src/lib/panel-persistence.ts
+  web/src/lib/provider-meta.ts
+  web/src/lib/safe-redirect.ts
+  web/src/lib/search/deep-link-resolve.ts
+  web/src/lib/settings-nav.ts
+  web/src/lib/stores/extension-toolbar.svelte.ts
+  web/src/lib/sw-runtime.ts
+  web/src/lib/tool-display.ts
+  web/src/lib/utils/fetch-policy.ts
+  web/src/lib/workers/kokoro-tts-worker.ts
+  web/src/lib/workflow-run-history.ts
+
+Mutation: break threshold 80% (mutation.scoreThreshold in scripts/quality-gates.json)
+
+16:03:29 (3387590) INFO ProjectReader Found 33 of 8694 file(s) to be mutated.
+16:03:29 (3387590) INFO Instrumenter Instrumented 33 source file(s) with 3084 mutant(s)
+16:03:31 (3387590) INFO ConcurrencyTokenProvider Creating 31 test runner process(es).
+16:03:32 (3387590) INFO BroadcastReporter Detected that current console does not support the "progress" reporter, downgrading to "progress-append-only" reporter
+16:03:33 (3387590) INFO DryRunExecutor Starting initial test run (vitest test runner with "perTest" coverage analysis). This may take a while.
+16:05:40 (3389352) WARN VitestTestRunner 31 test file(s) failed to load or collect in the initial test run. Their tests never run, so the code only they cover reads NoCoverage:
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.prompt-nav.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.coverage.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.turn-collapse.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.abretry.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.behavior.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.render-branches.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/__tests__/ChatThread.loadedTools.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/__tests__/EzPanel.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.restore-leaf.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/routes/(app)/__tests__/layout-active-project-sync.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ChatThread.rewind.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/__tests__/AgentDetailPanel.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/__tests__/MetaAgentChat.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/__tests__/TopicContextsSection.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/__tests__/TierLadderSection.component.test.ts: Failed to resolve import "$server/runtime/routing/tier-ladder" from "src/lib/components/__tests__/TierLadderSection.component.test.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/ModelSelector.context.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/__tests__/ChatMessage.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/__tests__/main-chat-uses-chatthread.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+  /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/web/.stryker-tmp/sandbox-6tyv3p/src/lib/components/__tests__/ChatMessage.mobileReveal.component.test.ts: Failed to resolve import "$server/runtime/routing/default-selection" from "src/lib/model-selector-logic.ts". Does the file exist?
+16:05:41 (3387590) INFO DryRunExecutor Initial test run succeeded. Ran 1460 tests in 2 minutes and 7 seconds (net 26898.78006299999 ms, overhead 100175.21993700002 ms).
+16:05:41 (3387590) WARN MutantTestPlanner Detected 343 static mutants (11% of total) that are estimated to take 98% of the time running the tests!
+  You might want to enable "ignoreStatic" to ignore these static mutants for your next run. 
+  For more information about static mutants visit: https://stryker-mutator.io/docs/mutation-testing-elements/static-mutants
+  (disable "warnings.slow" to ignore this warning)
+Mutation testing 0% (elapsed: <1m, remaining: ~60h 31m) 825/3084 tested (16 survived, 6 timed out)
+Mutation testing 0% (elapsed: <1m, remaining: ~8h 48m) 1054/3084 tested (95 survived, 6 timed out)
+Mutation testing 0% (elapsed: <1m, remaining: ~11h 46m) 1199/3084 tested (124 survived, 6 timed out)
+Mutation testing 0% (elapsed: <1m, remaining: ~10h 52m) 1327/3084 tested (183 survived, 6 timed out)
+Mutation testing 0% (elapsed: <1m, remaining: ~6h 48m) 1448/3084 tested (255 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~3h 43m) 1523/3084 tested (275 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~4h 1m) 1613/3084 tested (275 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~4h 33m) 1670/3084 tested (275 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~5h 2m) 1694/3084 tested (275 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~5h 34m) 1710/3084 tested (275 survived, 6 timed out)
+Mutation testing 0% (elapsed: ~1m, remaining: ~5h 54m) 1742/3084 tested (275 survived, 6 timed out)
+----- last 120 -----
+
+[Survived] LogicalOperator
+src/lib/tool-display.ts:23:18
+-   	const primary = input.command ?? input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
++   	const primary = input.command && input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] LogicalOperator
+src/lib/tool-display.ts:23:18
+-   	const primary = input.command ?? input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
++   	const primary = (input.command ?? input.file_path) && input.path ?? input.pattern ?? input.query ?? input.url;
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] LogicalOperator
+src/lib/tool-display.ts:23:18
+-   	const primary = input.command ?? input.file_path ?? input.path ?? input.pattern ?? input.query ?? input.url;
++   	const primary = (input.command ?? input.file_path ?? input.path ?? input.pattern) && input.query ?? input.url;
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] ConditionalExpression
+src/lib/tool-display.ts:24:6
+-   	if (primary) return String(primary);
++   	if (true) return String(primary);
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+[Survived] ConditionalExpression
+src/lib/tool-display.ts:24:6
+-   	if (primary) return String(primary);
++   	if (false) return String(primary);
+Tests ran:
+    TeamChatPanel > loads the overview, exposes tool details, and opens the selected agent drill-down
+    TeamChatPanel > sends a team chat message to the orchestrator and refreshes the visible timeline
+  and 7 more tests!
+
+
+Ran 6.76 tests per mutant on average.
+------------------------------|------------------|----------|-----------|------------|----------|----------|
+                              | % Mutation score |          |           |            |          |          |
+File                          |  total | covered | # killed | # timeout | # survived | # no cov | # errors |
+------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+All files                     |  58.12 |   75.12 |     1733 |        57 |        593 |      697 |        4 |
+ chat                         |  37.28 |   71.33 |      207 |         7 |         86 |      274 |        0 |
+  page-handlers               |  42.74 |   71.82 |      202 |         7 |         82 |      198 |        0 |
+   load-messages.ts           |  78.57 |   78.95 |      158 |         7 |         44 |        1 |        0 |
+   useSelectMode.svelte.ts    |  15.77 |   53.66 |       44 |         0 |         38 |      197 |        0 |
+  extension-toolbar-action.ts |   5.88 |   55.56 |        5 |         0 |          4 |       76 |        0 |
+ components                   |  62.84 |   65.03 |      185 |         1 |        100 |       10 |        1 |
+  tool-cards                  |  50.00 |   51.33 |       77 |         0 |         73 |        4 |        0 |
+   ez-propose-card-logic.ts   |  66.67 |   66.67 |       12 |         0 |          6 |        0 |        0 |
+   time-clock-logic.ts        |  47.79 |   49.24 |       65 |         0 |         67 |        4 |        0 |
+  ui                          |  87.50 |   87.50 |        6 |         1 |          1 |        0 |        0 |
+   format-map.ts              |  87.50 |   87.50 |        6 |         1 |          1 |        0 |        0 |
+  attachment-card-logic.ts    |  46.15 |   52.17 |       24 |         0 |         22 |        6 |        0 |
+  pull-to-refresh-logic.ts    |  95.12 |   95.12 |       78 |         0 |          4 |        0 |        1 |
+ ez                           |   0.00 |    0.00 |        0 |         0 |          0 |       31 |        0 |
+  api.ts                      |   0.00 |    0.00 |        0 |         0 |          0 |       31 |        0 |
+ factory                      |  99.04 |   99.23 |      518 |         0 |          4 |        1 |        0 |
+  client.ts                   |  99.25 |   99.50 |      399 |         0 |          2 |        1 |        0 |
+  run-format.ts               |  98.35 |   98.35 |      119 |         0 |          2 |        0 |        0 |
+ search                       |  86.05 |   86.05 |       37 |         0 |          6 |        0 |        0 |
+  deep-link-resolve.ts        |  86.05 |   86.05 |       37 |         0 |          6 |        0 |        0 |
+ stores                       |  82.86 |   82.86 |       29 |         0 |          6 |        0 |        0 |
+  extension-toolbar.svelte.ts |  82.86 |   82.86 |       29 |         0 |          6 |        0 |        0 |
+ utils                        |  73.15 |   73.83 |       79 |         0 |         28 |        1 |        0 |
+  fetch-policy.ts             |  73.15 |   73.83 |       79 |         0 |         28 |        1 |        0 |
+ workers                      |  51.27 |   54.73 |       81 |         0 |         67 |       10 |        0 |
+  kokoro-tts-worker.ts        |  51.27 |   54.73 |       81 |         0 |         67 |       10 |        0 |
+ admin-guard.ts               |  91.67 |   91.67 |       11 |         0 |          1 |        0 |        0 |
+ breadcrumb-tail.svelte.ts    | 100.00 |  100.00 |       21 |         0 |          0 |        0 |        0 |
+ chat-scroll-restore.ts       |  22.93 |   76.60 |       35 |         1 |         11 |      110 |        0 |
+ combobox-nav.ts              |   0.00 |    0.00 |        0 |         0 |          0 |       42 |        0 |
+ content-blocks.ts            |   0.00 |    0.00 |        0 |         0 |         16 |       51 |        0 |
+ diff-aggregator.ts           |  46.81 |   51.16 |       44 |         0 |         42 |        8 |        0 |
+ extension-tool-options.ts    |  66.67 |   68.85 |       42 |         0 |         19 |        2 |        0 |
+ format-duration.ts           |   9.46 |   12.73 |        7 |         0 |         48 |       19 |        0 |
+ highlight-diff.ts            |  63.89 |   66.67 |       29 |        17 |         23 |        3 |        0 |
+ invoke-inline-tool.ts        |  89.29 |   89.29 |       25 |         0 |          3 |        0 |        0 |
+ mention-display.ts           |  83.70 |   88.51 |      151 |         3 |         20 |       10 |        0 |
+ panel-persistence.ts         |  18.07 |   66.67 |        2 |        28 |         15 |      121 |        3 |
+ provider-meta.ts             |  20.45 |   20.45 |        9 |         0 |         35 |        0 |        0 |
+ safe-redirect.ts             | 100.00 |  100.00 |       19 |         0 |          0 |        0 |        0 |
+ settings-nav.ts              |  81.12 |   81.69 |      116 |         0 |         26 |        1 |        0 |
+ sw-runtime.ts                |  89.39 |   89.39 |       59 |         0 |          7 |        0 |        0 |
+ tool-display.ts              |   8.33 |    9.09 |        3 |         0 |         30 |        3 |        0 |
+ workflow-run-history.ts      | 100.00 |  100.00 |       24 |         0 |          0 |        0 |        0 |
+------------------------------|--------|---------|----------|-----------|------------|----------|----------|
+16:19:41 (3387590) ERROR MutationTestReportHelper Final mutation score 58.12 under breaking threshold 80, setting exit code to 1 (failure).
+16:19:41 (3387590) INFO MutationTestReportHelper (improve mutation score or set `thresholds.break = null` to prevent this error in the future)
+16:19:41 (3387590) INFO JsonReporter Your report can be found at: file:///home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform/.worktrees/w00-integration/coverage/quality/mutation.json
+16:19:41 (3387590) INFO MutationTestExecutor Done in 16 minutes and 18 seconds.
+
+✗ 2 mutated file(s) had NO test coverage at all — the score below is meaningless for them:
+
+    web/src/lib/combobox-nav.ts
+    web/src/lib/ez/api.ts
+
+  This is almost always Stryker's vitest `related` filter failing to follow a
+  $lib-aliased import (it warns: 'Vitest failed to find test files related to
+  mutated files'), NOT missing tests. Fix by either:
+    - excluding the file in mutation.mutateGlobs if the bun leg owns its tests, or
+    - having its test import the module by a path vitest's graph can follow.
+  Verify a scope change cheaply: bun scripts/mutation.ts --full --dry-run-only
+
+(--report-only: Stryker exited 1 on the threshold verdict; not failing the build)

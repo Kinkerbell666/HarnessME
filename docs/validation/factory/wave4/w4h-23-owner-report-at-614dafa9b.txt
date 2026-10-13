@@ -1,0 +1,51 @@
+W4H-23 report — the nightly mutation workflow on main is red since the merge of PR 318.
+Owner: w4h-23. Branch wp/w4h-23-mutation-related (worktree .worktrees/w4h-23), from origin/main 6eb1bbb33. No merge, no rebase.
+
+COMMITS (author and committer: archy, noreply address)
+- ad88e73b3 fix(mutation): let a test file that fails to load kill the mutant that broke it
+  (tree 9eeb06c48b97; hook: 1 suite, 14 of 14 at the c65c314f8 amend of the same tree; the message-only amend mapped 0)
+- 614dafa9b docs(factory): W4H-23 gates and task record (hook: no suite maps)
+
+CAUSE
+The guard survivorsWithoutTests (7c1811611, PR 318) fails a shard on any mutant that "survived" with 0 tests. Five static
+mutants hit it (settings-nav.ts:134, chat-turn-collapse.ts:37/38/41/44). Each throws while a test file loads; Stryker's vitest
+runner 10.0.0 reads only per-test results and bails, so it reported "complete, 0 tests". The tests had detected them. The same
+5 mutants and the same 33 no-coverage files were there on the green night, which measured almost nothing (11772 of 18934
+mutants ran 0 tests; shard scores 2 to 10 percent).
+
+FIX
+web/patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch (same file, same patchedDependencies entry): in a mutant run, a test
+file that fails to load or collect kills the mutant only when the same file loads cleanly without it (checked once per file per
+worker). About 30 test files per shard never load in the Stryker sandbox (imports outside web/); they never kill anything, and
+the initial run names them in a warning. New test web/src/__tests__/stryker-vitest-runner-patch.unit.test.ts (14 cases; 9 red
+on the old patch). web/stryker.config.json: comment only. tasks/lessons.md: three lessons. No threshold, related or break change.
+
+PROOF (paths relative to /tmp/factory-platform-evidence/w4h-23/)
+- R1: r1/R1-findings.txt; patch versus reshuffle per file: r1b/attribution.txt.
+- R2: settings-nav.ts:134 Survived/0 -> Killed (r2/try2/diag-mutation.json). chat-turn-collapse x4: Timeout on this host under
+  the default timeout, before and after the fix; Killed with timeoutMS 180000 (diagnostic, r2/diag-timeout/diag-mutation.json).
+  All six shard dry runs green with the final patch (r2/try2/heavy.log). The first design broke all six (r2/try1/heavy.log).
+- R3: shards 3/6 and 5/6 as the workflow runs them, under the lock: exit 0 each, 0 zero-test survivors, scores 59.72 and
+  50.42 (hosted red 55.79 and 50.07; the shard-3 gap is mostly host timeouts). Merged with hosted shards 0,1,2,4: 56.36
+  (hosted 55.68). r3/heavy.log, r3/merge.log.
+- Legs at ad88e73b3: legs/final-legs.log and legs/heavy.log (lint, boundaries, lanes, prune, gate-integrity both legs PASS,
+  new-file and patch PASS and vacuous, CRAP 0 functions, typecheck and svelte-check 0 errors under the tc rule, guard set 41
+  files 516 pass 2 skip 0 fail, registration tests). actionlint not run: no workflow changed.
+- Gate file: tasks/factory/w4h-23-GATES.md (blob dd6fa8aac02c), G1 to G9 checked.
+
+OPEN / LEFTOVERS (out of scope by the lead's ruling)
+- B: the 33 no-coverage files (5396 mutants); one named cause is the 30 to 33 sandbox-unloadable test files per shard.
+- The real merged score is about 55 to 56 percent against 80: a maintainer decision.
+- On this host the chat-turn-collapse static re-run exceeds the default per-mutant timeout (reads Timeout, counted detected).
+- e3309906d not run locally: the Bun 1.3.14 pin folder is empty (accepted).
+- Disclosed lapse: I edited my R2 wrapper while a run executed it; I restored its bytes before the shell read past the loop,
+  and the run ended with status 0. Recorded in tasks/lessons.md.
+
+FILE SHAS (git blob at 614dafa9b)
+15574948f8f8f0b1c4381362f874aec866a56f33 web/patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch
+5134d12f0d0a659263283133318cdae234de947c web/src/__tests__/stryker-vitest-runner-patch.unit.test.ts
+10c03ff4a175a1a81850c7fa8d5ad559a520e7d8 web/stryker.config.json
+a438dcd1f24d77b1c2f6c215134ada3a7399ca28 tasks/lessons.md
+dd6fa8aac02c72bb7aeb0efd7f3b7f098c87f50b tasks/factory/w4h-23-GATES.md
+e71b4c5578dd9d5da0473661b499f6b473abfc9d tasks/todo.md
+FREEZE: no further change to the branch or the evidence after this file.

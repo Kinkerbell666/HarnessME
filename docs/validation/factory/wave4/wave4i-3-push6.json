@@ -1,0 +1,35 @@
+{
+  "push": "seventh push of the wave, the sixth-push receipts after the coordinator applied the gate-change-approved label on the user's word ('apply, validate everything is working, then merge'): feat/composable-factory-platform c786088df -> 512701105ed4f6f60233e409cca2c651115f4cea (plain git push, exit 0 at 13:49:25Z 2026-10-10, first try; lock-free tc_run GREEN at 18.5 GiB with no holder, lowest 15.0; pre-push hook typecheck and svelte-check 620 files 0 errors; not OOM-killed; never --no-verify or --force). 1 commit (the sixth-push receipts 512701105).",
+  "steps": {
+    "1 pre-checks": "pre-checks.log 13:48:20Z (pre-checks.sh 3c46efd89d556a1e): F clean on feat/composable-factory-platform; core.bare false; archy; fetch rc 0; HEAD = origin/feat = c786088df; ancestor of integ/w00 512701105; origin/main e3309906d unchanged; config-check rc 0 (29e61b63b05624e9); 1 commit ahead; disk 181G, MemAvailable 18.4 GiB, SwapFree 8.9 GiB",
+    "2 ff": "ff.log: git merge --ff-only integ/w00, rc 0, Updating c786088df..512701105 Fast-forward; status 0",
+    "3 installs": "frozen_installs exit 0 at 13:48:28Z (w00/installs-lib.sh 36e14c55cd666ed0, bun 1.4.2, every install --ignore-scripts; no changes); status empty",
+    "4 push": "push.sh cba20cb9fb60cf88 through w00/tc-gate.sh 7678da69afb1c809 lock-free; push exit 0; HEAD = origin/feat = 512701105",
+    "5 PR": "pr-318.json: PR 318 OPEN, draft, headRefOid 512701105, MERGEABLE, BLOCKED (checks running), label gate-change-approved present; pr-318-after-run.json: draft, MERGEABLE, BLOCKED",
+    "6 hosted": "ci 38057213251 (13:49:32Z - 14:20:15Z, one attempt, no re-run) and deps-audit 38057212923 (success). secret-list.txt at 13:49:50Z (gh secret list -R ezcorp-org/EZHarness, rc 0): empty; FACTORY_RUNNER_READ_TOKEN not set."
+  },
+  "result": "58 jobs; red 1, no cancel, no timeout, no Docker Hub 429. vs 38026634201: red 2 -> 1, fixed 1 (Gate integrity), same 56, no new red. vs 37138524741: red 20 -> 1, fixed 19. The one red is A: Factory runner readiness precheck ('FACTORY_RUNNER_READ_TOKEN is required'; the secret is unset). Gate integrity GREEN for the first time: env GATE_CHANGE_APPROVED: 1; 'Gate integrity: 8 finding(s) BYPASSED via GATE_CHANGE_APPROVED (maintainer label)', the same 8 coverage-tool files (the label wiring works). Skipped as before: Factory isolation, deployment and operations, product and domain E2E.",
+  "targets": {
+    "Factory Temporal integration": "13:49:35-13:53:23Z SUCCESS: 102 per-test lines; '\u2139 tests 92 / \u2139 pass 92 / \u2139 fail 0 / \u2139 cancelled 0', 175 s.",
+    "Production proof (content)": "13:54:48-14:17:33Z SUCCESS: '13 passed (8.0m)' including ':516 UI: a refused add surfaces a real error toast in the browser (3.8s)'; LEGACY_MAIN_TO_V4_ADOPTION_VERIFIED.",
+    "Per-file coverage gate": "14:17:27-14:18:08Z SUCCESS: 'Coverage gate PASSED: 2234 enforced file(s)'; new-file PASSED (460); patch PASSED (518 files); global line coverage 98.09% (213687/217858 lines, 2368 files), floor 90%."
+  },
+  "after": "the coordinator accepted the run and executes the admin merge of PR 318 at 512701105 on the user's word; these receipts are committed on integ/w00 and NOT pushed (a follow-up PR carries them with the leftover work).",
+  "logs": "committed: the ruled excerpt of --log-failed (full log 819f2494bbd6e04a in the evidence dir), the Gate integrity job log (the label proof), the Temporal job log, the content proof log, the per-file coverage gate log; all ANSI-stripped.",
+  "hostEvents": [
+    "none during the push window (13:48 - 14:21Z 2026-10-10); shared .git/config at the accepted baseline 29e61b63b05624e9 at every step"
+  ],
+  "tooling": {
+    "pre-checks.sh": "3c46efd89d556a1e",
+    "push.sh": "cba20cb9fb60cf88",
+    "installs.sh": "8e0a3c3baf57028d",
+    "w00/installs-lib.sh": "36e14c55cd666ed0",
+    "w00/tc-gate.sh": "7678da69afb1c809",
+    "w00/wave4i-2/hosted-compare.py": "010f4a93d7110fb2",
+    "w00/push-log-excerpt.py": "887368f0ceffe11e",
+    "baseline 38026634201 (made from its jobs json)": "aa70f73eaf5a17af",
+    "baseline 37138524741": "074c4b968060d499",
+    "integrator-5/poll-ci.sh": "1ecfc487f0b88a0b"
+  },
+  "receiptsBy": "integrator-5"
+}

@@ -1,0 +1,4 @@
+Checked 2 files in 2ms. No fixes applied.
+── Tests (staged) ─────────────────────────────────
+  no test file maps to the staged changes — skipping
+[detached HEAD f430182c8] merge: origin/main 6ffd88784 into integ/w00 (W-SYNC: Pi 0.99.2 #333 and the web bump #335)

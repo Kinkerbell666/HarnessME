@@ -1,0 +1,3 @@
+shard2: files 31, mutants 2479, Killed 1520, NoCoverage 456, Survived 499, Timeout 4
+shard2: score 61.48% (detected 1524 / valid 2479); zero-test survivors 0
+shard2: load-failure kills 0; with an import-resolution reason (FALSE kill) 0

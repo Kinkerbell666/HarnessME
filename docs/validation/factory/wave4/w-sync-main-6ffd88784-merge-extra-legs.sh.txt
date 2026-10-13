@@ -1,0 +1,15 @@
+# W-SYNC of origin/main 6ffd88784 into integ/w00 25a22ac3f (integrator-5; lead's rulings 2026-10-12: the LATEST main, the user's word).
+# main 6eb1bbb33..6ffd88784 = #335 (web/package.json + web/bun.lock, 4 bun-minor-and-patch updates) + #333 (Pi 0.87.1 -> 0.99.2: root
+# package.json + bun.lock). The merged tree's code equals main 6ffd88784 byte for byte (the only differences are 60 receipt files under
+# docs/validation/factory/wave4/), so main's own hosted ci on 6ffd88784 measures this code; this hold is the light W-SYNC form plus the
+# manifests' legs. commit.sh ran the fresh frozen installs (root, web, gate-integrity deps, --ignore-scripts) under the staged pin.
+# Automatic in the hold (the diff touches the manifests): deps-audit; web-vitest-full (the whole web vitest pool, lcov joins).
+# unit.txt: the suites that read the root manifests and the Pi pins (dependency, pin-alignment, lock suites) + the two Pi agent builders.
+NOTEST=1 leg lockfiles-byte-identical bash -c 'git status --porcelain -- bun.lock web/bun.lock package.json web/package.json .github/gate-integrity-deps/bun.lock > /tmp/i5-lockstat.txt; cat /tmp/i5-lockstat.txt; [ ! -s /tmp/i5-lockstat.txt ] && echo "lockfiles and manifests byte-identical to the merge commit after the frozen installs"'
+NOTEST=1 leg installed-pi-version python3 -I -c 'import json,glob,sys
+fs=sorted(glob.glob("node_modules/@earendil-works/pi-*/package.json")+glob.glob("web/node_modules/@earendil-works/pi-*/package.json"))
+vs={f:json.load(open(f))["version"] for f in fs}; [print(f,v) for f,v in vs.items()]
+sys.exit(0 if vs and all(v=="0.99.2" for v in vs.values()) else 1)'
+NOTEST=1 leg manifest-lock-check bun scripts/regenerate-manifest-lock.ts --check
+tc_leg typecheck-all bun run typecheck
+tc_leg web-check bash -c 'cd web && bun run check'

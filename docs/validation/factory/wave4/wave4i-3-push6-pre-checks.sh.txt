@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# integrator-5: push-checklist step 1 (read only except git fetch). usage: pre-checks.sh <push dir> <title>
+set -u
+F=/home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform; P=${1:?push dir}; T=${2:?title}
+echo "pre-checks $(date -u +%FT%TZ) (integrator-5, push-checklist step 1, $T)"
+echo "toplevel: $(git -C $F rev-parse --show-toplevel)"; echo "status --porcelain lines: $(git -C $F status --porcelain | wc -l)"; echo "branch: $(git -C $F branch --show-current)"
+echo "core.bare: $(git -C $F config --show-origin --get-all core.bare | tr '\n' ' ')"; echo "ident: $(git -C $F var GIT_AUTHOR_IDENT | sed 's/>.*/>/')"
+env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C $F fetch origin > $P/fetch.txt 2>&1; echo "fetch rc=$?"; tail -4 $P/fetch.txt
+echo "HEAD:        $(git -C $F rev-parse HEAD)"; echo "origin/feat: $(git -C $F rev-parse origin/feat/composable-factory-platform)"
+[ "$(git -C $F rev-parse HEAD)" = "$(git -C $F rev-parse origin/feat/composable-factory-platform)" ] && echo "HEAD = origin/feat: yes" || echo "HEAD = origin/feat: NO (STOP)"
+git -C $F merge-base --is-ancestor HEAD integ/w00; echo "HEAD ancestor of integ/w00 ($(git -C $F rev-parse --short=9 integ/w00)): rc=$?"
+echo "origin/main: $(git -C $F rev-parse --short=9 origin/main)"; python3 /tmp/factory-platform-evidence/w00/config-check.py --check-only; echo "config-check rc=$?"; echo "ahead: $(git -C $F rev-list --count HEAD..integ/w00) commits"
+echo "resources: $(df -BG / | tail -1 | awk '{print "disk "$4}') $(awk '/^MemAvailable:|^SwapFree:/ {printf "%s %.1f GiB ",$1,$2/1048576}' /proc/meminfo)"

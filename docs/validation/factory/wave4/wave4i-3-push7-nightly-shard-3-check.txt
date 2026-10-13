@@ -1,0 +1,7 @@
+shard3: files 33, mutants 3084, Killed 1712, NoCoverage 697, RuntimeError 3, Survived 663, Timeout 9
+shard3: score 55.86% (detected 1721 / valid 3081); zero-test survivors 0
+shard3: load-failure kills 4; with an import-resolution reason (FALSE kill) 0
+  load kill src/lib/panel-persistence.ts:64: Cannot read properties of null (reading 'open')  [by src/__tests__/CommandPalette.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/components/__tests__/MentionChip-feature-popover.component.test.ts#StrykerJS: test file failed to]
+  load kill src/lib/panel-persistence.ts:64: Cannot read properties of null (reading 'open')  [by src/__tests__/CommandPalette.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/components/__tests__/MentionChip-feature-popover.component.test.ts#StrykerJS: test file failed to]
+  load kill src/lib/panel-persistence.ts:64: Cannot read properties of null (reading 'open')  [by src/__tests__/CommandPalette.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/components/__tests__/MentionChip-feature-popover.component.test.ts#StrykerJS: test file failed to]
+  load kill src/lib/settings-nav.ts:134: Cannot read properties of undefined (reading '0')  [by src/__tests__/settings-layout.component.test.ts#StrykerJS: test file failed to load or collect, src/lib/settings-nav.unit.test.ts#StrykerJS: test file failed to load or collect, src/lib/settings-searc]

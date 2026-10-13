@@ -1,0 +1,16 @@
+pre-checks 2026-10-10T13:48:20Z (integrator-5, push-checklist step 1, seventh push: the sixth-push receipts, after the gate-change-approved label)
+toplevel: /home/dev/work/EZCorp/EZHarness-worktrees/composable-factory-platform
+status --porcelain lines: 0
+branch: feat/composable-factory-platform
+core.bare: file:/home/dev/work/EZCorp/EZHarness/.git/config	false file:/home/dev/work/EZCorp/EZHarness/.git/worktrees/composable-factory-platform/config.worktree	false 
+ident: archy <281643943+EZArchy@users.noreply.github.com>
+fetch rc=0
+HEAD:        c786088df569aacede2f2215e07f6b43a67b92ae
+origin/feat: c786088df569aacede2f2215e07f6b43a67b92ae
+HEAD = origin/feat: yes
+HEAD ancestor of integ/w00 (512701105): rc=0
+origin/main: e3309906d
+config: 29e61b63b05624e9 = accepted baseline
+config-check rc=0
+ahead: 1 commits
+resources: disk 181G MemAvailable: 18.4 GiB SwapFree: 8.9 GiB 

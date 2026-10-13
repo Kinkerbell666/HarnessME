@@ -1,0 +1,2 @@
+shared .git/config 29e61b63b05624e9 -> 238db68740e3af71 accepted as the baseline by the lead's rule (2026-10-03): only branch/remote sections changed; added ['branch "fix/validate-coverage-oct12"', 'branch "pr333"']; removed ['branch "fix/git-fixture-environment-isolation"']; changed []; no [user]; [core]/[extensions] unchanged
+config: 238db68740e3af71 = accepted baseline

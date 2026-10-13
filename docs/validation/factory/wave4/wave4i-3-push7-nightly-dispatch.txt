@@ -1,0 +1,7 @@
+2026-10-12T21:43:56Z
+https://github.com/ezcorp-org/EZHarness/actions/runs/38312450934
+dispatch rc=0
+38312450934 feat/factory-platform-followup-1 f0cde0407 workflow_dispatch in_progress  2026-10-12T21:43:57Z
+38238981958 main 6eb1bbb33 schedule completed failure 2026-10-12T10:51:57Z
+38130480077 main 6eb1bbb33 schedule completed failure 2026-10-11T10:01:48Z
+38042900360 main e3309906d schedule completed success 2026-10-10T09:52:04Z

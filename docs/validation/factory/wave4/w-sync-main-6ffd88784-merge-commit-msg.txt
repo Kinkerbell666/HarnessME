@@ -1,0 +1,5 @@
+merge: origin/main 6ffd88784 into integ/w00 (W-SYNC: Pi 0.99.2 #333 and the web bump #335)
+
+main 6eb1bbb33..6ffd88784: #335 bumps 4 web dependencies (web/package.json, web/bun.lock); #333 upgrades Pi 0.87.1 -> 0.99.2
+(package.json, bun.lock). No conflict. After the merge the code equals main 6ffd88784; only receipts differ. The hook maps 0.
+The merge runs on fresh frozen installs; the origin/main gate leg must read 0 findings.

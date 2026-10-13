@@ -1,0 +1,50 @@
+=== heavy 2026-10-12T17:38:06Z
+HEAD 94b17348f360e02bf8e90b1b3659c2f3482d97ae MERGE_HEAD  index-tree fedc78476afbe1eaa27ff2e5df7a4406a4ba20ab
+pin: bun 1.4.2 bunx 1.4.2; BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING=1
+resource-gate 2026-10-12T17:38:06Z hold-start disk=200G memAvailable=19GiB swapFreeKiB=7880140/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+config: 238db68740e3af71 = accepted baseline
+shared config hash at hold start: 238db68740e3af71 (accepted baseline 238db68740e3af71)
+prune scan: exit 0 (prune scan: clean (0 hit(s)))
+resource-gate 2026-10-12T17:38:06Z attestation-check disk=200G memAvailable=19GiB swapFreeKiB=7880144/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START attestation-check 2026-10-12T17:38:06Z
+--- END   attestation-check 2026-10-12T17:38:06Z exit=0 
+guard set: 41 files from guard-suites.sh
+resource-gate 2026-10-12T17:38:07Z guard-set disk=200G memAvailable=19GiB swapFreeKiB=7880144/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START guard-set 2026-10-12T17:38:07Z
+--- END   guard-set 2026-10-12T17:39:08Z exit=0  516 pass 0 fail 
+resource-gate 2026-10-12T17:39:08Z build-factory-sdk disk=200G memAvailable=18GiB swapFreeKiB=7958856/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START build-factory-sdk 2026-10-12T17:39:08Z
+--- END   build-factory-sdk 2026-10-12T17:39:08Z exit=0 
+resource-gate 2026-10-12T17:39:08Z build-factory-transport disk=200G memAvailable=18GiB swapFreeKiB=7958868/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START build-factory-transport 2026-10-12T17:39:08Z
+--- END   build-factory-transport 2026-10-12T17:39:08Z exit=0 
+resource-gate 2026-10-12T17:39:08Z build-factory-orchestrator disk=200G memAvailable=18GiB swapFreeKiB=7958868/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START build-factory-orchestrator 2026-10-12T17:39:08Z
+--- END   build-factory-orchestrator 2026-10-12T17:39:08Z exit=0 
+resource-gate 2026-10-12T17:39:08Z typecheck-all disk=200G memAvailable=18GiB swapFreeKiB=7958868/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START typecheck-all 2026-10-12T17:39:08Z
+--- END   typecheck-all 2026-10-12T17:39:53Z exit=0 
+resource-gate 2026-10-12T17:39:53Z web-server-lcov disk=200G memAvailable=18GiB swapFreeKiB=7973208/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START web-server-lcov 2026-10-12T17:39:53Z
+--- END   web-server-lcov 2026-10-12T17:40:13Z exit=0  Tests 179 passed (179) 
+resource-gate 2026-10-12T17:40:13Z coverage-merge disk=200G memAvailable=19GiB swapFreeKiB=7972504/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START coverage-merge 2026-10-12T17:40:13Z
+--- END   coverage-merge 2026-10-12T17:40:13Z exit=0 
+resource-gate 2026-10-12T17:40:13Z web-build disk=200G memAvailable=19GiB swapFreeKiB=7972516/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START web-build 2026-10-12T17:40:13Z
+--- END   web-build 2026-10-12T17:40:56Z exit=0 
+resource-gate 2026-10-12T17:40:56Z graph-mock-pass disk=200G memAvailable=17GiB swapFreeKiB=7625252/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START graph-mock-pass 2026-10-12T17:40:56Z
+--- END   graph-mock-pass 2026-10-12T17:41:45Z exit=0 
+bash: /tmp/factory-platform-evidence/w01h/graph/dump-and-drop.sh: No such file or directory
+mock pass w4h-sync-main-6eb1bbb33-mock outcome: passed
+resource-gate 2026-10-12T17:41:45Z crap-changed-base disk=200G memAvailable=19GiB swapFreeKiB=7741420/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START crap-changed-base 2026-10-12T17:41:45Z
+--- END   crap-changed-base 2026-10-12T17:41:45Z exit=0 
+origin/main leg expected set: /tmp/factory-platform-evidence/w00/w4h-merge/w4h-sync-main-6eb1bbb33/expected-main-findings.txt (0 line(s))
+resource-gate 2026-10-12T17:41:45Z merge-commit-gates disk=200G memAvailable=19GiB swapFreeKiB=7741448/17173956 floors disk>=100G swap>=2097152KiB mem>=6GiB
+--- START merge-commit-gates 2026-10-12T17:41:45Z
+--- END   merge-commit-gates 2026-10-12T17:41:45Z exit=0 
+config: 238db68740e3af71 = accepted baseline
+shared config hash at hold end: 238db68740e3af71 (accepted baseline 238db68740e3af71)
+HEAVY DONE status=0 dirty=0 2026-10-12T17:41:45Z

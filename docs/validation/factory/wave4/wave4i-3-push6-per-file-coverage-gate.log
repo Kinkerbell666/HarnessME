@@ -1,0 +1,693 @@
+﻿2026-10-10T14:17:28.1898448Z Current runner version: '2.337.0'
+2026-10-10T14:17:28.1918764Z ##[group]Runner Image Provisioner
+2026-10-10T14:17:28.1919600Z Hosted Compute Agent
+2026-10-10T14:17:28.1920098Z Version: 20261002.596
+2026-10-10T14:17:28.1920794Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-10T14:17:28.1921434Z Build Date: 2026-10-02T22:28:27Z
+2026-10-10T14:17:28.1922035Z Worker ID: {99143caf-59d6-4a86-8f41-4b4464950cc3}
+2026-10-10T14:17:28.1922723Z Region: westcentralus
+2026-10-10T14:17:28.1923227Z Cloud: Azure
+2026-10-10T14:17:28.1923726Z ##[endgroup]
+2026-10-10T14:17:28.1924881Z ##[group]Operating System
+2026-10-10T14:17:28.1925412Z Ubuntu
+2026-10-10T14:17:28.1925957Z 24.04.5
+2026-10-10T14:17:28.1926411Z LTS
+2026-10-10T14:17:28.1926842Z ##[endgroup]
+2026-10-10T14:17:28.1927403Z ##[group]Runner Image
+2026-10-10T14:17:28.1927975Z Image: ubuntu-24.04
+2026-10-10T14:17:28.1928535Z Version: 20261004.327.1
+2026-10-10T14:17:28.1929562Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-10T14:17:28.1931072Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-10T14:17:28.1931921Z ##[endgroup]
+2026-10-10T14:17:28.1933018Z ##[group]GITHUB_TOKEN Permissions
+2026-10-10T14:17:28.1934868Z Contents: read
+2026-10-10T14:17:28.1935452Z Metadata: read
+2026-10-10T14:17:28.1935956Z ##[endgroup]
+2026-10-10T14:17:28.1937622Z Secret source: Actions
+2026-10-10T14:17:28.1938517Z Cache mode: write
+2026-10-10T14:17:28.1939335Z Prepare workflow directory
+2026-10-10T14:17:28.2323773Z Prepare all required actions
+2026-10-10T14:17:28.2361422Z Getting action download info
+2026-10-10T14:17:28.5289904Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-10T14:17:28.8825849Z Download action repository 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+2026-10-10T14:17:29.6859594Z Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+2026-10-10T14:17:30.7601924Z Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+2026-10-10T14:17:30.9763404Z Complete job name: Per-file coverage gate
+2026-10-10T14:17:31.0364877Z ##[group]Run if [ "success" != "success" ] || \
+2026-10-10T14:17:31.0365280Z if [ "success" != "success" ] || \
+2026-10-10T14:17:31.0365582Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0365855Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0366117Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0366373Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0366635Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0366909Z    [ "success" != "success" ] || \
+2026-10-10T14:17:31.0367191Z    [ "success" != "success" ]; then
+2026-10-10T14:17:31.0367588Z   echo "::error::coverage producers failed — coverage data is incomplete"
+2026-10-10T14:17:31.0367955Z   exit 1
+2026-10-10T14:17:31.0368166Z fi
+2026-10-10T14:17:31.0561803Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:17:31.0562268Z env:
+2026-10-10T14:17:31.0562576Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:31.0562888Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:31.0563145Z ##[endgroup]
+2026-10-10T14:17:31.0824792Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-10T14:17:31.0825197Z with:
+2026-10-10T14:17:31.0825406Z   fetch-depth: 0
+2026-10-10T14:17:31.0825633Z   repository: ezcorp-org/EZHarness
+2026-10-10T14:17:31.0828085Z   token: ***
+2026-10-10T14:17:31.0828301Z   ssh-strict: true
+2026-10-10T14:17:31.0828515Z   ssh-user: git
+2026-10-10T14:17:31.0828727Z   persist-credentials: true
+2026-10-10T14:17:31.0828963Z   clean: true
+2026-10-10T14:17:31.0829355Z   sparse-checkout-cone-mode: true
+2026-10-10T14:17:31.0829619Z   fetch-tags: false
+2026-10-10T14:17:31.0829833Z   show-progress: true
+2026-10-10T14:17:31.0830045Z   lfs: false
+2026-10-10T14:17:31.0830241Z   submodules: false
+2026-10-10T14:17:31.0830455Z   set-safe-directory: true
+2026-10-10T14:17:31.0830962Z   allow-unsafe-pr-checkout: false
+2026-10-10T14:17:31.0831203Z env:
+2026-10-10T14:17:31.0831425Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:31.0831751Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:31.0832003Z ##[endgroup]
+2026-10-10T14:17:31.1629877Z Syncing repository: ezcorp-org/EZHarness
+2026-10-10T14:17:31.1631293Z ##[group]Getting Git version info
+2026-10-10T14:17:31.1631680Z Working directory is '/home/runner/work/EZHarness/EZHarness'
+2026-10-10T14:17:31.1632261Z [command]/usr/bin/git version
+2026-10-10T14:17:31.1691556Z git version 2.55.0
+2026-10-10T14:17:31.1717486Z ##[endgroup]
+2026-10-10T14:17:31.1731339Z Temporarily overriding HOME='/home/runner/work/_temp/b779664f-f731-4ebc-9909-bc72dfbe60a9' before making global git config changes
+2026-10-10T14:17:31.1732500Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-10T14:17:31.1737493Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+2026-10-10T14:17:31.1778336Z Deleting the contents of '/home/runner/work/EZHarness/EZHarness'
+2026-10-10T14:17:31.1781026Z ##[group]Determining repository object format
+2026-10-10T14:17:31.1782632Z ##[endgroup]
+2026-10-10T14:17:31.1783178Z ##[group]Initializing the repository
+2026-10-10T14:17:31.1786382Z [command]/usr/bin/git init /home/runner/work/EZHarness/EZHarness
+2026-10-10T14:17:31.1855703Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-10T14:17:31.1856767Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-10T14:17:31.1857792Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-10T14:17:31.1858570Z hint: call:
+2026-10-10T14:17:31.1858863Z hint:
+2026-10-10T14:17:31.1859258Z hint: 	git config --global init.defaultBranch <name>
+2026-10-10T14:17:31.1859679Z hint:
+2026-10-10T14:17:31.1859976Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-10T14:17:31.1860435Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-10T14:17:31.1861041Z hint:
+2026-10-10T14:17:31.1861351Z hint: 	git branch -m <name>
+2026-10-10T14:17:31.1861699Z hint:
+2026-10-10T14:17:31.1862194Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-10T14:17:31.1862975Z Initialized empty Git repository in /home/runner/work/EZHarness/EZHarness/.git/
+2026-10-10T14:17:31.1866435Z [command]/usr/bin/git remote add origin https://github.com/ezcorp-org/EZHarness
+2026-10-10T14:17:31.1906349Z ##[endgroup]
+2026-10-10T14:17:31.1906933Z ##[group]Disabling automatic garbage collection
+2026-10-10T14:17:31.1909139Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-10T14:17:31.1935874Z ##[endgroup]
+2026-10-10T14:17:31.1936365Z ##[group]Setting up auth
+2026-10-10T14:17:31.1936897Z Removing SSH command configuration
+2026-10-10T14:17:31.1941941Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-10T14:17:31.1971852Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-10T14:17:31.2253196Z Removing HTTP extra header
+2026-10-10T14:17:31.2258796Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-10T14:17:31.2289241Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-10T14:17:31.2513133Z Removing includeIf entries pointing to credentials config files
+2026-10-10T14:17:31.2530380Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-10T14:17:31.2535198Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-10T14:17:31.2738556Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-10T14:17:31.2776702Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path /home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:17:31.2808053Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:17:31.2840616Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:17:31.2869764Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:17:31.2895766Z ##[endgroup]
+2026-10-10T14:17:31.2896345Z ##[group]Fetching the repository
+2026-10-10T14:17:31.2901266Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +bfab4d2da8fe999e79a4bbda00a87a523295f95e:refs/remotes/pull/318/merge
+2026-10-10T14:17:38.7389721Z From https://github.com/ezcorp-org/EZHarness
+2026-10-10T14:17:38.7390405Z  * [new branch]          chore/biome-2.5.6                        -> origin/chore/biome-2.5.6
+2026-10-10T14:17:38.7391379Z  * [new branch]          chore/biome-denylist-and-no-explicit-any -> origin/chore/biome-denylist-and-no-explicit-any
+2026-10-10T14:17:38.7392320Z  * [new branch]          chore/dependabot-group-pglite-pair       -> origin/chore/dependabot-group-pglite-pair
+2026-10-10T14:17:38.7393140Z  * [new branch]          chore/drop-unused-svelte-drawer          -> origin/chore/drop-unused-svelte-drawer
+2026-10-10T14:17:38.7393924Z  * [new branch]          chore/enable-biome-formatter             -> origin/chore/enable-biome-formatter
+2026-10-10T14:17:38.7394741Z  * [new branch]          chore/lint-worktree-fix-and-codeowners   -> origin/chore/lint-worktree-fix-and-codeowners
+2026-10-10T14:17:38.7395741Z  * [new branch]          chore/nested-resolver-comment-and-ratchet-assessment -> origin/chore/nested-resolver-comment-and-ratchet-assessment
+2026-10-10T14:17:38.7396763Z  * [new branch]          chore/path-independent-assertions        -> origin/chore/path-independent-assertions
+2026-10-10T14:17:38.7397549Z  * [new branch]          chore/pi-085-combined                    -> origin/chore/pi-085-combined
+2026-10-10T14:17:38.7398370Z  * [new branch]          chore/projects-root-followup             -> origin/chore/projects-root-followup
+2026-10-10T14:17:38.7399353Z  * [new branch]          chore/recover-dropped-test-and-prune-plan -> origin/chore/recover-dropped-test-and-prune-plan
+2026-10-10T14:17:38.7400360Z  * [new branch]          chore/shrink-noexplicitany-override      -> origin/chore/shrink-noexplicitany-override
+2026-10-10T14:17:38.7401482Z  * [new branch]          chore/testing-infra-review               -> origin/chore/testing-infra-review
+2026-10-10T14:17:38.7402932Z  * [new branch]          chore/unsafe-optional-chaining           -> origin/chore/unsafe-optional-chaining
+2026-10-10T14:17:38.7403870Z  * [new branch]          ci/coverage-gate-tells-the-truth         -> origin/ci/coverage-gate-tells-the-truth
+2026-10-10T14:17:38.7404851Z  * [new branch]          ci/coverage-retry-preserve-instrumentation -> origin/ci/coverage-retry-preserve-instrumentation
+2026-10-10T14:17:38.7405820Z  * [new branch]          ci/dependabot-exclude-breaking           -> origin/ci/dependabot-exclude-breaking
+2026-10-10T14:17:38.7406845Z  * [new branch]          ci/dependency-audit-gate                 -> origin/ci/dependency-audit-gate
+2026-10-10T14:17:38.7407637Z  * [new branch]          ci/dependency-boundary-guard             -> origin/ci/dependency-boundary-guard
+2026-10-10T14:17:38.7408733Z  * [new branch]          ci/gate-integrity-biome-awareness        -> origin/ci/gate-integrity-biome-awareness
+2026-10-10T14:17:38.7409541Z  * [new branch]          ci/gitleaks-secret-scan                  -> origin/ci/gitleaks-secret-scan
+2026-10-10T14:17:38.7410351Z  * [new branch]          ci/harden-gate-integrity-detectors       -> origin/ci/harden-gate-integrity-detectors
+2026-10-10T14:17:38.7412124Z  * [new branch]          ci/pin-actions-and-release-runtime       -> origin/ci/pin-actions-and-release-runtime
+2026-10-10T14:17:38.7412902Z  * [new branch]          ci/quality-gates                         -> origin/ci/quality-gates
+2026-10-10T14:17:38.7413660Z  * [new branch]          ci/test-pool-worker-watchdog             -> origin/ci/test-pool-worker-watchdog
+2026-10-10T14:17:38.7414549Z  * [new branch]          ci/wire-chat-e2e-into-blocking-lane      -> origin/ci/wire-chat-e2e-into-blocking-lane
+2026-10-10T14:17:38.7415586Z  * [new branch]          dependabot/bun/earendil-works/pi-agent-core-0.99.1 -> origin/dependabot/bun/earendil-works/pi-agent-core-0.99.1
+2026-10-10T14:17:38.7416677Z  * [new branch]          dependabot/bun/earendil-works/pi-ai-0.99.1 -> origin/dependabot/bun/earendil-works/pi-ai-0.99.1
+2026-10-10T14:17:38.7417879Z  * [new branch]          dependabot/bun/web/bun-minor-and-patch-04e1cc7ff2 -> origin/dependabot/bun/web/bun-minor-and-patch-04e1cc7ff2
+2026-10-10T14:17:38.7419073Z  * [new branch]          diagnostic/chromium-context-0733/20260907 -> origin/diagnostic/chromium-context-0733/20260907
+2026-10-10T14:17:38.7420013Z  * [new branch]          docs/local-verification-scope            -> origin/docs/local-verification-scope
+2026-10-10T14:17:38.7420941Z  * [new branch]          evidence/pr-303                          -> origin/evidence/pr-303
+2026-10-10T14:17:38.7421769Z  * [new branch]          feat/author-installations-names          -> origin/feat/author-installations-names
+2026-10-10T14:17:38.7422758Z  * [new branch]          feat/chat-turn-collapse                  -> origin/feat/chat-turn-collapse
+2026-10-10T14:17:38.7423611Z  * [new branch]          feat/composable-factory-platform         -> origin/feat/composable-factory-platform
+2026-10-10T14:17:38.7424356Z  * [new branch]          feat/extension-v4                        -> origin/feat/extension-v4
+2026-10-10T14:17:38.7425020Z  * [new branch]          feat/kb-share-a-file                     -> origin/feat/kb-share-a-file
+2026-10-10T14:17:38.7425686Z  * [new branch]          feat/kilo-provider                       -> origin/feat/kilo-provider
+2026-10-10T14:17:38.7426367Z  * [new branch]          feat/pi-0.83                             -> origin/feat/pi-0.83
+2026-10-10T14:17:38.7427173Z  * [new branch]          feat/pluggable-infrastructure-v1         -> origin/feat/pluggable-infrastructure-v1
+2026-10-10T14:17:38.7428112Z  * [new branch]          feat/projects-under-ezcorp               -> origin/feat/projects-under-ezcorp
+2026-10-10T14:17:38.7428974Z  * [new branch]          feat/trusted-local-runner                -> origin/feat/trusted-local-runner
+2026-10-10T14:17:38.7429886Z  * [new branch]          feat/workflow-output-template            -> origin/feat/workflow-output-template
+2026-10-10T14:17:38.7431117Z  * [new branch]          feat/workflow-run-card                   -> origin/feat/workflow-run-card
+2026-10-10T14:17:38.7431997Z  * [new branch]          fix/agents-page-breadcrumb               -> origin/fix/agents-page-breadcrumb
+2026-10-10T14:17:38.7432846Z  * [new branch]          fix/audit-mcp-sdk-sharp                  -> origin/fix/audit-mcp-sdk-sharp
+2026-10-10T14:17:38.7433769Z  * [new branch]          fix/audit-proxy-addr-source-map-js       -> origin/fix/audit-proxy-addr-source-map-js
+2026-10-10T14:17:38.7434914Z  * [new branch]          fix/bundled-auto-wire-reconcile          -> origin/fix/bundled-auto-wire-reconcile
+2026-10-10T14:17:38.7435880Z  * [new branch]          fix/bundled-bootstrap-runner-retry       -> origin/fix/bundled-bootstrap-runner-retry
+2026-10-10T14:17:38.7436838Z  * [new branch]          fix/chat-stick-to-bottom-latch           -> origin/fix/chat-stick-to-bottom-latch
+2026-10-10T14:17:38.7437927Z  * [new branch]          fix/compaction-readonly-and-implicit-any-let -> origin/fix/compaction-readonly-and-implicit-any-let
+2026-10-10T14:17:38.7439012Z  * [new branch]          fix/connection-fault-stop-reason         -> origin/fix/connection-fault-stop-reason
+2026-10-10T14:17:38.7439973Z  * [new branch]          fix/consent-hash-semantic-split          -> origin/fix/consent-hash-semantic-split
+2026-10-10T14:17:38.7441222Z  * [new branch]          fix/context-denominator-follows-model-switch -> origin/fix/context-denominator-follows-model-switch
+2026-10-10T14:17:38.7442280Z  * [new branch]          fix/default-extension-runner             -> origin/fix/default-extension-runner
+2026-10-10T14:17:38.7443162Z  * [new branch]          fix/devstack-diagnostics                 -> origin/fix/devstack-diagnostics
+2026-10-10T14:17:38.7443982Z  * [new branch]          fix/devstack-vite-ssr                    -> origin/fix/devstack-vite-ssr
+2026-10-10T14:17:38.7444864Z  * [new branch]          fix/duplication-audit-fixes              -> origin/fix/duplication-audit-fixes
+2026-10-10T14:17:38.7445845Z  * [new branch]          fix/e2e-hydration-readiness-gate         -> origin/fix/e2e-hydration-readiness-gate
+2026-10-10T14:17:38.7446767Z  * [new branch]          fix/effort-on-custom-models              -> origin/fix/effort-on-custom-models
+2026-10-10T14:17:38.7447790Z  * [new branch]          fix/etl-envelope-and-trigger-sweep       -> origin/fix/etl-envelope-and-trigger-sweep
+2026-10-10T14:17:38.7448961Z  * [new branch]          fix/extension-install-path-portability   -> origin/fix/extension-install-path-portability
+2026-10-10T14:17:38.7450094Z  * [new branch]          fix/extension-release-persistence        -> origin/fix/extension-release-persistence
+2026-10-10T14:17:38.7451364Z  * [new branch]          fix/extension-uninstall-path-containment -> origin/fix/extension-uninstall-path-containment
+2026-10-10T14:17:38.7452464Z  * [new branch]          fix/gate-vacuous-test-parser-extents     -> origin/fix/gate-vacuous-test-parser-extents
+2026-10-10T14:17:38.7453505Z  * [new branch]          fix/git-fixture-environment-isolation    -> origin/fix/git-fixture-environment-isolation
+2026-10-10T14:17:38.7454470Z  * [new branch]          fix/health-detail-unreachable            -> origin/fix/health-detail-unreachable
+2026-10-10T14:17:38.7455392Z  * [new branch]          fix/hook-tests-without-git-env           -> origin/fix/hook-tests-without-git-env
+2026-10-10T14:17:38.7456267Z  * [new branch]          fix/http-extension-uuid                  -> origin/fix/http-extension-uuid
+2026-10-10T14:17:38.7457128Z  * [new branch]          fix/mask-canonical-worktrees             -> origin/fix/mask-canonical-worktrees
+2026-10-10T14:17:38.7457992Z  * [new branch]          fix/mask-root-pi-secret                  -> origin/fix/mask-root-pi-secret
+2026-10-10T14:17:38.7458882Z  * [new branch]          fix/memory-dedup-write-columns           -> origin/fix/memory-dedup-write-columns
+2026-10-10T14:17:38.7459895Z  * [new branch]          fix/memory-extractor-silent-llm-failure  -> origin/fix/memory-extractor-silent-llm-failure
+2026-10-10T14:17:38.7461652Z  * [new branch]          fix/mock-cleanup-comment-scrape          -> origin/fix/mock-cleanup-comment-scrape
+2026-10-10T14:17:38.7462824Z  * [new branch]          fix/mock-llm-base-url-port               -> origin/fix/mock-llm-base-url-port
+2026-10-10T14:17:38.7463697Z  * [new branch]          fix/rbacscopes-diff-revert               -> origin/fix/rbacscopes-diff-revert
+2026-10-10T14:17:38.7464570Z  * [new branch]          fix/resources-proof-settle               -> origin/fix/resources-proof-settle
+2026-10-10T14:17:38.7465665Z  * [new branch]          fix/save-memory-vacuous-tests            -> origin/fix/save-memory-vacuous-tests
+2026-10-10T14:17:38.7466550Z  * [new branch]          fix/sharp-security-update                -> origin/fix/sharp-security-update
+2026-10-10T14:17:38.7467576Z  * [new branch]          fix/tool-call-persist-losses             -> origin/fix/tool-call-persist-losses
+2026-10-10T14:17:38.7468527Z  * [new branch]          fix/transformers-v4                      -> origin/fix/transformers-v4
+2026-10-10T14:17:38.7469325Z  * [new branch]          fix/ts7-tsgo-migration                   -> origin/fix/ts7-tsgo-migration
+2026-10-10T14:17:38.7470020Z  * [new branch]          main                                     -> origin/main
+2026-10-10T14:17:38.7471015Z  * [new branch]          perf/pglite-migrated-snapshot-cache      -> origin/perf/pglite-migrated-snapshot-cache
+2026-10-10T14:17:38.7472088Z  * [new branch]          refactor/extract-project-root-module     -> origin/refactor/extract-project-root-module
+2026-10-10T14:17:38.7473045Z  * [new branch]          refactor/own-session-types               -> origin/refactor/own-session-types
+2026-10-10T14:17:38.7473983Z  * [new branch]          security/api-registry-scope-ratchet      -> origin/security/api-registry-scope-ratchet
+2026-10-10T14:17:38.7475004Z  * [new branch]          security/file-organizer-path-containment -> origin/security/file-organizer-path-containment
+2026-10-10T14:17:38.7476055Z  * [new branch]          security/kb-retrieval-user-scope         -> origin/security/kb-retrieval-user-scope
+2026-10-10T14:17:38.7477070Z  * [new branch]          security/project-permission-mode-authz   -> origin/security/project-permission-mode-authz
+2026-10-10T14:17:38.7478054Z  * [new branch]          test/hermetic-drafts-handler             -> origin/test/hermetic-drafts-handler
+2026-10-10T14:17:38.7479072Z  * [new branch]          test/no-assertions-on-user-managed-data  -> origin/test/no-assertions-on-user-managed-data
+2026-10-10T14:17:38.7480135Z  * [new branch]          test/pin-wall-clock-and-parallelism      -> origin/test/pin-wall-clock-and-parallelism
+2026-10-10T14:17:38.7481285Z  * [new branch]          test/session-characterization            -> origin/test/session-characterization
+2026-10-10T14:17:38.7482084Z  * [new ref]             bfab4d2da8fe999e79a4bbda00a87a523295f95e -> pull/318/merge
+2026-10-10T14:17:38.7483732Z ##[endgroup]
+2026-10-10T14:17:38.7484198Z ##[group]Determining the checkout info
+2026-10-10T14:17:38.7484719Z ##[endgroup]
+2026-10-10T14:17:38.7485033Z [command]/usr/bin/git sparse-checkout disable
+2026-10-10T14:17:38.7485945Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-10T14:17:38.7490898Z ##[group]Checking out the ref
+2026-10-10T14:17:38.7495057Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/318/merge
+2026-10-10T14:17:39.7677754Z Updating files:  61% (9246/14994)
+2026-10-10T14:17:39.7757422Z Updating files:  62% (9297/14994)
+2026-10-10T14:17:39.7870860Z Updating files:  63% (9447/14994)
+2026-10-10T14:17:39.7978107Z Updating files:  64% (9597/14994)
+2026-10-10T14:17:39.8075363Z Updating files:  65% (9747/14994)
+2026-10-10T14:17:39.8179789Z Updating files:  66% (9897/14994)
+2026-10-10T14:17:39.8280793Z Updating files:  67% (10046/14994)
+2026-10-10T14:17:39.8387487Z Updating files:  68% (10196/14994)
+2026-10-10T14:17:39.8486094Z Updating files:  69% (10346/14994)
+2026-10-10T14:17:39.8593774Z Updating files:  70% (10496/14994)
+2026-10-10T14:17:39.8699320Z Updating files:  71% (10646/14994)
+2026-10-10T14:17:39.8798743Z Updating files:  72% (10796/14994)
+2026-10-10T14:17:39.8901970Z Updating files:  73% (10946/14994)
+2026-10-10T14:17:39.8978038Z Updating files:  74% (11096/14994)
+2026-10-10T14:17:39.9101237Z Updating files:  75% (11246/14994)
+2026-10-10T14:17:39.9212915Z Updating files:  76% (11396/14994)
+2026-10-10T14:17:39.9319410Z Updating files:  77% (11546/14994)
+2026-10-10T14:17:39.9415839Z Updating files:  78% (11696/14994)
+2026-10-10T14:17:39.9514576Z Updating files:  79% (11846/14994)
+2026-10-10T14:17:39.9622660Z Updating files:  80% (11996/14994)
+2026-10-10T14:17:39.9722910Z Updating files:  81% (12146/14994)
+2026-10-10T14:17:39.9848170Z Updating files:  82% (12296/14994)
+2026-10-10T14:17:39.9995728Z Updating files:  83% (12446/14994)
+2026-10-10T14:17:40.0071304Z Updating files:  84% (12595/14994)
+2026-10-10T14:17:40.0185081Z Updating files:  85% (12745/14994)
+2026-10-10T14:17:40.0277700Z Updating files:  86% (12895/14994)
+2026-10-10T14:17:40.0374641Z Updating files:  87% (13045/14994)
+2026-10-10T14:17:40.0465846Z Updating files:  88% (13195/14994)
+2026-10-10T14:17:40.0562209Z Updating files:  89% (13345/14994)
+2026-10-10T14:17:40.0651623Z Updating files:  90% (13495/14994)
+2026-10-10T14:17:40.0746392Z Updating files:  91% (13645/14994)
+2026-10-10T14:17:40.0849170Z Updating files:  92% (13795/14994)
+2026-10-10T14:17:40.0936037Z Updating files:  93% (13945/14994)
+2026-10-10T14:17:40.1026288Z Updating files:  94% (14095/14994)
+2026-10-10T14:17:40.1107348Z Updating files:  95% (14245/14994)
+2026-10-10T14:17:40.1201160Z Updating files:  96% (14395/14994)
+2026-10-10T14:17:40.1302118Z Updating files:  97% (14545/14994)
+2026-10-10T14:17:40.1413251Z Updating files:  98% (14695/14994)
+2026-10-10T14:17:40.1518930Z Updating files:  99% (14845/14994)
+2026-10-10T14:17:40.1519306Z Updating files: 100% (14994/14994)
+2026-10-10T14:17:40.1519643Z Updating files: 100% (14994/14994), done.
+2026-10-10T14:17:40.1648855Z Note: switching to 'refs/remotes/pull/318/merge'.
+2026-10-10T14:17:40.1649086Z 
+2026-10-10T14:17:40.1649262Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-10T14:17:40.1649628Z changes and commit them, and you can discard any commits you make in this
+2026-10-10T14:17:40.1650137Z state without impacting any branches by switching back to a branch.
+2026-10-10T14:17:40.1650352Z 
+2026-10-10T14:17:40.1650580Z If you want to create a new branch to retain commits you create, you may
+2026-10-10T14:17:40.1651163Z do so (now or later) by using -c with the switch command. Example:
+2026-10-10T14:17:40.1651377Z 
+2026-10-10T14:17:40.1651467Z   git switch -c <new-branch-name>
+2026-10-10T14:17:40.1651609Z 
+2026-10-10T14:17:40.1651695Z Or undo this operation with:
+2026-10-10T14:17:40.1651820Z 
+2026-10-10T14:17:40.1651895Z   git switch -
+2026-10-10T14:17:40.1651989Z 
+2026-10-10T14:17:40.1652158Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-10T14:17:40.1652386Z 
+2026-10-10T14:17:40.1652880Z HEAD is now at bfab4d2da Merge 512701105ed4f6f60233e409cca2c651115f4cea into e3309906d4cac4927290dc5da6473be4619ab889
+2026-10-10T14:17:40.1702014Z ##[endgroup]
+2026-10-10T14:17:40.1747819Z [command]/usr/bin/git log -1 --format=%H
+2026-10-10T14:17:40.1771973Z bfab4d2da8fe999e79a4bbda00a87a523295f95e
+2026-10-10T14:17:40.1935822Z ##[group]Run oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+2026-10-10T14:17:40.1936112Z with:
+2026-10-10T14:17:40.1936297Z   bun-version-file: .bun-version
+2026-10-10T14:17:40.1957013Z   no-cache: false
+2026-10-10T14:17:40.1959403Z   token: ***
+2026-10-10T14:17:40.1959575Z env:
+2026-10-10T14:17:40.1959761Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:40.1960017Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:40.1960224Z ##[endgroup]
+2026-10-10T14:17:40.3235329Z Obtained version 1.4.2 from .bun-version
+2026-10-10T14:17:40.5217468Z Cache hit for: bun-gmoqYqdUbaYsI0KujeXt7Zg/p0I=
+2026-10-10T14:17:41.6389628Z Received 35684133 of 35684133 (100.0%), 37.8 MBs/sec
+2026-10-10T14:17:41.6390066Z Cache Size: ~34 MB (35684133 B)
+2026-10-10T14:17:41.6414087Z [command]/usr/bin/tar -xf /home/runner/work/_temp/2580cab6-a4b6-4000-bb56-3bac6a9dfed3/cache.tzst -P -C /home/runner/work/EZHarness/EZHarness --use-compress-program unzstd
+2026-10-10T14:17:41.7415703Z Cache restored successfully
+2026-10-10T14:17:41.7435478Z [command]/home/runner/.bun/bin/bun --revision
+2026-10-10T14:17:41.7480604Z 1.4.2+744846f84
+2026-10-10T14:17:41.7481222Z Using a cached version of Bun: 1.4.2+744846f84
+2026-10-10T14:17:41.7615513Z ##[group]Run bun install --frozen-lockfile
+2026-10-10T14:17:41.7615963Z bun install --frozen-lockfile
+2026-10-10T14:17:41.7678519Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:17:41.7678736Z env:
+2026-10-10T14:17:41.7678933Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:41.7679221Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:41.7679454Z ##[endgroup]
+2026-10-10T14:17:41.7783047Z bun install v1.4.2 (744846f84)
+2026-10-10T14:17:41.7817754Z Resolving dependencies
+2026-10-10T14:17:42.0663430Z Resolved, downloaded and extracted [16]
+2026-10-10T14:17:48.6262997Z 
+2026-10-10T14:17:48.6263537Z $ bun run build:packages && bash scripts/setup-git-hooks.sh
+2026-10-10T14:17:48.6292144Z $ bun scripts/build-workspace-packages.ts
+2026-10-10T14:17:48.6403443Z build:packages: @ezcorp/extension-contract (packages/@ezcorp/extension-contract)
+2026-10-10T14:17:48.6429455Z $ tsc -b tsconfig.build.json
+2026-10-10T14:17:48.7116820Z build:packages: @ezcorp/sdk (packages/@ezcorp/sdk)
+2026-10-10T14:17:48.7141762Z $ bunx tsc -b tsconfig.build.json
+2026-10-10T14:17:48.7915734Z build:packages: @ezcorp/factory-sdk (packages/@ezcorp/factory-sdk)
+2026-10-10T14:17:48.7938729Z $ bunx tsc -b tsconfig.build.json
+2026-10-10T14:17:52.9153645Z build:packages: @ezcorp/factory-transport (packages/@ezcorp/factory-transport)
+2026-10-10T14:17:52.9175898Z $ tsc -b tsconfig.build.json
+2026-10-10T14:17:53.5947101Z build:packages: @ezcorp/factory-orchestrator (packages/@ezcorp/factory-orchestrator)
+2026-10-10T14:17:53.5965737Z $ bun run --cwd ../factory-transport build && tsc -b tsconfig.build.json
+2026-10-10T14:17:53.5996623Z $ tsc -b tsconfig.build.json
+2026-10-10T14:17:55.7977976Z build:packages: @ezcorp/harness-client (packages/@ezcorp/harness-client)
+2026-10-10T14:17:55.7999452Z $ bunx tsc -b tsconfig.build.json
+2026-10-10T14:17:56.7859643Z 
+2026-10-10T14:17:56.7860134Z + @biomejs/biome@2.5.14
+2026-10-10T14:17:56.7860396Z + @types/bun@1.4.2
+2026-10-10T14:17:56.7860626Z + @types/js-yaml@4.0.9
+2026-10-10T14:17:56.7860983Z + @types/node@26.6.3 (v26.6.5 available)
+2026-10-10T14:17:56.7861215Z + drizzle-kit@0.31.11
+2026-10-10T14:17:56.7861403Z + @aws-sdk/client-kms@3.1131.0
+2026-10-10T14:17:56.7861604Z + @aws-sdk/client-s3@3.1131.0
+2026-10-10T14:17:56.7861810Z + @balena/dockerignore@1.0.2
+2026-10-10T14:17:56.7862025Z + @earendil-works/pi-agent-core@0.87.1
+2026-10-10T14:17:56.7862245Z + @earendil-works/pi-ai@0.87.1
+2026-10-10T14:17:56.7862447Z + @electric-sql/pglite@0.5.8
+2026-10-10T14:17:56.7862663Z + @electric-sql/pglite-pgvector@0.0.9
+2026-10-10T14:17:56.7862884Z + @huggingface/transformers@4.3.0
+2026-10-10T14:17:56.7863134Z + @modelcontextprotocol/sdk@1.31.0 (v1.32.1 available)
+2026-10-10T14:17:56.7863391Z + @zxing/library@0.23.0
+2026-10-10T14:17:56.7863578Z + drizzle-orm@0.45.3
+2026-10-10T14:17:56.7863748Z + exceljs@4.4.0
+2026-10-10T14:17:56.7863930Z + fast-png@8.0.0
+2026-10-10T14:17:56.7864102Z + file-type@22.1.1
+2026-10-10T14:17:56.7864266Z + jpeg-js@0.4.4
+2026-10-10T14:17:56.7864445Z + pdf-parse@2.4.5
+2026-10-10T14:17:56.7864608Z + yaml@2.9.1
+2026-10-10T14:17:56.7864782Z + typescript@5.9.3 (v7.0.2 available)
+2026-10-10T14:17:56.7864927Z 
+2026-10-10T14:17:56.7865006Z 481 packages installed [15.01s]
+2026-10-10T14:17:56.7945639Z ##[group]Run git fetch --no-tags origin main
+2026-10-10T14:17:56.7945940Z git fetch --no-tags origin main
+2026-10-10T14:17:56.8001093Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:17:56.8001307Z env:
+2026-10-10T14:17:56.8001506Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:56.8001764Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:56.8001982Z ##[endgroup]
+2026-10-10T14:17:57.1526003Z From https://github.com/ezcorp-org/EZHarness
+2026-10-10T14:17:57.1526459Z  * branch                main       -> FETCH_HEAD
+2026-10-10T14:17:57.1612904Z ##[group]Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+2026-10-10T14:17:57.1613243Z with:
+2026-10-10T14:17:57.1613418Z   pattern: lcov-cov-*
+2026-10-10T14:17:57.1613768Z   path: coverage-artifacts
+2026-10-10T14:17:57.1613969Z   merge-multiple: true
+2026-10-10T14:17:57.1614162Z   repository: ezcorp-org/EZHarness
+2026-10-10T14:17:57.1614374Z   run-id: 38057213251
+2026-10-10T14:17:57.1614554Z   skip-decompress: false
+2026-10-10T14:17:57.1614742Z   digest-mismatch: error
+2026-10-10T14:17:57.1614914Z env:
+2026-10-10T14:17:57.1615106Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:57.1615358Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:57.1615568Z ##[endgroup]
+2026-10-10T14:17:57.5458686Z Found 43 artifact(s)
+2026-10-10T14:17:57.5459215Z Filtering artifacts by pattern 'lcov-cov-*'
+2026-10-10T14:17:57.5475118Z Preparing to download the following artifacts:
+2026-10-10T14:17:57.5476047Z - lcov-cov-factory-orchestrator (ID: 11672142541, Size: 11126, Expected Digest: sha256:8d858ef42d20f947c565dc60d0f5b481f431b2b1b1cd1ea95fa169a96bd07efc)
+2026-10-10T14:17:57.5477144Z - lcov-cov-factory-assurance-release (ID: 11672088025, Size: 141203, Expected Digest: sha256:e99a24dcf31b6a8273e658d1ea4b31f062f9a9c0e69648cfdf45800233f758d6)
+2026-10-10T14:17:57.5478443Z - lcov-cov-shard-11 (ID: 11672078483, Size: 301451, Expected Digest: sha256:75276db5fc566cd3e8f94fe14cdb85c6b4c1cc8a82e2d2015569dfc45ba13b86)
+2026-10-10T14:17:57.5479661Z - lcov-cov-web-vitest-3 (ID: 11672073459, Size: 466316, Expected Digest: sha256:02bc1ad4128122fdeaae550f79781eb4b311c314684026de7c69b8c423669aae)
+2026-10-10T14:17:57.5480989Z - lcov-cov-shard-4 (ID: 11672023614, Size: 264806, Expected Digest: sha256:2032e11575f38d309129e59afa2123ce56b994dc0e999f21f045228088027c85)
+2026-10-10T14:17:57.5482115Z - lcov-cov-extras (ID: 11672018159, Size: 461015, Expected Digest: sha256:1cc04281542bbfe8c10ba238316143d70af33be1f9b835b649f3bade9f4c2a64)
+2026-10-10T14:17:57.5483485Z - lcov-cov-factory-compute-admissions (ID: 11672008421, Size: 1748, Expected Digest: sha256:12ae0cde94747fb01ecc5e6140bd89c7912e72eb6bdf3e403426ecd99f5e0887)
+2026-10-10T14:17:57.5484852Z - lcov-cov-factory-pool (ID: 11671928226, Size: 4761, Expected Digest: sha256:e81fdd7f413402d39eb546ac9bb0ee9c4e7ed3e02fb16c0743a47185126e7dcd)
+2026-10-10T14:17:57.5486098Z - lcov-cov-shard-3 (ID: 11671918530, Size: 269738, Expected Digest: sha256:590c5c203ba05514a29aed05473379ed30c4ee7fd3162e674ee0b6bb5db19574)
+2026-10-10T14:17:57.5487276Z - lcov-cov-factory-python (ID: 11671902039, Size: 10800, Expected Digest: sha256:92dfa64ba6bf5c214ea1e56a31a9653cf0054d1d440399dacfcf9bdc4b70635c)
+2026-10-10T14:17:57.5488090Z - lcov-cov-shard-2 (ID: 11671888740, Size: 256625, Expected Digest: sha256:3dd10e93d5229fb1eeb3f7d3d43ae7139486bf58bf6997ea5b75fdbb6b11be8b)
+2026-10-10T14:17:57.5488864Z - lcov-cov-shard-5 (ID: 11671708652, Size: 271077, Expected Digest: sha256:00766855bed90b2503712919e3213590d085c9ec69d18523916dbb870f20a029)
+2026-10-10T14:17:57.5489637Z - lcov-cov-factory-storage (ID: 11671659364, Size: 220639, Expected Digest: sha256:845a7fca6f00bc6c5bdfc976251243d174bcefa19a40e7e9b3ade2d6649acef8)
+2026-10-10T14:17:57.5490400Z - lcov-cov-shard-6 (ID: 11671528800, Size: 279493, Expected Digest: sha256:db1ecb12af9b14a6d510bf6713c192617376893f8d01383e3318c38ec8b6ff27)
+2026-10-10T14:17:57.5491569Z - lcov-cov-shard-10 (ID: 11671492962, Size: 284307, Expected Digest: sha256:993f8facd2dbd219264e699b2f5f6790b243a1a069662d75947841d68386447c)
+2026-10-10T14:17:57.5492303Z - lcov-cov-security (ID: 11671478586, Size: 2234, Expected Digest: sha256:b362ada496b67dc076ea2aac16650e5acf5072261c0aea40d5a6ff065a3ba69f)
+2026-10-10T14:17:57.5492997Z - lcov-cov-shard-8 (ID: 11671412700, Size: 275941, Expected Digest: sha256:3b96004d86c5755802d25e73e235879481901e302d526956f343aa339d49ce07)
+2026-10-10T14:17:57.5493676Z - lcov-cov-web-vitest-2 (ID: 11671293887, Size: 475248, Expected Digest: sha256:d0a0ba1341568eb19424a21ea3c766a5c704394af417ea49b3fd15e753adfefd)
+2026-10-10T14:17:57.5494738Z - lcov-cov-factory-provisioning (ID: 11671262584, Size: 3963, Expected Digest: sha256:323183c4e60dfcdf225d03bceb28a04b5c16eefddadd405e04d426e8fda2a0ba)
+2026-10-10T14:17:57.5495617Z - lcov-cov-shard-7 (ID: 11671249244, Size: 256301, Expected Digest: sha256:9b81b99e27da3086bdc32d0e38110a870f9d8bc8126dc668ceaec3db1990470a)
+2026-10-10T14:17:57.5496903Z - lcov-cov-shard-1 (ID: 11671164161, Size: 255261, Expected Digest: sha256:1994f7631a81054e7a3fa2eeca91bd8f9287d2520cda379e06ac28b45b94a7b8)
+2026-10-10T14:17:57.5497958Z - lcov-cov-shard-0 (ID: 11671142748, Size: 274224, Expected Digest: sha256:7f1f6a11167e2dc2474a6d01c164bd0b2a99047d2f60100d8e4d42e84014642f)
+2026-10-10T14:17:57.5498914Z - lcov-cov-web-vitest-1 (ID: 11670979356, Size: 462176, Expected Digest: sha256:5cd2f40120fcd3a690938fa4a7ae6d3b5522b714af898aa3b18b3b66ea086ab3)
+2026-10-10T14:17:57.5500028Z - lcov-cov-shard-9 (ID: 11670933066, Size: 268865, Expected Digest: sha256:d12b17045b8a154e9c5d5c070ff88296d8bcbc579fdf21e87196c94c8a5f47d5)
+2026-10-10T14:17:57.9733471Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-dc56cd38-710b-5516-8eb0-5b35222dc999/artifacts/aa2b9a50e8b3c317cc7d312f361d34b4386cfb07ea855df793addb645c34420a.zip
+2026-10-10T14:17:57.9735218Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9777837Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-14b14f1a-d805-5477-871b-20208b2838db/artifacts/5bc2ebcc961fa83581f75510a54691c70ebfc127c052c6d5ce9ebb06f6b12267.zip
+2026-10-10T14:17:57.9779593Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9808108Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-2271bb65-08e5-58dc-9072-7d93cb6ec613/artifacts/15bd73c4e8154c149102a130df26d2556de8b04c2499f7463d1a4bc04233fe09.zip
+2026-10-10T14:17:57.9810099Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9819150Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-7846110f-8593-51f0-b788-343e3e1fd3b5/artifacts/45d0bb51103f658eba1c0ca34609223347395bdde0b796885b299514d105d0e3.zip
+2026-10-10T14:17:57.9821071Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9842704Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-e592b0f6-9f69-5734-a098-0168deaf4625/artifacts/ed47277d3e1ff5b67bb84eb97b54f4b6bd55da2f30cb8727cb780b9db2e237b9.zip
+2026-10-10T14:17:57.9844819Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9857691Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-cb2d38bb-bc1b-5244-a9b3-77b5bc191175/artifacts/f4626b586a870a107abebd3c534e0185af037e38f8daab901b4e1ba70cb6bc03.zip
+2026-10-10T14:17:57.9860134Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9867301Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-5bcb2504-1b59-5027-8ebb-ec1177dbcd23/artifacts/cbac3ca7d686962391671d01c78429f0397da775b1d0b7c9c7b62ddb13f961da.zip
+2026-10-10T14:17:57.9869743Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9904572Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b1d0725c-734b-5fc7-a87b-23d29a3646d4/artifacts/de567fc4c38709abd1c3402894467da936150faa307521ff8e18f2a57ef5d307.zip
+2026-10-10T14:17:57.9905695Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9908869Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-2fb1c4da-bbb9-5693-8c17-fc96cd958029/artifacts/6cafa1f50b94edd262d0aa2071b228adb4a96a0183bc2763d098581d56f4a42c.zip
+2026-10-10T14:17:57.9910924Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9913490Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-54a65f7a-4c06-5861-ac33-bd4d702afaf3/artifacts/c8c00922d122963180d11076b2969f3a645ba298e15a95fc53470545da020166.zip
+2026-10-10T14:17:57.9914711Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9916946Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-f342ff14-ae7c-59af-89f7-d0215031cb63/artifacts/24ef787f29a8af923b92189c483e5725ed1f2ee69ce42a90c18fd7492a48b0b8.zip
+2026-10-10T14:17:57.9918027Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9921174Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b0c9b158-e861-5ad9-96c5-34b3a38964cd/artifacts/3f888df2bee0bea98f87a4dd57be2a2ed6d0e58a2ab89684a255670fbb83914c.zip
+2026-10-10T14:17:57.9922298Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9944614Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-193f63df-be39-522e-ab3d-69fdc4ff9298/artifacts/0bbd2b3d0d861ffa886bb2b98ad310299fc54695f251cf1d47d953a5e03095c6.zip
+2026-10-10T14:17:57.9945809Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9957520Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-3dff0e26-8b40-5666-87bd-b98dff4851bf/artifacts/d3f6f9b8b1594efa45210452692962a50f35ebe3c27b18037fae718919040045.zip
+2026-10-10T14:17:57.9958616Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9967450Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-c37de266-418e-5f35-861c-6ca047d3406b/artifacts/122a0d105bc4138e878d5d9ee56f129b68b8b060807b236523400fedbaf9c76e.zip
+2026-10-10T14:17:57.9969309Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:57.9989256Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-8664abfe-1d1d-5406-adb0-e91f22d8d2d8/artifacts/dd1511ec5a30bc33a5f0e2049148b11e43634162296fba74a914084f0c593fa8.zip
+2026-10-10T14:17:57.9990972Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0015909Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b5b3fd8f-e3b9-5714-b33b-f1b1a58a55df/artifacts/ae85c2de19a4f9243d61c6fe9bf8d0a7d1b6f6065c8e2e705dd5d69ec98bae0f.zip
+2026-10-10T14:17:58.0017060Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0039536Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b1d0725c-734b-5fc7-a87b-23d29a3646d4/artifacts/003dbe4a305a86363eb3bd16eeed3bb7e20e0967c4575de9d5fcb7f1d332b1da.zip
+2026-10-10T14:17:58.0041124Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0048473Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-ab8d74a0-48ec-538b-8441-de0369ca772d/artifacts/20e62a67458bd3933ef2dcbfee7d326152bfe356c57f25e2ec50bd2ff05a4c55.zip
+2026-10-10T14:17:58.0050435Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0056603Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-c32bae75-c16d-5bcd-83f3-9254c857c03e/artifacts/37f31e27066c5e6d99e7ffc5b05a0541643d501f9230771d62c1dd1fa3582394.zip
+2026-10-10T14:17:58.0058510Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0065381Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-117a7811-7316-59b0-a62d-6f17eae418ea/artifacts/131596031516c5210d943bce6cc7bf40eec084efac4b7c1b0de459393a068f50.zip
+2026-10-10T14:17:58.0067296Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0073450Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b1d0725c-734b-5fc7-a87b-23d29a3646d4/artifacts/9b87d67e2532032ec42326bdd101a6854e968bd96bf69f855c1c11931196d7e8.zip
+2026-10-10T14:17:58.0075403Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0121783Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b98536ac-1a16-5c1b-9830-637badbfd859/artifacts/d008d8541fba91b04110b8735a577c9cd1877e1742f5466f2d37c3ddaf395074.zip
+2026-10-10T14:17:58.0123725Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.0138631Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-b1d0725c-734b-5fc7-a87b-23d29a3646d4/artifacts/d3eb5fce536b88e7d528817e7f3e53c3984141221652ad05ed156efff9e9cff6.zip
+2026-10-10T14:17:58.0140617Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/coverage-artifacts
+2026-10-10T14:17:58.1699663Z (node:2294) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-10-10T14:17:58.1701297Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-10T14:17:58.1743723Z SHA256 digest of downloaded artifact is 12ae0cde94747fb01ecc5e6140bd89c7912e72eb6bdf3e403426ecd99f5e0887
+2026-10-10T14:17:58.1744619Z Artifact download completed successfully.
+2026-10-10T14:17:58.1906615Z SHA256 digest of downloaded artifact is b362ada496b67dc076ea2aac16650e5acf5072261c0aea40d5a6ff065a3ba69f
+2026-10-10T14:17:58.1907595Z Artifact download completed successfully.
+2026-10-10T14:17:58.1987787Z SHA256 digest of downloaded artifact is 323183c4e60dfcdf225d03bceb28a04b5c16eefddadd405e04d426e8fda2a0ba
+2026-10-10T14:17:58.1988705Z Artifact download completed successfully.
+2026-10-10T14:17:58.2092935Z SHA256 digest of downloaded artifact is e81fdd7f413402d39eb546ac9bb0ee9c4e7ed3e02fb16c0743a47185126e7dcd
+2026-10-10T14:17:58.2093849Z Artifact download completed successfully.
+2026-10-10T14:17:58.2095715Z SHA256 digest of downloaded artifact is 8d858ef42d20f947c565dc60d0f5b481f431b2b1b1cd1ea95fa169a96bd07efc
+2026-10-10T14:17:58.2096582Z Artifact download completed successfully.
+2026-10-10T14:17:58.2097432Z SHA256 digest of downloaded artifact is 92dfa64ba6bf5c214ea1e56a31a9653cf0054d1d440399dacfcf9bdc4b70635c
+2026-10-10T14:17:58.2098143Z Artifact download completed successfully.
+2026-10-10T14:17:58.3189246Z SHA256 digest of downloaded artifact is e99a24dcf31b6a8273e658d1ea4b31f062f9a9c0e69648cfdf45800233f758d6
+2026-10-10T14:17:58.3189932Z Artifact download completed successfully.
+2026-10-10T14:17:58.3900782Z SHA256 digest of downloaded artifact is 00766855bed90b2503712919e3213590d085c9ec69d18523916dbb870f20a029
+2026-10-10T14:17:58.3901659Z Artifact download completed successfully.
+2026-10-10T14:17:58.3907086Z SHA256 digest of downloaded artifact is 3b96004d86c5755802d25e73e235879481901e302d526956f343aa339d49ce07
+2026-10-10T14:17:58.3907973Z Artifact download completed successfully.
+2026-10-10T14:17:58.3913932Z SHA256 digest of downloaded artifact is 993f8facd2dbd219264e699b2f5f6790b243a1a069662d75947841d68386447c
+2026-10-10T14:17:58.3914799Z Artifact download completed successfully.
+2026-10-10T14:17:58.3981850Z SHA256 digest of downloaded artifact is 590c5c203ba05514a29aed05473379ed30c4ee7fd3162e674ee0b6bb5db19574
+2026-10-10T14:17:58.3982457Z Artifact download completed successfully.
+2026-10-10T14:17:58.4047990Z SHA256 digest of downloaded artifact is 7f1f6a11167e2dc2474a6d01c164bd0b2a99047d2f60100d8e4d42e84014642f
+2026-10-10T14:17:58.4048563Z Artifact download completed successfully.
+2026-10-10T14:17:58.4072774Z SHA256 digest of downloaded artifact is 1994f7631a81054e7a3fa2eeca91bd8f9287d2520cda379e06ac28b45b94a7b8
+2026-10-10T14:17:58.4073692Z Artifact download completed successfully.
+2026-10-10T14:17:58.4078602Z SHA256 digest of downloaded artifact is 9b81b99e27da3086bdc32d0e38110a870f9d8bc8126dc668ceaec3db1990470a
+2026-10-10T14:17:58.4079466Z Artifact download completed successfully.
+2026-10-10T14:17:58.4082062Z SHA256 digest of downloaded artifact is db1ecb12af9b14a6d510bf6713c192617376893f8d01383e3318c38ec8b6ff27
+2026-10-10T14:17:58.4082725Z Artifact download completed successfully.
+2026-10-10T14:17:58.4101385Z SHA256 digest of downloaded artifact is d12b17045b8a154e9c5d5c070ff88296d8bcbc579fdf21e87196c94c8a5f47d5
+2026-10-10T14:17:58.4102362Z Artifact download completed successfully.
+2026-10-10T14:17:58.4200847Z SHA256 digest of downloaded artifact is 845a7fca6f00bc6c5bdfc976251243d174bcefa19a40e7e9b3ade2d6649acef8
+2026-10-10T14:17:58.4201747Z Artifact download completed successfully.
+2026-10-10T14:17:58.4218718Z SHA256 digest of downloaded artifact is 5cd2f40120fcd3a690938fa4a7ae6d3b5522b714af898aa3b18b3b66ea086ab3
+2026-10-10T14:17:58.4219309Z Artifact download completed successfully.
+2026-10-10T14:17:58.4343766Z SHA256 digest of downloaded artifact is 3dd10e93d5229fb1eeb3f7d3d43ae7139486bf58bf6997ea5b75fdbb6b11be8b
+2026-10-10T14:17:58.4345306Z Artifact download completed successfully.
+2026-10-10T14:17:58.4464547Z SHA256 digest of downloaded artifact is 02bc1ad4128122fdeaae550f79781eb4b311c314684026de7c69b8c423669aae
+2026-10-10T14:17:58.4465144Z Artifact download completed successfully.
+2026-10-10T14:17:58.4752749Z SHA256 digest of downloaded artifact is 1cc04281542bbfe8c10ba238316143d70af33be1f9b835b649f3bade9f4c2a64
+2026-10-10T14:17:58.4852294Z Artifact download completed successfully.
+2026-10-10T14:17:58.4852891Z SHA256 digest of downloaded artifact is 2032e11575f38d309129e59afa2123ce56b994dc0e999f21f045228088027c85
+2026-10-10T14:17:58.4853434Z Artifact download completed successfully.
+2026-10-10T14:17:58.4888846Z SHA256 digest of downloaded artifact is d0a0ba1341568eb19424a21ea3c766a5c704394af417ea49b3fd15e753adfefd
+2026-10-10T14:17:58.4889407Z Artifact download completed successfully.
+2026-10-10T14:17:58.4916292Z SHA256 digest of downloaded artifact is 75276db5fc566cd3e8f94fe14cdb85c6b4c1cc8a82e2d2015569dfc45ba13b86
+2026-10-10T14:17:58.4916862Z Artifact download completed successfully.
+2026-10-10T14:17:58.4917569Z Total of 24 artifact(s) downloaded
+2026-10-10T14:17:58.4920891Z Download artifact has finished successfully
+2026-10-10T14:17:58.5066119Z ##[group]Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+2026-10-10T14:17:58.5066734Z with:
+2026-10-10T14:17:58.5067027Z   name: browser-route-coverage
+2026-10-10T14:17:58.5067396Z   path: browser-route-coverage-artifact
+2026-10-10T14:17:58.5067765Z   merge-multiple: false
+2026-10-10T14:17:58.5068094Z   repository: ezcorp-org/EZHarness
+2026-10-10T14:17:58.5068450Z   run-id: 38057213251
+2026-10-10T14:17:58.5068760Z   skip-decompress: false
+2026-10-10T14:17:58.5069083Z   digest-mismatch: error
+2026-10-10T14:17:58.5069387Z env:
+2026-10-10T14:17:58.5069704Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:58.5070106Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:58.5070460Z ##[endgroup]
+2026-10-10T14:17:58.6150349Z Downloading single artifact
+2026-10-10T14:17:58.8285156Z Preparing to download the following artifacts:
+2026-10-10T14:17:58.8286370Z - browser-route-coverage (ID: 11671724253, Size: 587886, Expected Digest: sha256:1a0176afbff692f1e68d6b74da730e9c8da0ffb3f8856444a4fc70fe85ed2105)
+2026-10-10T14:17:59.2373784Z Redirecting to blob download url: https://productionresultssa13.blob.core.windows.net/actions-results/1f37e20e-929a-89ba-bac8-46ccde52dd39/workflow-job-run-46f5fbb5-3243-51ff-8f80-4731f8534d1d/artifacts/31a667bc1b4082b557b006b9977037425556ff5d446189040d1ed5cf566a6c9b.zip
+2026-10-10T14:17:59.2375900Z Starting download of artifact to: /home/runner/work/EZHarness/EZHarness/browser-route-coverage-artifact
+2026-10-10T14:17:59.4557538Z (node:2309) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-10-10T14:17:59.4558784Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-10T14:17:59.7117759Z SHA256 digest of downloaded artifact is 1a0176afbff692f1e68d6b74da730e9c8da0ffb3f8856444a4fc70fe85ed2105
+2026-10-10T14:17:59.7118355Z Artifact download completed successfully.
+2026-10-10T14:17:59.7118868Z Total of 1 artifact(s) downloaded
+2026-10-10T14:17:59.7121130Z Download artifact has finished successfully
+2026-10-10T14:17:59.7437736Z ##[group]Run test -s browser-route-coverage-artifact/lcov.info
+2026-10-10T14:17:59.7438581Z test -s browser-route-coverage-artifact/lcov.info
+2026-10-10T14:17:59.7439548Z cp browser-route-coverage-artifact/lcov.info coverage-artifacts/lcov_browser_routes.info
+2026-10-10T14:17:59.7497963Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:17:59.7498318Z env:
+2026-10-10T14:17:59.7498655Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:59.7499054Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:59.7499409Z ##[endgroup]
+2026-10-10T14:17:59.9594888Z ##[group]Run bun scripts/check-web-vitest-coverage.ts coverage-artifacts/lcov_web_vitest_*.info
+2026-10-10T14:17:59.9595597Z bun scripts/check-web-vitest-coverage.ts coverage-artifacts/lcov_web_vitest_*.info
+2026-10-10T14:17:59.9654787Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:17:59.9655131Z env:
+2026-10-10T14:17:59.9655489Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:17:59.9655922Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:17:59.9656284Z ##[endgroup]
+2026-10-10T14:18:00.2306070Z web Vitest coverage records every configured executable source (619 candidates)
+2026-10-10T14:18:00.2755154Z ##[group]Run mkdir -p coverage
+2026-10-10T14:18:00.2755756Z mkdir -p coverage
+2026-10-10T14:18:00.2756466Z bun scripts/merge-lcov.ts "coverage-artifacts/*.info" coverage/lcov.info
+2026-10-10T14:18:00.2757229Z bun scripts/check-coverage.ts
+2026-10-10T14:18:00.2817069Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:00.2817571Z env:
+2026-10-10T14:18:00.2818050Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:00.2818665Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:00.2819203Z ##[endgroup]
+2026-10-10T14:18:01.7383514Z merged 2385 source files → coverage/lcov.info
+2026-10-10T14:18:01.9282574Z Coverage gate PASSED: 2234 enforced file(s) at or above threshold.
+2026-10-10T14:18:01.9736685Z ##[group]Run bun scripts/check-new-file-coverage.ts
+2026-10-10T14:18:01.9737546Z bun scripts/check-new-file-coverage.ts
+2026-10-10T14:18:01.9798468Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:01.9798819Z env:
+2026-10-10T14:18:01.9799153Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:01.9799560Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:01.9799914Z   BASE_REF: origin/main
+2026-10-10T14:18:01.9800231Z ##[endgroup]
+2026-10-10T14:18:02.2172437Z New-file coverage gate PASSED: 460 new source file(s) gated.
+2026-10-10T14:18:02.2415293Z ##[group]Run bun scripts/check-patch-coverage.ts
+2026-10-10T14:18:02.2416025Z bun scripts/check-patch-coverage.ts
+2026-10-10T14:18:02.2487003Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:02.2487388Z env:
+2026-10-10T14:18:02.2487729Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:02.2488144Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:02.2488510Z   BASE_REF: origin/main
+2026-10-10T14:18:02.2488829Z ##[endgroup]
+2026-10-10T14:18:02.6915492Z Patch coverage gate PASSED: all changed executable lines covered (518 file(s)).
+2026-10-10T14:18:02.7168601Z ##[group]Run bun scripts/check-global-coverage.ts
+2026-10-10T14:18:02.7169082Z bun scripts/check-global-coverage.ts
+2026-10-10T14:18:02.7224703Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:02.7225037Z env:
+2026-10-10T14:18:02.7225370Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:02.7225784Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:02.7226145Z ##[endgroup]
+2026-10-10T14:18:02.8834589Z 
+2026-10-10T14:18:02.8835479Z Global line coverage: 98.09% (213687/217858 lines across 2368 files), floor 90%
+2026-10-10T14:18:02.8836460Z ✓ at or above the 90% floor (margin 8.09 points)
+2026-10-10T14:18:02.8944091Z ##[group]Run bun scripts/crap-score.ts --changed
+2026-10-10T14:18:02.8944556Z bun scripts/crap-score.ts --changed
+2026-10-10T14:18:02.8999585Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:02.8999928Z env:
+2026-10-10T14:18:02.9000281Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:02.9000844Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:02.9001203Z   BASE_REF: origin/main
+2026-10-10T14:18:02.9001517Z ##[endgroup]
+2026-10-10T14:18:03.8823158Z CRAP: --changed against origin/main → 489 measured file(s) in diff
+2026-10-10T14:18:04.7956119Z 
+2026-10-10T14:18:04.7957003Z CRAP: 6490 functions in 489 files (max 30, warn 15)
+2026-10-10T14:18:04.7957531Z 
+2026-10-10T14:18:04.7957905Z Worst 15:
+2026-10-10T14:18:04.7958557Z      30.0  cc= 30 cov=100%  packages/@ezcorp/factory-sdk/src/kernel.ts:376 applyUsage
+2026-10-10T14:18:04.7959431Z      30.0  cc= 30 cov=100%  packages/@ezcorp/factory-sdk/src/kernel.ts:1348 progressMap
+2026-10-10T14:18:04.7960457Z      30.0  cc= 30 cov=100%  src/factory/reference-image/model-lock.ts:71 assertReferenceImageModelLock
+2026-10-10T14:18:04.7961485Z      30.0  cc= 30 cov=100%  src/factory/runner/host-launch-service.ts:123 <anonymous@123>
+2026-10-10T14:18:04.7962051Z      29.0  cc= 29 cov=100%  packages/@ezcorp/factory-sdk/src/parse.ts:93 number
+2026-10-10T14:18:04.7962609Z      29.0  cc= 29 cov=100%  src/factory/command-authority.ts:213 <anonymous@213>
+2026-10-10T14:18:04.7963115Z      29.0  cc= 29 cov=100%  src/factory/validator-materials.ts:422 resolveLocked
+2026-10-10T14:18:04.7963610Z      29.0  cc= 29 cov=100%  src/runtime/workflow-executor.ts:821 runWorkflow
+2026-10-10T14:18:04.7964148Z      28.0  cc= 28 cov=100%  packages/@ezcorp/factory-sdk/src/kernel.ts:256 applyPartitionCompletion
+2026-10-10T14:18:04.7964800Z      28.0  cc= 28 cov=100%  packages/@ezcorp/factory-sdk/src/validation.ts:1123 validateFactoryRunnerResult
+2026-10-10T14:18:04.7965458Z      28.0  cc= 28 cov=100%  packages/@ezcorp/factory-sdk/src/validation.ts:1276 validateDurableInputPorts
+2026-10-10T14:18:04.7966073Z      28.0  cc= 28 cov=100%  src/factory/artifact-materials.ts:319 parseFactoryMaterialManifest
+2026-10-10T14:18:04.7966660Z      28.0  cc= 28 cov=100%  src/factory/assurance.ts:287 assertAcceptedReleaseInTransaction
+2026-10-10T14:18:04.7967430Z      28.0  cc= 28 cov=100%  src/factory/pool/gpu-host-profiles.ts:91 register
+2026-10-10T14:18:04.7967950Z      27.0  cc= 27 cov=100%  packages/@ezcorp/factory-sdk/src/kernel.ts:232 applyInputPage
+2026-10-10T14:18:04.7968263Z 
+2026-10-10T14:18:04.7968440Z 168 function(s) above the warn line (not failing).
+2026-10-10T14:18:04.7968682Z 
+2026-10-10T14:18:04.7969079Z ✓ no touched function exceeds CRAP 30
+2026-10-10T14:18:04.8293867Z ##[group]Run bun scripts/quality-report.ts --text --expect coverage,crap
+2026-10-10T14:18:04.8294459Z bun scripts/quality-report.ts --text --expect coverage,crap
+2026-10-10T14:18:04.8349328Z shell: /usr/bin/bash -e {0}
+2026-10-10T14:18:04.8349677Z env:
+2026-10-10T14:18:04.8350015Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:04.8350429Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:04.8350891Z ##[endgroup]
+2026-10-10T14:18:04.8525805Z 
+2026-10-10T14:18:04.8526169Z === Quality gates: PASS ===
+2026-10-10T14:18:04.8526586Z   expected: coverage, crap
+2026-10-10T14:18:04.8526999Z   coverage: {"passed":true,"linePct":98.0855,"threshold":90}
+2026-10-10T14:18:04.8527567Z   crap: {"passed":true,"mode":"touched-functions","violations":0,"functionsScored":6490,"maxScore":30}
+2026-10-10T14:18:04.8527929Z 
+2026-10-10T14:18:04.8528060Z No failures.
+2026-10-10T14:18:04.8528565Z Structured summary: /home/runner/work/EZHarness/EZHarness/coverage/quality/summary.json
+2026-10-10T14:18:04.8589941Z ##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+2026-10-10T14:18:04.8590395Z with:
+2026-10-10T14:18:04.8590868Z   name: quality-reports
+2026-10-10T14:18:04.8591294Z   path: coverage/quality
+2026-10-10T14:18:04.8591612Z   retention-days: 7
+2026-10-10T14:18:04.8591926Z   if-no-files-found: warn
+2026-10-10T14:18:04.8592249Z   compression-level: 6
+2026-10-10T14:18:04.8592560Z   overwrite: false
+2026-10-10T14:18:04.8592861Z   include-hidden-files: false
+2026-10-10T14:18:04.8593195Z   archive: true
+2026-10-10T14:18:04.8593506Z env:
+2026-10-10T14:18:04.8593828Z   BUN_FEATURE_FLAG_DISABLE_SQL_AUTO_PIPELINING: 1
+2026-10-10T14:18:04.8594220Z   BUN_RUNTIME_TRANSPILER_CACHE_PATH: 0
+2026-10-10T14:18:04.8594582Z ##[endgroup]
+2026-10-10T14:18:04.9703722Z With the provided path, there will be 3 files uploaded
+2026-10-10T14:18:04.9708479Z Artifact name is valid!
+2026-10-10T14:18:04.9708989Z Root directory input is valid!
+2026-10-10T14:18:05.2742322Z Uploading artifact: quality-reports.zip
+2026-10-10T14:18:05.2775598Z Beginning upload of artifact content to blob storage
+2026-10-10T14:18:05.5091921Z Uploaded bytes 3912
+2026-10-10T14:18:05.5657912Z Finished uploading artifact content to blob storage!
+2026-10-10T14:18:05.5658861Z SHA256 digest of uploaded artifact is 0c8cf818c0f41660ba0b2e1adcebe591c4962b90e4f92dedca8b17c959e505ab
+2026-10-10T14:18:05.5659699Z Finalizing artifact upload
+2026-10-10T14:18:05.9276725Z Artifact quality-reports successfully finalized. Artifact ID 11672830950
+2026-10-10T14:18:05.9277784Z Artifact quality-reports has been successfully uploaded! Final size is 3912 bytes. Artifact ID is 11672830950
+2026-10-10T14:18:05.9280475Z Artifact download URL: https://github.com/ezcorp-org/EZHarness/actions/runs/38057213251/artifacts/11672830950
+2026-10-10T14:18:05.9427147Z Post job cleanup.
+2026-10-10T14:18:06.0885063Z Post job cleanup.
+2026-10-10T14:18:06.1627078Z [command]/usr/bin/git version
+2026-10-10T14:18:06.1665871Z git version 2.55.0
+2026-10-10T14:18:06.1697703Z Temporarily overriding HOME='/home/runner/work/_temp/aa3e8b2f-edec-4879-9479-c63dd0828a5c' before making global git config changes
+2026-10-10T14:18:06.1700558Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-10T14:18:06.1702728Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EZHarness/EZHarness
+2026-10-10T14:18:06.1735646Z Removing SSH command configuration
+2026-10-10T14:18:06.1741300Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-10T14:18:06.1778198Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-10T14:18:06.2004249Z Removing HTTP extra header
+2026-10-10T14:18:06.2009497Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-10T14:18:06.2048666Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-10T14:18:06.2256223Z Removing includeIf entries pointing to credentials config files
+2026-10-10T14:18:06.2262984Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-10T14:18:06.2289832Z includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+2026-10-10T14:18:06.2290982Z includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+2026-10-10T14:18:06.2291986Z includeif.gitdir:/github/workspace/.git.path
+2026-10-10T14:18:06.2292811Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-10T14:18:06.2306926Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path
+2026-10-10T14:18:06.2322330Z /home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:18:06.2331146Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-cf4d673b\-0e4d\-4ff8\-af71\-6450bd0cb841\.config
+2026-10-10T14:18:06.2375688Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path
+2026-10-10T14:18:06.2405966Z /home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:18:06.2413671Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EZHarness/EZHarness/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-cf4d673b\-0e4d\-4ff8\-af71\-6450bd0cb841\.config
+2026-10-10T14:18:06.2446480Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-10T14:18:06.2468067Z /github/runner_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:18:06.2473910Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-cf4d673b\-0e4d\-4ff8\-af71\-6450bd0cb841\.config
+2026-10-10T14:18:06.2503682Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-10T14:18:06.2524459Z /github/runner_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config
+2026-10-10T14:18:06.2531001Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-cf4d673b\-0e4d\-4ff8\-af71\-6450bd0cb841\.config
+2026-10-10T14:18:06.2561748Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-10T14:18:06.2750203Z Removing credentials config '/home/runner/work/_temp/git-credentials-cf4d673b-0e4d-4ff8-af71-6450bd0cb841.config'
+2026-10-10T14:18:06.2879409Z Cleaning up orphan processes

@@ -1,0 +1,7 @@
+bun test v1.4.2 (744846f84)
+{"ts":"2026-10-12T18:04:45.810Z","level":"warn","msg":"context compaction applied","strategy":"trim","model":"small","budget":1000,"before":40,"after":10,"droppedCount":31,"droppedTokens":3255}
+
+ 11 pass
+ 0 fail
+ 41 expect() calls
+Ran 11 tests across 1 file. [546.00ms]

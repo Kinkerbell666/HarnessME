@@ -1,0 +1,5 @@
+# W-SYNC of origin/main 6eb1bbb33 into integ/w00 906dc75a3 (integrator-5; lead's order 2026-10-12, the light W-SYNC hold form).
+# main's merge commit has the tree of 512701105, which integ already contains: the merge changes no file (diff vs the first parent: 0
+# files). Legs: the hook suites (0 mapped), typecheck via tc_leg, guard, the standard legs, merge gates vs the first parent (bind;
+# new-file and patch read an empty diff). origin/main leg: expected-main-findings.txt is EMPTY (main now carries the gate tooling).
+tc_leg typecheck-all bun run typecheck

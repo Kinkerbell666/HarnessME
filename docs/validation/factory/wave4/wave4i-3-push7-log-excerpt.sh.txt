@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# log-excerpt.sh <log> <out> [head=80] [tail=160]: a receipt-sized copy of a hosted or local log (integrator-5). ANSI and the leading
+# ISO timestamp of each line stripped; a log of at most head+tail+160 lines is kept whole, else the first <head> and the last <tail>
+# lines with a header naming the original's line count, size and sha256.
+set -u
+L=${1:?log} O=${2:?out} H=${3:-80} T=${4:-160}
+n=$(wc -l < "$L"); clean() { sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g; s/^\xef\xbb\xbf//; s/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //'; }
+if [ "$n" -le $((H + T + 160)) ]; then clean < "$L" > "$O"
+else { echo "excerpt of $(basename "$L") ($n lines, $(stat -c %s "$L") bytes, sha256 $(sha256sum "$L" | cut -c1-64)): the first $H and the last $T lines, ANSI and timestamps stripped; the full log stays in the evidence dir"
+  echo "----- first $H -----"; head -"$H" "$L" | clean; echo "----- last $T -----"; tail -"$T" "$L" | clean; } > "$O"; fi

@@ -1,0 +1,2 @@
+shared .git/config 238db68740e3af71 -> c405ccfcdad7afa7 accepted as the baseline by the lead's rule (2026-10-03): only branch/remote sections changed; added []; removed []; changed ['branch "fix/validate-coverage-oct12"']; no [user]; [core]/[extensions] unchanged
+config: c405ccfcdad7afa7 = accepted baseline

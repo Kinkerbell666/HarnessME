@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+# wave4i-3 push7 receipt: the follow-up PR #337 (integrator-5, the coordinator's word 2026-10-12). Every hash computed here from the file.
+import hashlib, json
+W = '/tmp/factory-platform-evidence/w00'; P = W + '/wave4i-3/push7'; N = P + '/nightly-38312450934'; CO = W + '/wave4i-3/push7-coord'
+h = lambda p: hashlib.sha256(open(p, 'rb').read()).hexdigest()[:16]
+x = {
+ "push": "the follow-up branch feat/factory-platform-followup-1 created at f0cde0407281bb7561b1f7a3221647e1d996d791 (integ/w00: docs line v7 on the W4H-23 receipts 888f39653, the W4H-23 merge fdf8ac512 and the main syncs f430182c8 and 94b17348f; 13 commits ahead of origin/main 6ffd88784) and pushed ONCE from the integ worktree (lock-free tc_run GREEN at 18.5 GiB, lowest 15.0; pre-push hook biome, typecheck, svelte-check 620 files 0 errors; '[new branch]', exit 0 at 21:43:29Z 2026-10-12; no -u, the shared config unchanged at c405ccfcdad7afa7).",
+ "steps": {
+  "1 pre-checks": "pre-checks.log 21:42:13Z: integ clean on integ/w00; archy; fetch rc 0; origin/main 6ffd88784 (not moved) an ancestor of integ/w00 f0cde0407; the branch absent locally and remotely; config c405ccfcdad7afa7; disk 198G, MemAvailable 18.5 GiB, SwapFree 8.2 GiB",
+  "2 ff": "not applicable: a new branch",
+  "3 installs": "frozen_installs in the integ worktree exit 0, no changes (root, web, gate-integrity deps; --ignore-scripts)",
+  "4 push": "push.sh " + h(P + '/push.sh') + " through w00/tc-gate.sh " + h(W + '/tc-gate.sh') + "; local = remote = f0cde0407",
+  "5 PR": "PR 337 opened as a DRAFT (base main, the coordinator's title, a one-line body; no labels): pr-337.json MERGEABLE, BLOCKED. The coordinator applied the full body later.",
+  "6 hosted": "ci 38312417583 and deps-audit 38312419961 (runs-at-push.txt); the nightly dispatched once: run 38312450934 (workflow_dispatch, enforce false), in_progress at once (nightly-dispatch.txt)."},
+ "ciAttempt1": "58 jobs, red 5: the token precheck (A); E2E (real auth + real DB) D: Docker Hub '502 Bad Gateway' reading the manifest of the pinned oven/bun guest image in setup-extension-runner-ci.sh --install, before any test; Browser route coverage, Per-file coverage gate and E2E (mock, no Docker) B (cascades of that lane). Gate integrity GREEN with no label (GATE_CHANGE_APPROVED empty; 0 findings).",
+ "ciAttempt2": "the coordinator re-ran the failed jobs once: red 1 = the token precheck (A); E2E real auth success; route coverage, the per-file coverage gate (PASSED 2234 files; new-file; patch; 98.09%) and the mock aggregator success. vs 38057213251 and main 38284174059: same 57, no new red; vs 37138524741: 20 -> 1.",
+ "nightly": "38312450934 SUCCESS, 8/8 jobs, 21:44:01-23:11:39Z. shard-check.py v2 on the six hosted reports: 0 zero-test survivors (the guard that was red on main since 6eb1bbb33) and 0 load kills with an import-resolution reason in every shard; load kills shard 3 four (panel-persistence.ts:64 x3, settings-nav.ts:134), shard 5 six; scores 48.72 / 43.77 / 61.48 / 55.86 / 76.14 / 50.20; merged 55.72% over 6 of 6 (11283 killed, 58 timeout, 3615 survived, 5396 no coverage); report-only ('Quality gates: FAIL' printed for the below-80 score). Shard report shas: " + ", ".join(f"{i}:{h(N + f'/shard-{i}/mutation.json')}" for i in range(6)) + " (reports not committed: size).",
+ "logs": "committed: the four attempt-1 red job logs and the two attempt-2 gate logs (the coordinator's stripped copies in push7-coord/, re-stripped and excerpted by integrator-5/log-excerpt.sh " + h('/tmp/factory-platform-evidence/integrator-5/log-excerpt.sh') + "), the attempt-1 failed excerpt (the token precheck included), six nightly shard excerpts with their score tables and the summary job log, the shard-check outputs; validator-8's attempt-1 comparison files (hosted-followup/); its later comparison follows in a second receipts commit.",
+ "hostEvents": ["none in the push window (21:42 - 23:12Z 2026-10-12); the shared .git/config at c405ccfcdad7afa7 at every step"],
+ "tooling": {"push.sh": h(P + '/push.sh'), "installs.sh": h(P + '/installs.sh'), "w00/tc-gate.sh": h(W + '/tc-gate.sh'), "w00/wave4i-2/hosted-compare.py": h(W + '/wave4i-2/hosted-compare.py'),
+             "w00/push-log-excerpt.py": h(W + '/push-log-excerpt.py'), "shard-check.py": h(W + '/w4h-merge/w4h-23-mutation-related/shard-check.py'), "integrator-5/poll-ci.sh": h('/tmp/factory-platform-evidence/integrator-5/poll-ci.sh')},
+ "receiptsBy": "integrator-5"}
+json.dump(x, open(P + '/receipts/wave4i-3-push7.json', 'w'), indent=2); print('ok')

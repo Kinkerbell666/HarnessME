@@ -29,7 +29,7 @@ pre-creates the bind mounts, brings the stack up and waits for it to report
 ready:
 
 ```bash
-git clone <repo-url> && cd ez-corp-ai
+git clone <repo-url> ez-corp-ai && cd ez-corp-ai
 bash scripts/setup-podman.sh
 ```
 
@@ -95,117 +95,8 @@ For HTTPS, backups, external Postgres, and auto-updates, see the **[production g
 
 > **Pre-built image (future):** once a release is published to a container registry, you can skip the build by setting `EZCORP_IMAGE=ghcr.io/<owner>/<image>:<tag>` in `.env.prod`. The `image:` line in `compose.prod.yml` already honors that override.
 
-### Windows Development Setup with Ubuntu (Optional)
-
-This optional section documents the setup required to run this project on a Windows OS using an Ubuntu terminal. This configuration allows Linux to run alongside Windows and is more compatible with the repository's native shell scripts and containerized AI setup.
-
-#### Prepare PowerShell windows features
-
-```powershell
-Start-Process powershell -Verb runAs
-```
-
-Run these three commands in the new Administrator window:
-
-```powershell
-Set-ProcessMitigation -Name vmpcompute.exe -Disable CFG
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-```
-
-*Note: A system reboot is required after executing these commands*
-
-#### Ubuntu setup and download repo
-
-1. Open the Windows **Start Menu**, search for **Ubuntu**, and launch it.
-2. Enter a local username and password when prompted to establish your master credentials.
-3. Run the clone command in your home directory:
-
-```bash
-cd ~
-git clone https://github.com ez-corp-ai && cd ez-corp-ai
-```
-
-#### Install Podman and docker compose
-
-Run these steps sequentially inside your active `ez-corp-ai` terminal folder:
-
-```bash
-# Step A: Install Podman
-sudo apt update && sudo apt install -y podman
-
-# Step B: Download security signature keys
-sudo apt-get install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://docker.com -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-# Step C: Add repository paths
-echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://docker.com \((. /etc/os-release && echo "\)VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Step D: Install Compose plugin and translation bridge
-sudo apt-get update && sudo apt-get install -y docker-compose-plugin podman-docker
-```
-
-#### Bash Shell Utilities
-
-```bash
-# Step A: Clear binary path cache
-hash -r
-
-# Step B: Verify orchestration path
-docker compose version
-
-# Step C: Run the guided project setup script
-bash scripts/setup-podman.sh
-```
-
-#### Git, SSH, and VS Code CLI
-
-Run these commands inside your repository folder to configure your identity with GitHub and launch your editor:
-
-```bash
-# Step A: Register local Git identity metadata
-git config --global user.name "Your GitHub Username"
-git config --global user.email "your_email@example.com"
-
-# Step B: Generate an SSH deployment key for secure GitHub syncing
-ssh-keygen -t ed25519 -C "your_email@example.com"
-eval "\$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519
-cat ~/.ssh/id_ed25519.pub
-```
-*Note: Copy the printed public key string and add it to your profile under GitHub Settings -> SSH and GPG keys.*
-
-#### Troubleshooting "Permission Denied" & Extension Runner Loops on Rootless Podman
-
-When initializing this project under a rootless container environment (such as Podman on WSL2/Ubuntu), the stack can get stuck looping on `Extension runner is not ready` or crash with a host directory `permission denied` block. This happens because rootless engines lack privileges to write directly to host system-level folders (`/run` and `/etc`).
-
-To break the boot loop and force the orchestration files to mount safely within your unprivileged workspace, you must map the runtime folders locally and activate the repository's native unsandboxed extension fallback flags:
-
-```bash
-# 1. Update the native token location inline and map local directories
-sed -i 's|EZ_RUNNER_TOKEN_FILE=/etc/ezharness|EZ_RUNNER_TOKEN_FILE=./ezharness|g' .env.prod
-echo "EZ_RUNNER_SOCKET_DIR=./ez-extension-runner" >> .env.prod
-
-# 2. Synchronize your rootless user namespace profile identity (UID/GID)
-echo "EZCORP_EXTENSION_RUNNER_UID=\$(id -u)" >> .env.prod
-echo "EZ_RUNNER_GROUP=\$(id -g)" >> .env.prod
-
-# 3. Activate the project's native trusted-local fallback parameters
-echo "EZCORP_RUNNER_COMPOSE_FILE=deploy/extension-runner/compose.trusted-local.yml" >> .env.prod
-echo "EZCORP_EXTENSIONS_UNSANDBOXED_ACK=I-understand-extensions-run-with-the-apps-full-powers" >> .env.prod
-
-# 4. Initialize local staging directories and the authorization token
-mkdir -p ./ezharness
-mkdir -p ./ez-extension-runner && chmod 777 ./ez-extension-runner
-openssl rand -hex 32 > ./ezharness/extension-runner-token && chmod 600 ./ezharness/extension-runner-token
-```
-
-Because the repository deployment wrapper scripts defer orchestration to an external Docker Compose plugin engine provider, you must explicitly load these parameters directly into your active Linux shell session before executing the container boot command:
-
-```bash
-export \$(cat .env.prod | grep -v '^#' | xargs) && bun run podman --prod up -d --build
-```
+> **On Windows?** Run the stack in Ubuntu on WSL2. See
+> [Running on Windows with WSL2 and Ubuntu](docs/windows-wsl2.md).
 
 ## Dev mode (Linux only)
 
